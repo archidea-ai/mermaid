@@ -1,0 +1,14 @@
+{
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "name": "@archidea-ai/mermaid-react",
+  "sourceRoot": "packages/react/src",
+  "projectType": "library",
+  "targets": {
+    "test": {
+      "executor": "nx:run-commands",
+      "cache": true,
+      "inputs": ["default", "^production"],
+      "options": { "command": "vitest run --config vitest.config.ts", "cwd": "packages/react" }
+    }
+  }
+}
