@@ -1,0 +1,17 @@
+{
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "name": "@archidea-ai/mermaid-diagram-sequence",
+  "sourceRoot": "packages/diagram-sequence/src",
+  "projectType": "library",
+  "targets": {
+    "test": {
+      "executor": "nx:run-commands",
+      "cache": true,
+      "inputs": ["default", "^production"],
+      "options": {
+        "command": "vitest run --config vitest.config.ts",
+        "cwd": "packages/diagram-sequence"
+      }
+    }
+  }
+}
