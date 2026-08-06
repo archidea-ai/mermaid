@@ -12,6 +12,7 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
+      '@': from('./src'),
       '@archidea-ai/mermaid-core': from('../core/src/index.ts'),
       '@archidea-ai/mermaid-react': from('../react/src/index.ts'),
     },

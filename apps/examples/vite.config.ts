@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import tailwindcss from '@tailwindcss/vite';
 import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -11,7 +12,7 @@ export default defineConfig({
   // The repository is archidea-ai/mermaid, so Pages serves from that subpath.
   base: '/mermaid/',
   cacheDir: '../../node_modules/.vite/apps/examples',
-  plugins: [react()],
+  plugins: [react(), tailwindcss()],
   resolve: {
     alias: {
       '@archidea-ai/mermaid/react': from('../../packages/mermaid/src/react.ts'),

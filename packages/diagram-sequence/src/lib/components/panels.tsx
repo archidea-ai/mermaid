@@ -1,3 +1,12 @@
+import { ChevronLeft, ChevronRight, RotateCcw } from 'lucide-react';
+import { Badge } from '../ui/badge';
+import { Button } from '../ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
+import { Input } from '../ui/input';
+import { Label } from '../ui/label';
+import { ScrollArea } from '../ui/scroll-area';
+import { Separator } from '../ui/separator';
+import { ToggleGroup, ToggleGroupItem } from '../ui/toggle-group';
 import type { SequenceRunController, VariablePrompt } from '../model/controller';
 import type { Timeline } from '../model/timeline';
 import type { EmphasisMap } from '../layout/emphasis';
@@ -9,84 +18,101 @@ export interface ToolbarProps {
 
 export function SequenceToolbar({ controller }: ToolbarProps) {
   const { current, stepCount, canAdvance } = controller;
+  const waiting = !canAdvance && current + 1 < stepCount;
 
   return (
-    <div className="archidea-sequence__toolbar">
-      <button
-        type="button"
-        className="archidea-sequence__button"
-        onClick={controller.prev}
-        disabled={current < 0}
-      >
+    <div className="flex flex-wrap items-center gap-2">
+      <Button variant="outline" size="sm" onClick={controller.prev} disabled={current < 0}>
+        <ChevronLeft data-icon="inline-start" />
         Back
-      </button>
-      <button
-        type="button"
-        className="archidea-sequence__button"
-        data-variant="primary"
-        onClick={controller.next}
-        disabled={!canAdvance}
-      >
+      </Button>
+      <Button size="sm" onClick={controller.next} disabled={!canAdvance}>
         Next step
-      </button>
-      <button type="button" className="archidea-sequence__button" onClick={controller.resetRun}>
+        <ChevronRight data-icon="inline-end" />
+      </Button>
+      <Button variant="ghost" size="sm" onClick={controller.resetRun}>
+        <RotateCcw data-icon="inline-start" />
         Restart
-      </button>
-      <span style={{ color: 'var(--seq-text-muted)' }}>
+      </Button>
+
+      <Separator orientation="vertical" className="mx-1 h-5" />
+
+      <span className="text-muted-foreground text-xs tabular-nums">
         {current + 1} / {stepCount}
       </span>
-      {!canAdvance && current + 1 < stepCount ? (
-        <span style={{ color: 'var(--seq-accent)' }}>Waiting for a value</span>
+
+      {/* Never hidden — a disabled control with a reason beats a missing one. */}
+      {waiting ? (
+        <Badge variant="outline" className="text-primary border-primary/40">
+          Waiting for a value
+        </Badge>
       ) : null}
     </div>
   );
 }
 
-function inputFor(
-  declaredType: VariableType | null,
-  value: string,
-  onChange: (next: string) => void,
-) {
-  if (declaredType && typeof declaredType === 'object' && 'union' in declaredType) {
-    return (
-      <select
-        className="archidea-sequence__select"
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-      >
-        <option value="">Choose…</option>
-        {declaredType.union.map((option) => (
-          <option key={option} value={option}>
-            {option}
-          </option>
-        ))}
-      </select>
-    );
-  }
-
-  if (declaredType === 'boolean') {
-    return (
-      <select
-        className="archidea-sequence__select"
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-      >
-        <option value="">Choose…</option>
-        <option value="true">true</option>
-        <option value="false">false</option>
-      </select>
-    );
-  }
+/**
+ * A literal union renders as a visible toggle group rather than a dropdown: the
+ * options are the explanation, and a viewer being walked through should not have
+ * to open a popup to discover what the choices are.
+ */
+function PromptField({
+  prompt,
+  onSubmit,
+}: {
+  prompt: VariablePrompt;
+  onSubmit: (raw: string) => void;
+}) {
+  const { name, declaredType } = prompt.declaration;
+  const options = unionOptions(declaredType);
 
   return (
-    <input
-      className="archidea-sequence__input"
-      type={declaredType === 'number' ? 'number' : 'text'}
-      value={value}
-      onChange={(event) => onChange(event.target.value)}
-      placeholder="Enter a value"
-    />
+    <div className="grid gap-1.5">
+      <Label htmlFor={`seq-var-${name}`} className="text-xs">
+        <span className="font-mono font-semibold">{name}</span>
+        {prompt.reason === 'unknown-condition' ? (
+          <span className="text-muted-foreground">needed to choose a branch</span>
+        ) : null}
+      </Label>
+
+      {options ? (
+        <ToggleGroup
+          id={`seq-var-${name}`}
+          variant="outline"
+          size="sm"
+          aria-label={name}
+          onValueChange={(value: string[]) => {
+            if (value[0]) onSubmit(value[0]);
+          }}
+        >
+          {options.map((option) => (
+            <ToggleGroupItem key={option} value={option} aria-label={option}>
+              {option}
+            </ToggleGroupItem>
+          ))}
+        </ToggleGroup>
+      ) : (
+        <Input
+          id={`seq-var-${name}`}
+          type={declaredType === 'number' ? 'number' : 'text'}
+          placeholder="Enter a value"
+          onKeyDown={(event) => {
+            if (event.key !== 'Enter') return;
+            onSubmit((event.target as HTMLInputElement).value);
+          }}
+          onBlur={(event) => onSubmit(event.target.value)}
+        />
+      )}
+    </div>
   );
+}
+
+function unionOptions(declaredType: VariableType | null): readonly string[] | null {
+  if (declaredType && typeof declaredType === 'object' && 'union' in declaredType) {
+    return declaredType.union;
+  }
+  if (declaredType === 'boolean') return ['true', 'false'];
+  return null;
 }
 
 /**
@@ -105,42 +131,47 @@ export function VariablePanel({ controller }: { controller: SequenceRunControlle
   };
 
   return (
-    <div className="archidea-sequence__panel">
-      <h3>Values</h3>
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-muted-foreground text-[11px] font-normal tracking-wide uppercase">
+          Values
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="grid gap-3">
+        {controller.prompts.map((prompt) => (
+          <PromptField
+            key={prompt.declaration.name}
+            prompt={prompt}
+            onSubmit={(raw) => submit(prompt, raw)}
+          />
+        ))}
 
-      {controller.prompts.map((prompt) => (
-        <div className="archidea-sequence__field" key={prompt.declaration.name}>
-          <label htmlFor={`seq-var-${prompt.declaration.name}`}>
-            <b>{prompt.declaration.name}</b>
-            {prompt.reason === 'unknown-condition' ? ' — needed to choose a branch' : ''}
-          </label>
-          <span id={`seq-var-${prompt.declaration.name}`}>
-            {inputFor(prompt.declaration.declaredType, '', (next) => submit(prompt, next))}
-          </span>
-        </div>
-      ))}
+        {entries.length === 0 && controller.prompts.length === 0 ? (
+          <p className="text-muted-foreground m-0 text-xs">No values yet.</p>
+        ) : null}
 
-      {entries.length === 0 && controller.prompts.length === 0 ? (
-        <p style={{ margin: 0, color: 'var(--seq-text-muted)' }}>No values yet.</p>
-      ) : null}
-
-      {entries.map(([name, value]) => (
-        <div className="archidea-sequence__variable" key={name}>
-          <b>{name}</b>
-          <span>
-            {String(value)}{' '}
-            <button
-              type="button"
-              className="archidea-sequence__step"
-              onClick={() => controller.unbind(name)}
-              aria-label={`Clear ${name}`}
-            >
-              ×
-            </button>
-          </span>
-        </div>
-      ))}
-    </div>
+        {entries.length > 0 ? (
+          <div className="grid gap-1">
+            {entries.map(([name, value]) => (
+              <div key={name} className="flex items-center justify-between gap-2 font-mono text-xs">
+                <span className="text-foreground font-semibold">{name}</span>
+                <span className="flex items-center gap-1">
+                  {String(value)}
+                  <Button
+                    variant="ghost"
+                    size="icon-xs"
+                    aria-label={`Clear ${name}`}
+                    onClick={() => controller.unbind(name)}
+                  >
+                    ×
+                  </Button>
+                </span>
+              </div>
+            ))}
+          </div>
+        ) : null}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -151,14 +182,20 @@ export function NotePanel({ controller }: { controller: SequenceRunController })
   if (notes.length === 0) return null;
 
   return (
-    <div className="archidea-sequence__panel">
-      <h3>Note</h3>
-      {notes.map((note) => (
-        <p key={note.id} style={{ margin: 0 }}>
-          {note.text.raw}
-        </p>
-      ))}
-    </div>
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-muted-foreground text-[11px] font-normal tracking-wide uppercase">
+          Note
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {notes.map((note) => (
+          <p key={note.id} className="m-0 text-xs">
+            {note.text.raw}
+          </p>
+        ))}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -169,23 +206,31 @@ export function DecisionPanel({ controller }: { controller: SequenceRunControlle
   const { fragment } = pending;
 
   return (
-    <div className="archidea-sequence__panel">
-      <h3>Choose a path</h3>
-      <p style={{ marginTop: 0, color: 'var(--seq-text-muted)' }}>{fragment.kind}</p>
-      {fragment.branches.map((branch) => (
-        <button
-          key={branch.id}
-          type="button"
-          className="archidea-sequence__button"
-          style={{ display: 'block', width: '100%', marginBottom: 6, textAlign: 'left' }}
-          onClick={() =>
-            controller.decide({ kind: 'branch', fragmentId: fragment.id, branchId: branch.id })
-          }
-        >
-          {branch.label || 'otherwise'}
-        </button>
-      ))}
-    </div>
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-muted-foreground text-[11px] font-normal tracking-wide uppercase">
+          Choose a path
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="grid gap-1.5">
+        <Badge variant="secondary" className="w-fit font-mono">
+          {fragment.kind}
+        </Badge>
+        {fragment.branches.map((branch) => (
+          <Button
+            key={branch.id}
+            variant="outline"
+            size="sm"
+            className="justify-start"
+            onClick={() =>
+              controller.decide({ kind: 'branch', fragmentId: fragment.id, branchId: branch.id })
+            }
+          >
+            {branch.label || 'otherwise'}
+          </Button>
+        ))}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -197,35 +242,50 @@ export interface StepListProps {
 
 export function StepList({ controller, emphasis, timeline }: StepListProps) {
   return (
-    <div className="archidea-sequence__panel">
-      <h3>Steps</h3>
-      <div className="archidea-sequence__steplist">
-        {timeline.steps.map((step, index) => (
-          <button
-            key={step.id}
-            type="button"
-            className="archidea-sequence__step"
-            data-emphasis={emphasis.step(step.id)}
-            onClick={() => controller.goTo(index)}
-          >
-            {step.ordinal !== null ? `${step.ordinal}. ` : ''}
-            {step.node.type === 'message'
-              ? step.node.text.raw || `${step.node.from} → ${step.node.to}`
-              : `[${step.kind}]`}
-          </button>
-        ))}
-      </div>
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-muted-foreground text-[11px] font-normal tracking-wide uppercase">
+          Steps
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <ScrollArea className="max-h-64">
+          <div className="grid gap-0.5">
+            {timeline.steps.map((step, index) => (
+              <button
+                key={step.id}
+                type="button"
+                data-emphasis={emphasis.step(step.id)}
+                onClick={() => controller.goTo(index)}
+                className="text-muted-foreground hover:bg-muted data-[emphasis=current]:bg-primary data-[emphasis=current]:text-primary-foreground data-[emphasis=spent]:text-foreground cursor-pointer px-1.5 py-0.5 text-left text-xs"
+              >
+                {step.ordinal !== null ? `${step.ordinal}. ` : ''}
+                {step.node.type === 'message'
+                  ? step.node.text.raw || `${step.node.from} → ${step.node.to}`
+                  : `[${step.kind}]`}
+              </button>
+            ))}
+          </div>
+        </ScrollArea>
 
-      {timeline.skipped.length > 0 ? (
-        <>
-          <h3 style={{ marginTop: 10 }}>Skipped</h3>
-          {timeline.skipped.map((region) => (
-            <div key={region.branchId} className="archidea-sequence__skipped">
-              {region.kind} · {region.label || 'otherwise'} ({region.statementCount})
-            </div>
-          ))}
-        </>
-      ) : null}
-    </div>
+        {timeline.skipped.length > 0 ? (
+          <>
+            <Separator className="my-2" />
+            <p className="text-muted-foreground m-0 mb-1 text-[11px] tracking-wide uppercase">
+              Skipped
+            </p>
+            {timeline.skipped.map((region) => (
+              <div
+                key={region.branchId}
+                className="text-xs line-through"
+                style={{ color: 'var(--seq-skipped)' }}
+              >
+                {region.kind} · {region.label || 'otherwise'} ({region.statementCount})
+              </div>
+            ))}
+          </>
+        ) : null}
+      </CardContent>
+    </Card>
   );
 }

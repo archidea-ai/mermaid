@@ -106,8 +106,17 @@ Full rules in **`docs/art-direction.md`**. The parts you cannot skip:
 - Motion conveys state, never decoration. Layout must not shift between steps.
 - Controls the active renderer cannot support are **disabled and visible**, never
   hidden.
-- shadcn/ui preset `buFywKm`, restyled onto `--seq-*` tokens and vendored into the
-  renderer package.
+- shadcn/ui preset `buFywKm` (style `base-lyra`, on `@base-ui/react`), vendored
+  into `packages/diagram-sequence/src/lib/ui/`.
+- **Tailwind is imported without preflight** — a global reset would leak into the
+  host page. `theme.css` takes the theme and utility layers only.
+  `shadcn-cli.css` exists only to satisfy the shadcn CLI's validator and is never
+  built.
+- **After `shadcn add`, rewrite the generated `@/lib/ui/...` imports to relative
+  ones.** The `@` alias resolves only inside this package, and the facade and
+  examples app consume it by source — alias imports break their builds.
+- shadcn's semantic variables are declared inside `.archidea-sequence` in terms of
+  `--seq-*`; its default palette is never imported.
 
 Run the `impeccable` skill when doing substantial visual work.
 

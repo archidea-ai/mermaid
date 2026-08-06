@@ -68,7 +68,8 @@ export function App() {
               />
             </div>
 
-            <div className="app__card">
+            {/* The dark variant matches on an ancestor, so no extra prop is needed. */}
+            <div className="app__card" data-seq-scheme={theme.scheme}>
               <SequenceDiagram
                 key={`${example.id}-${theme.id}`}
                 text={source}

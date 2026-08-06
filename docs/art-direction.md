@@ -123,10 +123,24 @@ every duration globally, in one rule rather than per component.
 
 ## Components
 
-Controls are shadcn/ui primitives (preset `buFywKm`), restyled so every colour
-resolves to a `--seq-*` token — no shadcn default palette survives contact. They
-are vendored into the renderer package rather than imported from an app, so the
-package themes as one piece.
+Controls are shadcn/ui primitives from preset `buFywKm` — style `base-lyra`,
+built on `@base-ui/react`, lucide icons — vendored into the renderer package so it
+themes as one piece.
+
+**No shadcn default palette ships.** Its semantic variables (`--background`,
+`--primary`, `--border`, …) are declared _inside_ `.archidea-sequence` purely in
+terms of `--seq-*` tokens, and its neutral `:root` palette is never imported. A
+utility like `bg-primary` therefore resolves to `--seq-accent` inside our
+renderer and to nothing at all outside it.
+
+**Tailwind ships without preflight.** Preflight is a global reset, and this is a
+library that mounts inside someone else's page. `theme.css` imports the theme and
+utility layers only. `shadcn-cli.css` exists solely to satisfy the shadcn CLI's
+validator, which demands a literal `@import "tailwindcss"`; it is never built.
+
+A literal-union variable prompt renders as a visible `ToggleGroup` rather than a
+dropdown: the options _are_ part of the explanation, and a viewer being walked
+through should not have to open a popup to discover what the choices are.
 
 Any control the active renderer cannot support is **disabled and visible**, never
 hidden. `useRendererCapabilities` reports what the resolved renderer can do, and

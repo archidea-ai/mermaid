@@ -1,6 +1,8 @@
 export interface Theme {
   readonly id: string;
   readonly label: string;
+  /** Drives the `dark:` variant in the shadcn chrome. Tokens carry the rest. */
+  readonly scheme: 'light' | 'dark';
   /** Overrides applied to the renderer root only, never to the host page. */
   readonly tokens: Readonly<Record<string, string>>;
 }
@@ -13,6 +15,7 @@ export interface Theme {
 export const themes: readonly Theme[] = [
   {
     id: 'daylight',
+    scheme: 'light',
     label: 'Daylight',
     tokens: {
       '--seq-surface': '#ffffff',
@@ -40,6 +43,7 @@ export const themes: readonly Theme[] = [
   },
   {
     id: 'midnight',
+    scheme: 'dark',
     label: 'Midnight',
     tokens: {
       '--seq-surface': '#0f1116',
@@ -67,6 +71,7 @@ export const themes: readonly Theme[] = [
   },
   {
     id: 'blueprint',
+    scheme: 'dark',
     label: 'Blueprint',
     tokens: {
       '--seq-surface': '#0b2545',
@@ -94,6 +99,7 @@ export const themes: readonly Theme[] = [
   },
   {
     id: 'ember',
+    scheme: 'light',
     label: 'Ember',
     tokens: {
       '--seq-surface': '#fffaf5',

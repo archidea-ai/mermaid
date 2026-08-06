@@ -1,0 +1,10 @@
+/*
+ * Exists only so the shadcn CLI's Tailwind validator is satisfied — it requires
+ * a literal `@import "tailwindcss"`, which pulls in preflight.
+ *
+ * This file is NEVER imported by the build. Preflight is a global reset, and
+ * this package mounts inside someone else's page. The real entry is theme.css,
+ * which takes the theme and utility layers only.
+ */
+@import 'tailwindcss';
+@import 'shadcn/tailwind.css';

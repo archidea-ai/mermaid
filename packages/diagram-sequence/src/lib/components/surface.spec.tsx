@@ -89,7 +89,7 @@ describe('<SequenceDiagramSurface />', () => {
     expect(screen.getByRole('button', { name: 'Next step' })).toHaveProperty('disabled', true);
     expect(screen.getByText('Waiting for a value')).toBeDefined();
 
-    await user.selectOptions(screen.getByRole('combobox'), 'admin');
+    await user.click(screen.getByRole('button', { name: 'admin' }));
 
     await waitFor(() =>
       expect(screen.getByRole('button', { name: 'Next step' })).toHaveProperty('disabled', false),
@@ -100,7 +100,7 @@ describe('<SequenceDiagramSurface />', () => {
     const user = userEvent.setup();
     render(<SequenceDiagramSurface text={LOGIN} id="d" />);
 
-    await user.selectOptions(screen.getByRole('combobox'), 'admin');
+    await user.click(screen.getByRole('button', { name: 'admin' }));
 
     await waitFor(() => expect(screen.getAllByText('audit log').length).toBeGreaterThan(0));
     expect(screen.queryByText('Choose a path')).toBeNull();
@@ -112,7 +112,7 @@ describe('<SequenceDiagramSurface />', () => {
     const user = userEvent.setup();
     render(<SequenceDiagramSurface text={LOGIN} id="d" />);
 
-    await user.selectOptions(screen.getByRole('combobox'), 'member');
+    await user.click(screen.getByRole('button', { name: 'member' }));
     await user.click(screen.getByRole('button', { name: 'Next step' }));
     await user.click(screen.getByRole('button', { name: 'Next step' }));
 

@@ -1,4 +1,59 @@
 /*
+ * Tailwind, imported WITHOUT preflight.
+ *
+ * Preflight is a global reset. This is a library that mounts inside someone
+ * else's page, so resetting their elements would be a bug, not a feature. We
+ * take the theme and utility layers only.
+ */
+@import 'tailwindcss/theme.css' layer(theme);
+@import 'tailwindcss/utilities.css' layer(utilities);
+
+/* base-lyra's keyframes and component utilities. No element resets in either. */
+@import 'shadcn/tailwind.css';
+@import 'tw-animate-css';
+
+/*
+ * `dark:` utilities in the generated components key off this. Our themes are
+ * token-driven rather than class-driven, so a theme that declares itself dark
+ * marks the renderer root and the variant follows.
+ */
+@custom-variant dark (&:is(.dark *, [data-seq-scheme='dark'], [data-seq-scheme='dark'] *));
+
+@source './components';
+@source './ui';
+
+/*
+ * shadcn's semantic colour variables are defined in terms of our --seq-* tokens
+ * rather than its default palette, so a single theme switch moves the chrome and
+ * the canvas together. They are declared inside .archidea-sequence, which means
+ * a Tailwind utility like `bg-background` only resolves inside our renderer —
+ * outside it, there is nothing to resolve.
+ */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--seq-radius) - 4px);
+  --radius-md: calc(var(--seq-radius) - 2px);
+  --radius-lg: var(--seq-radius);
+}
+
+/*
  * Every colour the renderer draws resolves through one of these tokens.
  * They are scoped to .archidea-sequence so a host page's theme selector can
  * redefine them for our components only, and nothing leaks the other way.
@@ -51,6 +106,26 @@
   --seq-font-size-small: 11px;
   --seq-duration: 180ms;
   --seq-easing: cubic-bezier(0.2, 0, 0, 1);
+
+  /* shadcn semantic variables, expressed entirely in --seq-* terms. */
+  --background: var(--seq-surface);
+  --foreground: var(--seq-text-strong);
+  --card: var(--seq-surface-raised);
+  --card-foreground: var(--seq-text-strong);
+  --popover: var(--seq-surface-raised);
+  --popover-foreground: var(--seq-text-strong);
+  --primary: var(--seq-accent);
+  --primary-foreground: var(--seq-accent-contrast);
+  --secondary: var(--seq-surface-sunken);
+  --secondary-foreground: var(--seq-text-strong);
+  --muted: var(--seq-surface-sunken);
+  --muted-foreground: var(--seq-text-muted);
+  --accent: var(--seq-surface-sunken);
+  --accent-foreground: var(--seq-text-strong);
+  --destructive: var(--seq-note-stroke);
+  --border: var(--seq-border);
+  --input: var(--seq-border);
+  --ring: var(--seq-accent);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -119,123 +194,4 @@
   border: 1px solid var(--seq-border);
   border-radius: var(--seq-radius);
   background: var(--seq-surface);
-}
-
-.archidea-sequence__toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
-}
-
-.archidea-sequence__button {
-  font: inherit;
-  padding: 6px 12px;
-  border-radius: calc(var(--seq-radius) - 2px);
-  border: 1px solid var(--seq-border);
-  background: var(--seq-surface-raised);
-  color: var(--seq-text-strong);
-  cursor: pointer;
-  transition: background var(--seq-duration) var(--seq-easing);
-}
-
-.archidea-sequence__button:hover:not(:disabled) {
-  background: var(--seq-surface-sunken);
-}
-
-.archidea-sequence__button[data-variant='primary'] {
-  background: var(--seq-accent);
-  border-color: var(--seq-accent);
-  color: var(--seq-accent-contrast);
-}
-
-.archidea-sequence__button:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-
-.archidea-sequence__panel {
-  border: 1px solid var(--seq-border);
-  border-radius: var(--seq-radius);
-  background: var(--seq-surface-raised);
-  padding: 10px 12px;
-  margin-bottom: 10px;
-}
-
-.archidea-sequence__panel h3 {
-  margin: 0 0 8px;
-  font-size: var(--seq-font-size-small);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--seq-text-muted);
-}
-
-.archidea-sequence__variable {
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 3px 0;
-  font-family: var(--seq-font-mono);
-}
-
-.archidea-sequence__variable b {
-  color: var(--seq-text-strong);
-  font-weight: 600;
-}
-
-.archidea-sequence__field {
-  display: grid;
-  gap: 4px;
-  margin-bottom: 8px;
-}
-
-.archidea-sequence__input,
-.archidea-sequence__select {
-  font: inherit;
-  padding: 5px 8px;
-  border-radius: calc(var(--seq-radius) - 3px);
-  border: 1px solid var(--seq-border);
-  background: var(--seq-surface);
-  color: var(--seq-text-strong);
-}
-
-.archidea-sequence__steplist {
-  max-height: 260px;
-  overflow: auto;
-  display: grid;
-  gap: 2px;
-}
-
-.archidea-sequence__step {
-  font: inherit;
-  text-align: left;
-  border: 0;
-  background: transparent;
-  color: var(--seq-text-muted);
-  padding: 3px 6px;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-.archidea-sequence__step[data-emphasis='current'] {
-  background: var(--seq-accent);
-  color: var(--seq-accent-contrast);
-}
-
-.archidea-sequence__step[data-emphasis='spent'] {
-  color: var(--seq-text);
-}
-
-.archidea-sequence__skipped {
-  color: var(--seq-skipped);
-  text-decoration: line-through;
-}
-
-.archidea-sequence__chip {
-  display: inline-block;
-  padding: 0 5px;
-  border-radius: 4px;
-  background: color-mix(in srgb, var(--seq-accent) 18%, transparent);
-  color: var(--seq-text-strong);
-  font-family: var(--seq-font-mono);
 }
