@@ -1,0 +1,10 @@
+packages:
+  - 'packages/*'
+  - 'apps/*'
+
+allowBuilds:
+  nx: true
+  esbuild: true
+
+minimumReleaseAgeExclude:
+  - vite@8.2.1

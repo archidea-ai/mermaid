@@ -1,0 +1,71 @@
+{
+  "$schema": "./node_modules/nx/schemas/nx-schema.json",
+  "namedInputs": {
+    "default": [
+      "{projectRoot}/**/*",
+      "sharedGlobals"
+    ],
+    "production": [
+      "default",
+      "!{projectRoot}/**/*.spec.{ts,tsx}",
+      "!{projectRoot}/tsconfig.spec.json",
+      "!{projectRoot}/src/lib/test-support.ts"
+    ],
+    "sharedGlobals": [
+      "{workspaceRoot}/tsconfig.base.json",
+      "{workspaceRoot}/eslint.config.mjs"
+    ]
+  },
+  "targetDefaults": {
+    "build": {
+      "dependsOn": [
+        "^build"
+      ],
+      "inputs": [
+        "production",
+        "^production"
+      ],
+      "cache": true
+    },
+    "test": {
+      "inputs": [
+        "default",
+        "^production"
+      ],
+      "cache": true
+    },
+    "lint": {
+      "cache": true
+    }
+  },
+  "plugins": [
+    {
+      "plugin": "@nx/vite/plugin",
+      "options": {
+        "buildTargetName": "build",
+        "serveTargetName": "dev",
+        "previewTargetName": "preview",
+        "typecheckTargetName": "typecheck"
+      }
+    },
+    {
+      "plugin": "@nx/eslint/plugin",
+      "options": {
+        "targetName": "lint"
+      }
+    }
+  ],
+  "release": {
+    "projectsRelationship": "independent",
+    "projects": [
+      "packages/*"
+    ],
+    "version": {
+      "conventionalCommits": true
+    },
+    "changelog": {
+      "projectChangelogs": true,
+      "workspaceChangelog": false
+    }
+  }
+}

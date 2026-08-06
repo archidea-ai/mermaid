@@ -1,0 +1,30 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "moduleDetection": "force",
+    "jsx": "react-jsx",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "declaration": true,
+    "sourceMap": true,
+    "baseUrl": ".",
+    "paths": {
+      "@archidea-ai/mermaid-core": ["packages/core/src/index.ts"],
+      "@archidea-ai/mermaid-react": ["packages/react/src/index.ts"],
+      "@archidea-ai/mermaid-diagram-sequence": ["packages/diagram-sequence/src/index.ts"],
+      "@archidea-ai/mermaid": ["packages/mermaid/src/index.ts"],
+      "@archidea-ai/mermaid/react": ["packages/mermaid/src/react.ts"],
+      "@archidea-ai/mermaid/registry": ["packages/mermaid/src/registry.ts"]
+    }
+  },
+  "exclude": ["node_modules", "dist", "tmp"]
+}

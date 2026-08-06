@@ -1,0 +1,12 @@
+node_modules
+dist
+coverage
+tmp
+.nx/cache
+.nx/workspace-data
+*.local
+.DS_Store
+vite.config.*.timestamp*
+
+# Working documents: specs and plans stay local by project convention.
+docs/superpowers/
