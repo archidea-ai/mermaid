@@ -5,7 +5,7 @@ const renderMock = vi.fn();
 const parseMock = vi.fn();
 const detectTypeMock = vi.fn(() => 'sequence');
 
-vi.mock("mermaid", () => ({
+vi.mock('mermaid', () => ({
   default: {
     initialize: initializeMock,
     render: renderMock,

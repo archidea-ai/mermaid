@@ -1,7 +1,5 @@
 export type MermaidErrorCode =
-  | 'UPSTREAM_NOT_INSTALLED'
-  | 'DIAGRAM_PARSE_ERROR'
-  | 'UNSUPPORTED_DIAGRAM';
+  'UPSTREAM_NOT_INSTALLED' | 'DIAGRAM_PARSE_ERROR' | 'UNSUPPORTED_DIAGRAM';
 
 const ERROR_CODES = new Set<string>([
   'UPSTREAM_NOT_INSTALLED',
@@ -44,7 +42,10 @@ export class UnsupportedDiagramError extends MermaidReplacementError {
   readonly diagramType: string;
 
   constructor(diagramType: string, message?: string) {
-    super('UNSUPPORTED_DIAGRAM', message ?? `No renderer could render diagram type "${diagramType}".`);
+    super(
+      'UNSUPPORTED_DIAGRAM',
+      message ?? `No renderer could render diagram type "${diagramType}".`,
+    );
     this.diagramType = diagramType;
   }
 }

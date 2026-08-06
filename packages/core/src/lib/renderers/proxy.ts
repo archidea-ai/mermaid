@@ -14,7 +14,9 @@ import type { DiagramRenderer, MermaidConfig, RenderInput, RenderResult } from '
  * viewport control and stepping are genuinely unavailable. It has no Component,
  * so the React host takes the innerHTML path.
  */
-export function createProxyRenderer(configStore: ConfigStore = defaultConfigStore): DiagramRenderer {
+export function createProxyRenderer(
+  configStore: ConfigStore = defaultConfigStore,
+): DiagramRenderer {
   return {
     id: 'proxy',
     supports: () => true,

@@ -36,7 +36,11 @@ describe('useDiagramRender', () => {
 
   it('reports native mode without calling renderToSvg when the renderer has a Component', async () => {
     const renderToSvg = vi.fn();
-    const base = makeFakeRenderer({ id: 'native', capabilities: { step: true }, Component: () => null });
+    const base = makeFakeRenderer({
+      id: 'native',
+      capabilities: { step: true },
+      Component: () => null,
+    });
     const registry = makeFakeRegistry({ ...base, renderToSvg });
 
     const { result } = renderHook(() => useDiagramRender('sequenceDiagram', { registry }));

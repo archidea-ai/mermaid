@@ -5,7 +5,7 @@ const renderMock = vi.fn();
 const parseMock = vi.fn();
 const detectTypeMock = vi.fn();
 
-vi.mock("mermaid", () => ({
+vi.mock('mermaid', () => ({
   default: {
     initialize: initializeMock,
     render: renderMock,
@@ -55,7 +55,11 @@ describe('proxy renderer', () => {
       container,
     });
 
-    expect(renderMock).toHaveBeenCalledWith('diagram-1', 'sequenceDiagram\n  A ->> B: hi', container);
+    expect(renderMock).toHaveBeenCalledWith(
+      'diagram-1',
+      'sequenceDiagram\n  A ->> B: hi',
+      container,
+    );
     expect(result).toEqual({
       svg: '<svg id="d"></svg>',
       diagramType: 'sequence',
@@ -96,7 +100,10 @@ describe('proxy renderer', () => {
       config: { sequence: { mirrorActors: false } },
     });
 
-    expect(initializeMock).toHaveBeenCalledWith({ theme: 'dark', sequence: { mirrorActors: false } });
+    expect(initializeMock).toHaveBeenCalledWith({
+      theme: 'dark',
+      sequence: { mirrorActors: false },
+    });
     expect(store.get()).toEqual({ theme: 'dark', sequence: { mirrorActors: true } });
   });
 

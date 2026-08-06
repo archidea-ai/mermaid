@@ -1,7 +1,15 @@
 {
-  "name": "@archidea-ai/mermaid-react",
+  "name": "@archidea-ai/mermaid",
   "version": "0.1.0",
-  "description": "React host components for @archidea-ai/mermaid",
+  "description": "Drop-in replacement for mermaid that renders diagrams with React in the browser",
+  "keywords": [
+    "mermaid",
+    "react",
+    "diagram",
+    "sequence-diagram",
+    "drop-in",
+    "interactive"
+  ],
   "license": "MIT",
   "type": "module",
   "sideEffects": false,
@@ -13,13 +21,22 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
+    "./react": {
+      "types": "./dist/react.d.ts",
+      "import": "./dist/react.js"
+    },
+    "./registry": {
+      "types": "./dist/registry.d.ts",
+      "import": "./dist/registry.js"
+    },
     "./package.json": "./package.json"
   },
   "files": [
     "dist"
   ],
   "dependencies": {
-    "@archidea-ai/mermaid-core": "workspace:*"
+    "@archidea-ai/mermaid-core": "workspace:*",
+    "@archidea-ai/mermaid-react": "workspace:*"
   },
   "peerDependencies": {
     "mermaid": "^11.16.0",

@@ -23,7 +23,9 @@ const SOURCE = 'sequenceDiagram\n  Alice ->> Bob: hi\n  Bob ->> Alice: hey';
 
 describe('<SequenceDiagram />', () => {
   it('renders the diagram through the resolved renderer', async () => {
-    const registry = makeFakeRegistry(makeFakeRenderer({ svg: '<svg data-testid="diagram"></svg>' }));
+    const registry = makeFakeRegistry(
+      makeFakeRenderer({ svg: '<svg data-testid="diagram"></svg>' }),
+    );
 
     render(<SequenceDiagram text={SOURCE} registry={registry} />);
 
@@ -34,7 +36,9 @@ describe('<SequenceDiagram />', () => {
     const onStepController = vi.fn();
     const registry = makeFakeRegistry(makeFakeRenderer({ id: 'proxy', svg: '<svg></svg>' }));
 
-    render(<SequenceDiagram text={SOURCE} registry={registry} onStepController={onStepController} />);
+    render(
+      <SequenceDiagram text={SOURCE} registry={registry} onStepController={onStepController} />,
+    );
 
     await waitFor(() => expect(onStepController).toHaveBeenCalledWith(null));
     expect(onStepController).toHaveBeenCalledTimes(1);
@@ -62,7 +66,9 @@ describe('<SequenceDiagram />', () => {
       }),
     );
 
-    render(<SequenceDiagram text={SOURCE} registry={registry} onStepController={onStepController} />);
+    render(
+      <SequenceDiagram text={SOURCE} registry={registry} onStepController={onStepController} />,
+    );
 
     await screen.findByTestId('native');
     expect(onStepController).toHaveBeenCalledWith(controller);

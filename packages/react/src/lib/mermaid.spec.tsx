@@ -23,7 +23,9 @@ const SOURCE = 'sequenceDiagram\n  Alice ->> Bob: hi';
 
 describe('<Mermaid />', () => {
   it('injects the proxied svg', async () => {
-    const registry = makeFakeRegistry(makeFakeRenderer({ svg: '<svg data-testid="diagram"></svg>' }));
+    const registry = makeFakeRegistry(
+      makeFakeRenderer({ svg: '<svg data-testid="diagram"></svg>' }),
+    );
 
     render(<Mermaid text={SOURCE} registry={registry} />);
 
