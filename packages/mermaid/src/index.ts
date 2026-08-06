@@ -12,7 +12,7 @@ import {
   setParseErrorHandler,
 } from './lib/api';
 import { contentLoaded, run } from './lib/run';
-import './lib/register-defaults';
+import { registerDefaultRenderers } from './lib/register-defaults';
 import {
   getParseError,
   getStartOnLoad,
@@ -20,6 +20,8 @@ import {
   setParseError,
   setStartOnLoad,
 } from './lib/upstream-state';
+
+registerDefaultRenderers();
 
 export {
   contentLoaded,

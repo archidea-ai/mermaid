@@ -73,3 +73,26 @@ describe('detectDiagramType', () => {
     });
   });
 });
+
+describe('detectDiagramType against mermaid lazy detector registration', () => {
+  beforeEach(() => vi.resetModules());
+  afterEach(() => vi.clearAllMocks());
+
+  it('detects a type on the very first call, before anything has rendered', async () => {
+    // Mirrors real mermaid: detectors are registered by initialize(), and
+    // detectType throws until they are. Regression for the examples app failing
+    // with "No diagram type detected" on load.
+    let registered = false;
+    initializeMock.mockImplementation(() => {
+      registered = true;
+    });
+    detectTypeMock.mockImplementation(() => {
+      if (!registered) throw new Error('No diagram type detected matching given configuration');
+      return 'sequence';
+    });
+
+    const { detectDiagramType } = await import('./detect');
+
+    await expect(detectDiagramType('sequenceDiagram\n  A->>B: hi')).resolves.toBe('sequence');
+  });
+});

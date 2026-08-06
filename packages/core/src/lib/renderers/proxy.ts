@@ -29,7 +29,9 @@ export function createProxyRenderer(
         : configStore.get();
 
       try {
-        if (Object.keys(effective).length > 0) upstream.initialize(effective);
+        // Always initialize, even with an empty config: it is what registers
+        // mermaid's diagram detectors, and detectType throws without them.
+        upstream.initialize(effective);
 
         const diagramType = upstream.detectType(text, effective);
         const { svg, bindFunctions } = await upstream.render(id, text, container);

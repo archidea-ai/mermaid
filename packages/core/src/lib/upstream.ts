@@ -64,6 +64,20 @@ async function importUpstream(): Promise<UpstreamMermaid> {
   }
 
   loaded = candidate as UpstreamMermaid;
+
+  /*
+   * mermaid registers its diagram detectors lazily, inside initialize(). Calling
+   * detectType() before that always throws "No diagram type detected", which is
+   * exactly what we do — detection runs before any render. Priming with an empty
+   * config forces registration; real config is applied by the proxy before each
+   * render, and initialize() is additive, so this cannot clobber it.
+   */
+  try {
+    loaded.initialize({});
+  } catch {
+    // A failure here is not fatal: detectType will report the real problem.
+  }
+
   return loaded;
 }
 

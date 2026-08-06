@@ -51,5 +51,6 @@
       "projectChangelogs": true,
       "workspaceChangelog": false
     }
-  }
+  },
+  "analytics": false
 }

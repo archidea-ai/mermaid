@@ -8,7 +8,11 @@
       "executor": "nx:run-commands",
       "cache": true,
       "inputs": ["default", "^production"],
-      "options": { "command": "vitest run --config vitest.config.ts", "cwd": "packages/mermaid" }
+      "options": {
+        "command": "vitest run --config vitest.config.ts",
+        "cwd": "packages/mermaid"
+      },
+      "dependsOn": ["build"]
     }
   }
 }

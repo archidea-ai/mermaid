@@ -107,10 +107,15 @@ describe('proxy renderer', () => {
     expect(store.get()).toEqual({ theme: 'dark', sequence: { mirrorActors: true } });
   });
 
-  it('skips initialize when no config has been set', async () => {
+  it('initializes even with an empty config, because that is what registers detectors', async () => {
     const { createProxyRenderer, ConfigStore } = await loadProxy();
+
     await createProxyRenderer(new ConfigStore()).renderToSvg({ id: 'd', text: 'sequenceDiagram' });
-    expect(initializeMock).not.toHaveBeenCalled();
+
+    expect(initializeMock).toHaveBeenCalledWith({});
+    expect(initializeMock.mock.invocationCallOrder[0]).toBeLessThan(
+      detectTypeMock.mock.invocationCallOrder[0],
+    );
   });
 
   it('wraps an upstream render failure as DiagramParseError carrying the source', async () => {
