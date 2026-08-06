@@ -36,7 +36,8 @@
   ],
   "dependencies": {
     "@archidea-ai/mermaid-core": "workspace:*",
-    "@archidea-ai/mermaid-react": "workspace:*"
+    "@archidea-ai/mermaid-react": "workspace:*",
+    "@archidea-ai/mermaid-diagram-sequence": "workspace:*"
   },
   "peerDependencies": {
     "mermaid": "^11.16.0",

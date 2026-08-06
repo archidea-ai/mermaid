@@ -22,7 +22,7 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
-    "./theme.css": "./dist/theme.css",
+    "./theme.css": "./dist/mermaid-diagram-sequence.css",
     "./package.json": "./package.json"
   },
   "files": [

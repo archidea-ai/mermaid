@@ -1,0 +1,241 @@
+/*
+ * Every colour the renderer draws resolves through one of these tokens.
+ * They are scoped to .archidea-sequence so a host page's theme selector can
+ * redefine them for our components only, and nothing leaks the other way.
+ *
+ * Roles are documented in docs/art-direction.md.
+ */
+.archidea-sequence {
+  --seq-surface: #ffffff;
+  --seq-surface-raised: #f6f7f9;
+  --seq-surface-sunken: #eef0f4;
+  --seq-border: #d8dce4;
+
+  --seq-text-strong: #10131a;
+  --seq-text: #39404e;
+  --seq-text-muted: #6b7383;
+
+  --seq-lifeline: #c3c9d4;
+  --seq-lifeline-current: var(--seq-accent);
+
+  --seq-participant-fill: #f2f4f8;
+  --seq-participant-stroke: #c3c9d4;
+  --seq-participant-text: var(--seq-text-strong);
+  --seq-participant-current-fill: color-mix(in srgb, var(--seq-accent) 16%, var(--seq-surface));
+  --seq-participant-current-stroke: var(--seq-accent);
+
+  --seq-message: #6b7383;
+  --seq-message-text: var(--seq-text);
+  --seq-message-current: var(--seq-accent);
+  --seq-message-spent: #aeb5c2;
+
+  --seq-fragment-stroke: #c3c9d4;
+  --seq-fragment-label-fill: #eef0f4;
+  --seq-fragment-path-stroke: var(--seq-accent);
+
+  --seq-activation-fill: #d8dce4;
+  --seq-activation-current-fill: var(--seq-accent);
+
+  --seq-note-fill: #fff8e1;
+  --seq-note-stroke: #e6d9a8;
+  --seq-note-text: #4a4326;
+
+  --seq-accent: #4f46e5;
+  --seq-accent-contrast: #ffffff;
+  --seq-skipped: #aeb5c2;
+
+  --seq-radius: 8px;
+  --seq-font: ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --seq-font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  --seq-font-size: 13px;
+  --seq-font-size-small: 11px;
+  --seq-duration: 180ms;
+  --seq-easing: cubic-bezier(0.2, 0, 0, 1);
+}
+
+@media (prefers-color-scheme: dark) {
+  .archidea-sequence:not([data-seq-theme]) {
+    --seq-surface: #0f1116;
+    --seq-surface-raised: #171a21;
+    --seq-surface-sunken: #1d212a;
+    --seq-border: #2b303b;
+
+    --seq-text-strong: #f2f4f8;
+    --seq-text: #c3c9d4;
+    --seq-text-muted: #8b93a3;
+
+    --seq-lifeline: #3a4150;
+    --seq-participant-fill: #1d212a;
+    --seq-participant-stroke: #3a4150;
+
+    --seq-message: #8b93a3;
+    --seq-message-spent: #4c5464;
+
+    --seq-fragment-stroke: #3a4150;
+    --seq-fragment-label-fill: #1d212a;
+
+    --seq-activation-fill: #3a4150;
+
+    --seq-note-fill: #2a2617;
+    --seq-note-stroke: #4a4326;
+    --seq-note-text: #e8dfb8;
+
+    --seq-accent: #818cf8;
+  }
+}
+
+/* Prefers-reduced-motion is honoured globally rather than per component. */
+@media (prefers-reduced-motion: reduce) {
+  .archidea-sequence * {
+    transition-duration: 0ms !important;
+  }
+}
+
+.archidea-sequence {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  gap: 12px;
+  font-family: var(--seq-font);
+  font-size: var(--seq-font-size);
+  color: var(--seq-text);
+  background: var(--seq-surface);
+}
+
+.archidea-sequence__body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: 12px;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .archidea-sequence__body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.archidea-sequence__canvas {
+  overflow: auto;
+  border: 1px solid var(--seq-border);
+  border-radius: var(--seq-radius);
+  background: var(--seq-surface);
+}
+
+.archidea-sequence__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.archidea-sequence__button {
+  font: inherit;
+  padding: 6px 12px;
+  border-radius: calc(var(--seq-radius) - 2px);
+  border: 1px solid var(--seq-border);
+  background: var(--seq-surface-raised);
+  color: var(--seq-text-strong);
+  cursor: pointer;
+  transition: background var(--seq-duration) var(--seq-easing);
+}
+
+.archidea-sequence__button:hover:not(:disabled) {
+  background: var(--seq-surface-sunken);
+}
+
+.archidea-sequence__button[data-variant='primary'] {
+  background: var(--seq-accent);
+  border-color: var(--seq-accent);
+  color: var(--seq-accent-contrast);
+}
+
+.archidea-sequence__button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.archidea-sequence__panel {
+  border: 1px solid var(--seq-border);
+  border-radius: var(--seq-radius);
+  background: var(--seq-surface-raised);
+  padding: 10px 12px;
+  margin-bottom: 10px;
+}
+
+.archidea-sequence__panel h3 {
+  margin: 0 0 8px;
+  font-size: var(--seq-font-size-small);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--seq-text-muted);
+}
+
+.archidea-sequence__variable {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 3px 0;
+  font-family: var(--seq-font-mono);
+}
+
+.archidea-sequence__variable b {
+  color: var(--seq-text-strong);
+  font-weight: 600;
+}
+
+.archidea-sequence__field {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.archidea-sequence__input,
+.archidea-sequence__select {
+  font: inherit;
+  padding: 5px 8px;
+  border-radius: calc(var(--seq-radius) - 3px);
+  border: 1px solid var(--seq-border);
+  background: var(--seq-surface);
+  color: var(--seq-text-strong);
+}
+
+.archidea-sequence__steplist {
+  max-height: 260px;
+  overflow: auto;
+  display: grid;
+  gap: 2px;
+}
+
+.archidea-sequence__step {
+  font: inherit;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  color: var(--seq-text-muted);
+  padding: 3px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.archidea-sequence__step[data-emphasis='current'] {
+  background: var(--seq-accent);
+  color: var(--seq-accent-contrast);
+}
+
+.archidea-sequence__step[data-emphasis='spent'] {
+  color: var(--seq-text);
+}
+
+.archidea-sequence__skipped {
+  color: var(--seq-skipped);
+  text-decoration: line-through;
+}
+
+.archidea-sequence__chip {
+  display: inline-block;
+  padding: 0 5px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--seq-accent) 18%, transparent);
+  color: var(--seq-text-strong);
+  font-family: var(--seq-font-mono);
+}

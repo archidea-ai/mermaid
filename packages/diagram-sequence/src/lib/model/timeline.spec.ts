@@ -10,9 +10,6 @@ const decisions = (...list: Decision[]): DecisionMap =>
 const build = (source: string, list: Decision[] = [], values = {}) =>
   buildTimeline(parse(source), decisions(...list), createBindings(values));
 
-const kinds = (source: string, list: Decision[] = [], values = {}) =>
-  build(source, list, values).steps.map((step) => step.kind);
-
 const texts = (source: string, list: Decision[] = [], values = {}) =>
   build(source, list, values).steps.map((step) =>
     step.node.type === 'message' ? step.node.text.raw : `[${step.kind}]`,

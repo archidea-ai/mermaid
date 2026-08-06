@@ -14,6 +14,7 @@ export default defineConfig({
     alias: {
       '@archidea-ai/mermaid-core': from('../core/src/index.ts'),
       '@archidea-ai/mermaid-react': from('../react/src/index.ts'),
+      '@archidea-ai/mermaid-diagram-sequence': from('../diagram-sequence/src/index.ts'),
     },
   },
   test: {

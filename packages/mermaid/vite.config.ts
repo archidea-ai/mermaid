@@ -36,6 +36,7 @@ export default defineConfig({
         'mermaid',
         '@archidea-ai/mermaid-core',
         '@archidea-ai/mermaid-react',
+        '@archidea-ai/mermaid-diagram-sequence',
       ],
     },
   },
