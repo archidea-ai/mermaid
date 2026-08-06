@@ -1,4 +1,4 @@
-import type { ComponentType } from 'react';
+import type { ComponentType, CSSProperties } from 'react';
 import type { StepController, ViewportController } from './interaction';
 
 /** Upstream mermaid's diagram type id, e.g. 'sequence', 'flowchart-v2'. */
@@ -45,6 +45,11 @@ export interface DiagramSurfaceProps {
   readonly id: string;
   readonly config?: MermaidConfig;
   readonly className?: string;
+  /**
+   * Applied to the renderer's root element. Theme tokens must land on the root
+   * itself — an ancestor cannot win against the root's own class rule.
+   */
+  readonly style?: CSSProperties;
   /** Called with a controller when capabilities.step is true, else with null. */
   readonly onStepController?: (controller: StepController | null) => void;
   /** Called with a controller when capabilities.viewport is true, else with null. */

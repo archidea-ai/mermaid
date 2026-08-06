@@ -1,0 +1,10 @@
+{
+  "name": "examples",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@archidea-ai/mermaid": "workspace:*",
+    "mermaid": "11.16.0"
+  }
+}

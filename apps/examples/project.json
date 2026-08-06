@@ -1,0 +1,14 @@
+{
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "name": "examples",
+  "sourceRoot": "apps/examples/src",
+  "projectType": "application",
+  "targets": {
+    "test": {
+      "executor": "nx:run-commands",
+      "cache": true,
+      "inputs": ["default", "^production"],
+      "options": { "command": "vitest run --config vitest.config.ts", "cwd": "apps/examples" }
+    }
+  }
+}

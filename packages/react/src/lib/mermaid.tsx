@@ -7,7 +7,7 @@ import type {
   StepController,
   ViewportController,
 } from '@archidea-ai/mermaid-core';
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 
 export interface MermaidProps {
   text: string;
@@ -16,6 +16,8 @@ export interface MermaidProps {
   config?: MermaidConfig;
   registry?: DiagramRegistry;
   className?: string;
+  /** Applied to the renderer's root element, so theme tokens reach it. */
+  style?: CSSProperties;
   onRender?: (result: RenderResult) => void;
   onError?: (error: Error) => void;
   /** Receives a controller from renderers with capabilities.step, else null. */
@@ -39,6 +41,7 @@ export function Mermaid({
   config,
   registry,
   className,
+  style,
   onRender,
   onError,
   onStepController,
@@ -89,6 +92,7 @@ export function Mermaid({
         id={diagramId}
         config={config}
         className={className}
+        style={style}
         onStepController={onStepController}
         onViewportController={onViewportController}
         onError={onError}
@@ -102,6 +106,7 @@ export function Mermaid({
     <div
       ref={hostRef}
       className={className}
+      style={style}
       data-renderer={renderer?.id}
       data-diagram-type={result.diagramType}
       dangerouslySetInnerHTML={{ __html: result.svg }}

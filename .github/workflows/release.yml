@@ -1,0 +1,52 @@
+name: Release
+
+# Manual and dry-run by default: nothing reaches npm by accident.
+on:
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: Version and changelog only, do not publish
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Verify before releasing
+        run: pnpm nx run-many -t lint test build
+
+      - name: Configure git author
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Version and changelog
+        run: pnpm nx release --skip-publish --yes
+
+      - name: Publish to npm
+        if: ${{ inputs.dry-run == false }}
+        run: pnpm nx release publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_CONFIG_PROVENANCE: 'true'

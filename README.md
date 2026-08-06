@@ -1,0 +1,137 @@
+# @archidea-ai/mermaid
+
+A drop-in replacement for [mermaid](https://github.com/mermaid-js/mermaid) that
+renders diagrams with **React**, in the browser.
+
+Sequence diagrams get a native interactive renderer: step through them one
+interaction at a time, supply values as they are needed, and watch branches
+resolve themselves. Every other diagram type is proxied to upstream mermaid, so
+nothing renders worse than it does today.
+
+**[Live examples →](https://archidea-ai.github.io/mermaid/)**
+
+## Install
+
+```bash
+pnpm add @archidea-ai/mermaid mermaid react react-dom
+```
+
+`mermaid` is an _optional_ peer — it is loaded lazily and only needed for diagram
+types without a native renderer. `react` and `react-dom` are peers so there is
+only ever one React instance.
+
+## Use it as a drop-in
+
+Alias the import, and existing code keeps working:
+
+```jsonc
+// package.json
+{ "pnpm": { "overrides": { "mermaid": "npm:@archidea-ai/mermaid" } } }
+```
+
+```ts
+import mermaid from '@archidea-ai/mermaid';
+
+mermaid.initialize({ theme: 'dark' });
+const { svg } = await mermaid.render('diagram-1', 'sequenceDiagram\n  A->>B: hi');
+```
+
+A parity test asserts the facade exposes a superset of upstream's public API, so
+"drop-in" stays true across upstream releases.
+
+## Use it as React
+
+```tsx
+import { SequenceDiagram } from '@archidea-ai/mermaid/react';
+
+<SequenceDiagram text={source} onStepController={(controller) => controller?.next()} />;
+```
+
+Subpath exports: `@archidea-ai/mermaid` (mermaid-compatible module),
+`@archidea-ai/mermaid/react` (components and hooks),
+`@archidea-ai/mermaid/registry` (registry and contracts).
+
+## Interactive sequence diagrams
+
+Two extensions to mermaid syntax, both written inside message text so the same
+source still renders in upstream mermaid — it simply shows the braces literally.
+
+| Form               | Meaning                                                       |
+| ------------------ | ------------------------------------------------------------- |
+| `{{name}}`         | Read. Prompts the viewer if unbound when the step is reached. |
+| `{{name = value}}` | Binds a value when the step is reached.                       |
+| `{{name : Type}}`  | Declares a type, choosing the prompt input.                   |
+
+`Type` is `string`, `number`, `boolean`, or a literal union like
+`"admin" \| "member"` — a union renders as a select rather than a free-text box.
+
+Fragment labels that parse as an expression resolve themselves:
+
+```
+sequenceDiagram
+    User->>API: POST /login as {{role : "admin" | "member"}}
+    API-->>User: {{userId = "u-8842"}}
+    alt {{role}} == "admin"
+        API->>User: audit log
+    else
+        API->>User: 200 OK
+    end
+```
+
+The viewer picks a role once, and the `alt` needs no further input. A condition
+referencing an unbound variable prompts for it rather than quietly taking the
+`else` branch. Prose labels ("is the user logged in?") stay viewer-chosen, so
+ordinary diagrams keep working.
+
+`alt`, `opt`, `par`, `critical`, `loop` and `break` are all resolved rather than
+drawn in full, and skipped material is shown as skipped.
+
+## Theming
+
+Every colour resolves through a `--seq-*` custom property scoped to the renderer
+root, so a host theme reaches these components and nothing else:
+
+```tsx
+<SequenceDiagram text={source} style={{ '--seq-accent': '#7fd1ff' }} />
+```
+
+Import the default tokens once: `import '@archidea-ai/mermaid-diagram-sequence/theme.css'`.
+Roles are documented in [`docs/art-direction.md`](docs/art-direction.md).
+
+## Compatibility notes
+
+Three documented differences from upstream:
+
+1. **React is required in the host**, including for the `mermaid.run()` over
+   `<pre class="mermaid">` path. That is inherent to rendering with React.
+2. **`detectType` and `mermaidAPI` need upstream loaded.** They stay synchronous
+   like upstream's, but our upstream load is lazy — `await preloadUpstream()`
+   first, or call anything that loads it (`render`, `run`, `parse`,
+   `contentLoaded`). The thrown error says so.
+3. **Diagram type detection currently requires upstream**, even for types a
+   native renderer would claim.
+
+Sequence diagram layout is not pixel-identical to upstream — it is a different
+renderer with different priorities. The resolved renderer id (`sequence-react`
+vs `proxy`) makes the substitution visible rather than pretending otherwise.
+
+## Security
+
+SVG produced on the proxy path comes from upstream mermaid, which sanitises it
+with DOMPurify according to its own `securityLevel` config. We add no
+sanitisation and no bypass — `securityLevel` still governs. The native sequence
+renderer builds React elements and uses no `innerHTML` at all.
+
+## Development
+
+```bash
+pnpm install
+pnpm nx run-many -t lint test build
+pnpm nx dev examples
+```
+
+See [`CLAUDE.md`](CLAUDE.md) for architecture and the Nx workflow.
+
+## Licence
+
+MIT

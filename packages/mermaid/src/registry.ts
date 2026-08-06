@@ -1,3 +1,5 @@
+import './lib/register-defaults';
+
 export {
   ConfigStore,
   DiagramParseError,

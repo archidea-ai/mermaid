@@ -14,7 +14,7 @@ import type { SequenceDiagramAst } from '../parser/ast';
 const measurer = createCanvasMeasurer();
 
 /** Rendered instead of the interactive surface when parsing fails (see §7). */
-function ProxyFallback({ text, id, config, className, onError }: DiagramSurfaceProps) {
+function ProxyFallback({ text, id, config, className, style, onError }: DiagramSurfaceProps) {
   const [svg, setSvg] = useState<string | null>(null);
 
   useEffect(() => {
@@ -36,34 +36,38 @@ function ProxyFallback({ text, id, config, className, onError }: DiagramSurfaceP
 
   if (!svg) return null;
   return (
-    <div className={className} data-renderer="proxy" dangerouslySetInnerHTML={{ __html: svg }} />
+    <div
+      className={className}
+      style={style}
+      data-renderer="proxy"
+      dangerouslySetInnerHTML={{ __html: svg }}
+    />
   );
 }
 
 function InteractiveSurface({
   ast,
   className,
+  style,
   onStepController,
 }: {
   ast: SequenceDiagramAst;
   className?: string;
+  style?: DiagramSurfaceProps['style'];
   onStepController?: DiagramSurfaceProps['onStepController'];
 }) {
   const controller = useSequenceRun(ast);
-  const { timeline } = controller;
+  const { timeline, current } = controller;
 
   useEffect(() => {
     onStepController?.(controller);
   }, [onStepController, controller]);
 
   const layout = useMemo(() => computeLayout(ast, timeline, measurer), [ast, timeline]);
-  const emphasis = useMemo(
-    () => computeEmphasis(timeline, controller.current),
-    [timeline, controller.current],
-  );
+  const emphasis = useMemo(() => computeEmphasis(timeline, current), [timeline, current]);
 
   return (
-    <div className={['archidea-sequence', className].filter(Boolean).join(' ')}>
+    <div className={['archidea-sequence', className].filter(Boolean).join(' ')} style={style}>
       <SequenceToolbar controller={controller} />
       <div className="archidea-sequence__body">
         <SequenceCanvas
@@ -117,6 +121,7 @@ export function SequenceDiagramSurface(props: DiagramSurfaceProps) {
     <InteractiveSurface
       ast={parsed.ast}
       className={props.className}
+      style={props.style}
       onStepController={onStepController}
     />
   );

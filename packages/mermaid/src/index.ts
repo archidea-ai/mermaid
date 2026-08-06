@@ -12,8 +12,7 @@ import {
   setParseErrorHandler,
 } from './lib/api';
 import { contentLoaded, run } from './lib/run';
-import { defaultRegistry as registry } from '@archidea-ai/mermaid-core';
-import { sequenceRenderer } from '@archidea-ai/mermaid-diagram-sequence';
+import './lib/register-defaults';
 import {
   getParseError,
   getStartOnLoad,
@@ -21,12 +20,6 @@ import {
   setParseError,
   setStartOnLoad,
 } from './lib/upstream-state';
-
-/**
- * The drop-in ships the native sequence renderer registered. Consumers of
- * -core/-react register it themselves; here it is the whole point.
- */
-registry.register(sequenceRenderer);
 
 export {
   contentLoaded,

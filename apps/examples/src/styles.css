@@ -1,0 +1,169 @@
+/*
+ * Host-page styling. Deliberately uses its OWN variables, not --seq-*, so the
+ * theme selector demonstrably reaches the renderer and nothing else.
+ */
+:root {
+  --app-bg: #fbfbfd;
+  --app-panel: #ffffff;
+  --app-border: #e2e5ec;
+  --app-text: #1c2029;
+  --app-muted: #6b7383;
+  --app-accent: #4f46e5;
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --app-bg: #0c0d11;
+    --app-panel: #14161c;
+    --app-border: #262a33;
+    --app-text: #eef0f4;
+    --app-muted: #8b93a3;
+    --app-accent: #818cf8;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--app-bg);
+  color: var(--app-text);
+  font-family:
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.app {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 24px 20px 64px;
+}
+
+.app__header {
+  margin-bottom: 20px;
+}
+.app__header h1 {
+  margin: 0 0 4px;
+  font-size: 22px;
+  letter-spacing: -0.01em;
+}
+.app__header p {
+  margin: 0;
+  color: var(--app-muted);
+  max-width: 70ch;
+}
+
+.app__layout {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+@media (max-width: 1000px) {
+  .app__layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.app__card {
+  background: var(--app-panel);
+  border: 1px solid var(--app-border);
+  border-radius: 10px;
+  padding: 14px;
+}
+
+.app__nav {
+  display: grid;
+  gap: 6px;
+}
+.app__nav button {
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  padding: 8px 10px;
+  border-radius: 7px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--app-text);
+}
+.app__nav button:hover {
+  background: var(--app-bg);
+}
+.app__nav button[aria-current='true'] {
+  border-color: var(--app-accent);
+  background: var(--app-bg);
+  font-weight: 600;
+}
+
+.app__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.app__label {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--app-muted);
+}
+
+.app__select,
+.app__source {
+  font: inherit;
+  color: var(--app-text);
+  background: var(--app-panel);
+  border: 1px solid var(--app-border);
+  border-radius: 7px;
+  padding: 6px 9px;
+}
+.app__source {
+  width: 100%;
+  min-height: 220px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12.5px;
+}
+
+.app__badge {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  font-size: 12px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--app-border);
+  color: var(--app-muted);
+}
+.app__badge b {
+  color: var(--app-text);
+  font-family: ui-monospace, monospace;
+}
+.app__cap {
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--app-bg);
+}
+.app__cap[data-on='true'] {
+  background: var(--app-accent);
+  color: var(--app-panel);
+}
+
+.app__split {
+  display: grid;
+  grid-template-columns: minmax(0, 360px) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+@media (max-width: 1200px) {
+  .app__split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
