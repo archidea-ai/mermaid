@@ -36,6 +36,24 @@ Emphasis is computed once, in `layout/emphasis.ts`, and passed down. Components
 render the level they are given; they never decide it. Two components deciding
 independently is how a design language drifts.
 
+## The canvas is HTML
+
+Diagrams are real DOM on a CSS Grid, not SVG. That is a design decision, not an
+implementation detail:
+
+- **Text wraps, selects and is findable.** SVG `<text>` does none of these, and
+  the audience for these diagrams is people reading them, not exporting them.
+- **shadcn primitives can live on the diagram**, not only around it — a note can
+  be a HoverCard, a variable can be a Badge you click.
+- **Placement is grid spans, not coordinates.** A message is a grid item running
+  from its sender's column to its receiver's; the browser centres it. Arrow lines
+  and heads are borders and pseudo-elements.
+- **Layout stays pure and testable** because it computes _indices_, not pixels.
+
+Graph-shaped types (state, flowchart, class, C4) will keep HTML nodes and add a
+single absolutely positioned SVG overlay for diagonal edges — the React Flow
+model. SVG is the edge layer, never the whole canvas.
+
 ## Colour
 
 **No component may hard-code a colour.** Every value resolves through a

@@ -40,18 +40,57 @@ describe('sequenceRenderer', () => {
     expect(sequenceRenderer.Component).toBe(SequenceDiagramSurface);
   });
 
-  it('renders markup for the imperative path without a browser', async () => {
+  it('delegates the imperative path to upstream, keeping render() portable', async () => {
+    // The Component renders HTML on a CSS grid and cannot also be a standalone
+    // <svg>. Rather than emit a <foreignObject> that breaks Inkscape, ImageMagick
+    // and every SVG-to-image converter people point at mermaid output, render()
+    // returns upstream's real SVG — so drop-in parity for it stays exactly true.
     const result = await sequenceRenderer.renderToSvg({
       id: 'd',
       text: 'sequenceDiagram\nA->>B: hi',
     });
 
     expect(result.diagramType).toBe('sequence');
-    expect(result.svg).toContain('archidea-sequence');
+    expect(result.svg).toBe('<svg data-testid="proxy-svg"></svg>');
+  });
+
+  it('declares no viewport capability, because nothing implements one yet', () => {
+    expect(sequenceRenderer.capabilities).toEqual({ events: true, viewport: false, step: true });
   });
 });
 
 describe('<SequenceDiagramSurface />', () => {
+  it('renders the diagram as HTML on a grid, with no SVG at all', () => {
+    const { container } = render(
+      <SequenceDiagramSurface text={'sequenceDiagram\nA->>B: hello\nnote over A,B: hi'} id="d" />,
+    );
+
+    // The toolbar's lucide icons are legitimately SVG; the diagram itself is not.
+    const grid = container.querySelector('.seq-grid');
+    expect(grid).not.toBeNull();
+    expect(grid!.querySelector('svg')).toBeNull();
+
+    // Participants are real text nodes: selectable, findable, screen-reader legible.
+    const participant = container.querySelector('.seq-participant');
+    expect(participant?.textContent).toBe('A');
+
+    // A message spans from its sender's column to its receiver's.
+    const message = container.querySelector('.seq-message') as HTMLElement;
+    expect(message.style.gridColumn).toBe('1 / 3');
+    expect(message.dataset.direction).toBe('forward');
+    expect(message.dataset.head).toBe('solid');
+  });
+
+  it('renders variable references as chips rather than raw braces', () => {
+    const { container } = render(
+      <SequenceDiagramSurface text={'sequenceDiagram\nA->>B: id {{userId}}'} id="d" />,
+    );
+
+    const chip = container.querySelector('.seq-var');
+    expect(chip?.textContent).toBe('userId');
+    expect(container.textContent).not.toContain('{{');
+  });
+
   it('hands back a live step controller whose count matches the timeline', async () => {
     const onStepController = vi.fn();
     render(

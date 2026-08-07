@@ -1,4 +1,3 @@
-import { renderToStaticMarkup } from 'react-dom/server';
 import { proxyRenderer } from '@archidea-ai/mermaid-core';
 import { SequenceDiagramSurface } from './components/surface';
 import type { DiagramRenderer, RenderInput, RenderResult } from '@archidea-ai/mermaid-core';
@@ -6,9 +5,15 @@ import type { DiagramRenderer, RenderInput, RenderResult } from '@archidea-ai/me
 /**
  * Native React renderer for mermaid sequence diagrams.
  *
- * renderToSvg derives from the same Component via renderToStaticMarkup, which
- * is the mechanism phase 1's contract was designed around: native diagram types
- * keep the imperative mermaid API working with no second implementation.
+ * The Component renders HTML on a CSS Grid, so it cannot also produce a valid
+ * standalone <svg>. Rather than wrap the markup in a <foreignObject> — which
+ * renders in browsers but breaks Inkscape, ImageMagick and every SVG-to-image
+ * converter people actually point at mermaid output — the imperative
+ * mermaid.render() path delegates to upstream.
+ *
+ * The two paths have genuinely different jobs: render() produces a portable
+ * artefact, the Component produces an interactive surface. Drop-in parity for
+ * render() therefore stays exactly true.
  */
 export const sequenceRenderer: DiagramRenderer = {
   id: 'sequence-react',
@@ -16,15 +21,7 @@ export const sequenceRenderer: DiagramRenderer = {
   capabilities: { events: true, viewport: false, step: true },
   Component: SequenceDiagramSurface,
 
-  async renderToSvg(input: RenderInput): Promise<RenderResult> {
-    try {
-      const markup = renderToStaticMarkup(
-        <SequenceDiagramSurface text={input.text} id={input.id} config={input.config} />,
-      );
-      return { svg: markup, diagramType: 'sequence' };
-    } catch {
-      // Same fallback rule as the Component: never render worse than upstream.
-      return proxyRenderer.renderToSvg(input);
-    }
+  renderToSvg(input: RenderInput): Promise<RenderResult> {
+    return proxyRenderer.renderToSvg(input);
   },
 };

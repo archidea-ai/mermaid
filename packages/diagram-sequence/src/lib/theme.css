@@ -189,9 +189,245 @@
   }
 }
 
-.archidea-sequence__canvas {
+/* ---------------------------------------------------------------------------
+ * HTML canvas.
+ *
+ * Everything below draws with borders and pseudo-elements. There is no SVG and
+ * no absolute positioning: CSS Grid places each element from the column and row
+ * spans computed in layout/grid.ts, and the browser sizes the text.
+ * ------------------------------------------------------------------------- */
+
+.seq-canvas {
   overflow: auto;
   border: 1px solid var(--seq-border);
   border-radius: var(--seq-radius);
   background: var(--seq-surface);
+  padding: 12px;
+  max-height: 70vh;
+}
+
+.seq-grid {
+  display: grid;
+  align-items: center;
+  justify-items: stretch;
+  gap: 0 8px;
+  min-width: min-content;
+}
+
+/* Lifelines sit behind everything, centred under each participant. */
+.seq-lifeline {
+  justify-self: center;
+  width: 0;
+  height: 100%;
+  border-left: 1px dashed var(--seq-lifeline);
+  grid-row-start: 2;
+  z-index: 0;
+  transition: border-color var(--seq-duration) var(--seq-easing);
+}
+.seq-lifeline[data-emphasis='current'] {
+  border-left-color: var(--seq-lifeline-current);
+  border-left-width: 2px;
+}
+
+.seq-participant {
+  z-index: 2;
+  justify-self: center;
+  max-width: 100%;
+  padding: 6px 12px;
+  text-align: center;
+  font-weight: 500;
+  color: var(--seq-participant-text);
+  background: var(--seq-participant-fill);
+  border: 1px solid var(--seq-participant-stroke);
+  border-radius: 6px;
+  overflow-wrap: anywhere;
+  transition:
+    background var(--seq-duration) var(--seq-easing),
+    border-color var(--seq-duration) var(--seq-easing);
+}
+/* The rounder shape is what distinguishes an actor at a glance. */
+.seq-participant[data-kind='actor'] {
+  border-radius: 999px;
+}
+.seq-participant[data-emphasis='current'] {
+  background: var(--seq-participant-current-fill);
+  border-color: var(--seq-participant-current-stroke);
+  font-weight: 600;
+}
+
+.seq-activation {
+  z-index: 1;
+  justify-self: center;
+  width: 8px;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--seq-activation-fill);
+}
+.seq-activation[data-emphasis='current'] {
+  background: var(--seq-activation-current-fill);
+}
+
+.seq-fragment {
+  z-index: 0;
+  align-self: stretch;
+  border: 1px dashed var(--seq-fragment-stroke);
+  border-radius: 6px;
+  pointer-events: none;
+  transition: border-color var(--seq-duration) var(--seq-easing);
+}
+.seq-fragment[data-emphasis='path'] {
+  border-color: var(--seq-fragment-path-stroke);
+  border-style: solid;
+}
+.seq-fragment__tag,
+.seq-fragment__label {
+  position: relative;
+  top: -0.65em;
+  margin-left: 6px;
+  padding: 1px 6px;
+  font-size: var(--seq-font-size-small);
+  color: var(--seq-text-muted);
+  background: var(--seq-fragment-label-fill);
+  border-radius: 4px;
+}
+.seq-fragment__label {
+  background: transparent;
+}
+
+/* A message spans from sender column to receiver column; the grid centres it. */
+.seq-message {
+  z-index: 2;
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  padding: 2px 6px 0;
+  font: inherit;
+  color: var(--seq-message-text);
+  background: none;
+  border: 0;
+  cursor: pointer;
+  text-align: center;
+}
+.seq-message__label {
+  padding: 0 6px;
+  background: var(--seq-surface);
+  overflow-wrap: anywhere;
+  transition: color var(--seq-duration) var(--seq-easing);
+}
+.seq-message[data-emphasis='current'] .seq-message__label {
+  color: var(--seq-message-current);
+  font-weight: 600;
+}
+.seq-message[data-emphasis='spent'] .seq-message__label {
+  color: var(--seq-message-spent);
+}
+
+/* The line itself: a border, with the head drawn as a pseudo-element. */
+.seq-message__line {
+  position: relative;
+  width: 100%;
+  height: 0;
+  border-top: 1.25px solid var(--seq-message);
+  transition: border-color var(--seq-duration) var(--seq-easing);
+}
+.seq-message[data-dotted='true'] .seq-message__line {
+  border-top-style: dashed;
+}
+.seq-message[data-emphasis='current'] .seq-message__line {
+  border-top-color: var(--seq-message-current);
+  border-top-width: 2px;
+}
+.seq-message[data-emphasis='spent'] .seq-message__line {
+  border-top-color: var(--seq-message-spent);
+}
+
+.seq-message__line::after,
+.seq-message[data-bidirectional='true'] .seq-message__line::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  width: 0;
+  height: 0;
+  border: 5px solid transparent;
+}
+.seq-message__line::after {
+  right: -1px;
+  transform: translateY(-50%);
+  border-left-color: var(--seq-message);
+  border-right-width: 0;
+}
+.seq-message[data-direction='backward'] .seq-message__line::after {
+  right: auto;
+  left: -1px;
+  border-left-color: transparent;
+  border-right-color: var(--seq-message);
+  border-left-width: 0;
+  border-right-width: 5px;
+}
+.seq-message[data-bidirectional='true'] .seq-message__line::before {
+  left: -1px;
+  transform: translateY(-50%);
+  border-right-color: var(--seq-message);
+  border-left-width: 0;
+}
+.seq-message[data-emphasis='current'] .seq-message__line::after,
+.seq-message[data-emphasis='current'] .seq-message__line::before {
+  border-left-color: var(--seq-message-current);
+  border-right-color: var(--seq-message-current);
+}
+.seq-message[data-direction='backward'] .seq-message__line::after {
+  border-left-color: transparent;
+}
+/* An open head is a chevron, not a filled triangle. */
+.seq-message[data-head='open'] .seq-message__line::after,
+.seq-message[data-head='async'] .seq-message__line::after {
+  border-top-color: transparent;
+  border-bottom-color: transparent;
+}
+.seq-message[data-head='cross'] .seq-message__line::after {
+  border-color: transparent;
+  width: 9px;
+  height: 9px;
+  right: -4px;
+  background:
+    linear-gradient(45deg, transparent 45%, var(--seq-message) 45% 55%, transparent 55%),
+    linear-gradient(-45deg, transparent 45%, var(--seq-message) 45% 55%, transparent 55%);
+}
+
+/* A self message loops back on its own column. */
+.seq-message[data-self='true'] .seq-message__line {
+  width: 60%;
+  height: 14px;
+  border-right: 1.25px solid var(--seq-message);
+  border-bottom: 1.25px solid var(--seq-message);
+  border-radius: 0 4px 4px 0;
+}
+
+.seq-note {
+  z-index: 2;
+  justify-self: center;
+  max-width: 100%;
+  padding: 5px 10px;
+  font-size: var(--seq-font-size-small);
+  color: var(--seq-note-text);
+  background: var(--seq-note-fill);
+  border: 1px solid var(--seq-note-stroke);
+  border-radius: 4px;
+  overflow-wrap: anywhere;
+  transition: border-color var(--seq-duration) var(--seq-easing);
+}
+.seq-note[data-emphasis='current'] {
+  border-color: var(--seq-accent);
+  border-width: 1.5px;
+}
+
+/* A variable reference reads as data, not prose. */
+.seq-var {
+  padding: 0 4px;
+  font-family: var(--seq-font-mono);
+  font-size: 0.92em;
+  color: var(--seq-text-strong);
+  background: color-mix(in srgb, var(--seq-accent) 18%, transparent);
+  border-radius: 3px;
 }

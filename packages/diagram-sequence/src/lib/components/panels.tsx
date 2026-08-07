@@ -7,6 +7,7 @@ import { Label } from '../ui/label';
 import { ScrollArea } from '../ui/scroll-area';
 import { Separator } from '../ui/separator';
 import { ToggleGroup, ToggleGroupItem } from '../ui/toggle-group';
+import { RichLabel } from './rich-label';
 import type { SequenceRunController, VariablePrompt } from '../model/controller';
 import type { Timeline } from '../model/timeline';
 import type { EmphasisMap } from '../layout/emphasis';
@@ -191,7 +192,7 @@ export function NotePanel({ controller }: { controller: SequenceRunController })
       <CardContent>
         {notes.map((note) => (
           <p key={note.id} className="m-0 text-xs">
-            {note.text.raw}
+            <RichLabel text={note.text} />
           </p>
         ))}
       </CardContent>
@@ -260,9 +261,15 @@ export function StepList({ controller, emphasis, timeline }: StepListProps) {
                 className="text-muted-foreground hover:bg-muted data-[emphasis=current]:bg-primary data-[emphasis=current]:text-primary-foreground data-[emphasis=spent]:text-foreground cursor-pointer px-1.5 py-0.5 text-left text-xs"
               >
                 {step.ordinal !== null ? `${step.ordinal}. ` : ''}
-                {step.node.type === 'message'
-                  ? step.node.text.raw || `${step.node.from} → ${step.node.to}`
-                  : `[${step.kind}]`}
+                {step.node.type === 'message' ? (
+                  step.node.text.segments.length > 0 ? (
+                    <RichLabel text={step.node.text} />
+                  ) : (
+                    `${step.node.from} → ${step.node.to}`
+                  )
+                ) : (
+                  `[${step.kind}]`
+                )}
               </button>
             ))}
           </div>

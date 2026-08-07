@@ -54,8 +54,13 @@ export type { SequenceRunController, VariablePrompt } from './lib/model/controll
 export { computeEmphasis } from './lib/layout/emphasis';
 export type { Emphasis, EmphasisMap } from './lib/layout/emphasis';
 
-export { DEFAULT_LAYOUT_OPTIONS, layout } from './lib/layout/layout';
-export type { SequenceLayout } from './lib/layout/layout';
-
-export { createCanvasMeasurer, createEstimateMeasurer, DEFAULT_FONT } from './lib/layout/measure';
-export type { FontSpec, TextMeasurer } from './lib/layout/measure';
+export { computeGrid, HEADER_ROW } from './lib/layout/grid';
+export type {
+  GridActivation,
+  GridColumn,
+  GridFragment,
+  GridMessage,
+  GridNote,
+  GridRow,
+  SequenceGrid,
+} from './lib/layout/grid';

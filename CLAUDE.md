@@ -28,11 +28,22 @@ time. The registry is the seam that makes that additive.
   proxy is the terminal fallback and supports every type, so resolution never
   fails. Adding a diagram type is one `register()` call — never a change to the
   facade or the host component.
-- **`DiagramRenderer` has two render paths.** `renderToSvg` serves the imperative
-  API; the optional `Component` serves the React tree. Native renderers derive
-  `renderToSvg` from their Component via `renderToStaticMarkup`, so there is
-  never a second implementation. **Consumers branch on `capabilities`, never on
-  which fields are present.**
+- **Renderers draw HTML, not SVG.** The sequence canvas is a CSS Grid of real
+  elements: text wraps, is selectable and findable, screen readers get content
+  rather than `<text>` nodes, and shadcn primitives can live _on_ the diagram.
+  Graph-shaped types (state, flowchart, class, C4) will add one absolutely
+  positioned SVG overlay for diagonal edges only — nodes stay HTML.
+- **Layout computes grid indices, not pixels.** `layout/grid.ts` is pure and
+  unit-testable under `node` because the browser does the sizing. There is no
+  `TextMeasurer` any more — if you find yourself measuring text, the layout is
+  fighting CSS.
+- **`DiagramRenderer` has two render paths.** The optional `Component` serves the
+  React tree; `renderToSvg` serves the imperative API. **Native renderers
+  delegate `renderToSvg` to `proxyRenderer`** — an HTML component cannot also be
+  a standalone `<svg>`, and a `<foreignObject>` wrapper breaks every
+  SVG-to-image converter. So `mermaid.render()` keeps returning portable
+  upstream SVG and drop-in parity stays exactly true. **Consumers branch on
+  `capabilities`, never on which fields are present.**
 - **Registration is a shared side-effect module.** `packages/mermaid/src/lib/register-defaults.ts`
   is imported by _every_ entry point (`index`, `/react`, `/registry`). Registering
   from one entry only means a consumer importing a different subpath silently

@@ -1,7 +1,8 @@
 # @archidea-ai/mermaid
 
 A drop-in replacement for [mermaid](https://github.com/mermaid-js/mermaid) that
-renders diagrams with **React**, in the browser.
+renders diagrams with **React**, in the browser — as real HTML, so diagram text
+wraps, selects, and reaches screen readers.
 
 Sequence diagrams get a native interactive renderer: step through them one
 interaction at a time, supply values as they are needed, and watch branches
@@ -114,6 +115,13 @@ Three documented differences from upstream:
 Sequence diagram layout is not pixel-identical to upstream — it is a different
 renderer with different priorities. The resolved renderer id (`sequence-react`
 vs `proxy`) makes the substitution visible rather than pretending otherwise.
+
+**`mermaid.render()` returns upstream's SVG even for natively rendered types.**
+The interactive renderers draw HTML, which cannot also be a standalone `<svg>`;
+wrapping it in a `<foreignObject>` would render in browsers but break Inkscape,
+ImageMagick and every SVG-to-image converter. So the imperative path stays
+portable and the React components carry the interactivity. The two have
+genuinely different jobs.
 
 ## Security
 

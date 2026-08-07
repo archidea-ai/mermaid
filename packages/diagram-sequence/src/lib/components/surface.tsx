@@ -4,14 +4,11 @@ import { parse } from '../parser/parse';
 import { useSequenceRun } from '../model/controller';
 import { buildTimeline } from '../model/timeline';
 import { computeEmphasis } from '../layout/emphasis';
-import { createCanvasMeasurer } from '../layout/measure';
-import { layout as computeLayout } from '../layout/layout';
+import { computeGrid } from '../layout/grid';
 import { SequenceCanvas } from './canvas';
 import { DecisionPanel, NotePanel, SequenceToolbar, StepList, VariablePanel } from './panels';
 import type { DiagramSurfaceProps } from '@archidea-ai/mermaid-core';
 import type { SequenceDiagramAst } from '../parser/ast';
-
-const measurer = createCanvasMeasurer();
 
 /** Rendered instead of the interactive surface when parsing fails (see §7). */
 function ProxyFallback({ text, id, config, className, style, onError }: DiagramSurfaceProps) {
@@ -63,7 +60,7 @@ function InteractiveSurface({
     onStepController?.(controller);
   }, [onStepController, controller]);
 
-  const layout = useMemo(() => computeLayout(ast, timeline, measurer), [ast, timeline]);
+  const grid = useMemo(() => computeGrid(ast, timeline), [ast, timeline]);
   const emphasis = useMemo(() => computeEmphasis(timeline, current), [timeline, current]);
 
   return (
@@ -71,7 +68,7 @@ function InteractiveSurface({
       <SequenceToolbar controller={controller} />
       <div className="archidea-sequence__body">
         <SequenceCanvas
-          layout={layout}
+          grid={grid}
           timeline={timeline}
           emphasis={emphasis}
           onSelectStep={controller.goTo}
