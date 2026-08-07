@@ -10,3 +10,7 @@ vite.config.*.timestamp*
 
 # Working documents: specs and plans stay local by project convention.
 docs/superpowers/
+
+e2e-results
+test-results
+playwright-report

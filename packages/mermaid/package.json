@@ -15,7 +15,10 @@
   "sideEffects": [
     "./dist/index.js",
     "./dist/react.js",
-    "./dist/registry.js"
+    "./dist/registry.js",
+    "./src/index.ts",
+    "./src/react.ts",
+    "./src/registry.ts"
   ],
   "main": "./dist/index.js",
   "module": "./dist/index.js",

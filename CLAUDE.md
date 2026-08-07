@@ -100,7 +100,14 @@ derives versions from them.
   and assert _delegation_. Importing real mermaid into a jsdom worker will OOM.
 - Layout is pure and takes an injected `TextMeasurer`; tests use
   `createEstimateMeasurer()` so geometry is deterministic.
-- Visual correctness is verified in the examples app, not in jsdom.
+- **Real-browser checks live in `apps/examples/e2e`** (`pnpm nx e2e examples`).
+  They exist because unit tests have two blind spots that have each already
+  shipped a bug: jsdom implements no CSS Grid layout, so geometry is invisible
+  to it; and specs alias workspace packages to source, so the bundled artefact
+  is never exercised. Anything about _placement_ or _the build_ belongs there.
+- **Tailwind preflight is not imported, so the renderer carries its own scoped
+  reset** in `@layer base`. It must stay in that layer — unlayered CSS outranks
+  every Tailwind utility and silently strips shadcn's backgrounds and borders.
 
 ## Art direction
 

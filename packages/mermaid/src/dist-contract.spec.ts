@@ -39,10 +39,15 @@ describe('built facade contract', () => {
   it('declares sideEffects for its entry points, or bundlers drop registration', () => {
     const manifest = JSON.parse(dist('../package.json')) as { sideEffects?: unknown };
 
+    // Source entries matter too: workspace consumers alias to src, and omitting
+    // them let the examples app's build tree-shake registration away entirely.
     expect(manifest.sideEffects).toEqual([
       './dist/index.js',
       './dist/react.js',
       './dist/registry.js',
+      './src/index.ts',
+      './src/react.ts',
+      './src/registry.ts',
     ]);
   });
 

@@ -70,7 +70,9 @@ describe('computeGrid', () => {
 
     expect(grid.activations).toHaveLength(1);
     expect(grid.activations[0]).toMatchObject({ participantId: 'B', column: 2, depth: 0 });
-    expect(grid.activations[0]!.rowEnd).toBeGreaterThan(grid.activations[0]!.rowStart);
+    // Exclusive end line: covers through the deactivate row inclusive.
+    const deactivateRow = grid.rows[grid.rows.length - 1]!.index;
+    expect(grid.activations[0]!.rowEnd).toBe(deactivateRow + 1);
   });
 
   it('runs an unclosed activation to the end of the diagram', () => {
@@ -88,13 +90,16 @@ describe('computeGrid', () => {
     expect(grid.activations.map((activation) => activation.depth).sort()).toEqual([0, 1]);
   });
 
-  it('spans a fragment across every row of its branch', () => {
-    const { grid, timeline } = build('sequenceDiagram\nloop twice\nA->>B: one\nB->>A: two\nend');
+  it('spans a fragment across exactly its own rows, not the one after `end`', () => {
+    // A loop resolves by default; a prose `alt` would pend and emit no steps.
+    const { grid } = build('sequenceDiagram\nloop twice\nA->>B: inside\nend\nA->>B: after');
     const fragment = grid.fragments[0]!;
+    const [insideRow, afterRow] = grid.rows.map((row) => row.index);
 
-    expect(fragment.kind).toBe('loop');
-    expect(fragment.rowStart).toBe(grid.rows[0]!.index);
-    expect(fragment.rowEnd).toBeGreaterThan(grid.rows[timeline.steps.length - 1]!.index);
+    expect(fragment.rowStart).toBe(insideRow);
+    // rowEnd is the exclusive CSS grid line, so it must equal the row after the
+    // branch's last statement — never reach the statement following `end`.
+    expect(fragment.rowEnd).toBe(afterRow);
   });
 
   it('nests an inner fragment at a deeper depth than its outer one', () => {

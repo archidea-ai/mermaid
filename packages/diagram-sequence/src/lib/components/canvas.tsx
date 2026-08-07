@@ -59,7 +59,7 @@ export function SequenceCanvas({ grid, timeline, emphasis, onSelectStep }: Seque
             data-emphasis={emphasis.fragmentBranch(fragment.branchId)}
             style={{
               gridColumn: '1 / -1',
-              gridRow: `${fragment.rowStart} / ${fragment.rowEnd + 1}`,
+              gridRow: `${fragment.rowStart} / ${fragment.rowEnd}`,
               margin: `0 ${fragment.depth * 8}px`,
             }}
           >
@@ -111,10 +111,15 @@ export function SequenceCanvas({ grid, timeline, emphasis, onSelectStep }: Seque
               data-dotted={DOTTED.includes(node.arrow)}
               data-self={message.selfLoop}
               data-bidirectional={node.arrow.startsWith('<<')}
-              style={{
-                gridColumn: `${message.columnStart} / ${message.columnEnd + 1}`,
-                gridRow: message.row,
-              }}
+              style={
+                {
+                  gridColumn: `${message.columnStart} / ${message.columnEnd + 1}`,
+                  gridRow: message.row,
+                  // Lifelines sit at column centres, so the line is inset by half
+                  // a column at each end. CSS needs the span count to compute it.
+                  '--seq-span': message.columnEnd - message.columnStart + 1,
+                } as CSSProperties
+              }
               onClick={() => onSelectStep?.(step.index)}
             >
               <span className="seq-message__label">

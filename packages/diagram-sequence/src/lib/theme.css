@@ -5,6 +5,13 @@
  * else's page, so resetting their elements would be a bug, not a feature. We
  * take the theme and utility layers only.
  */
+/*
+ * Explicit layer order. The scoped reset below sits in `base` so Tailwind
+ * utilities still win — unlayered CSS beats every layer, which silently
+ * stripped shadcn's backgrounds and borders off every button.
+ */
+@layer theme, base, components, utilities;
+
 @import 'tailwindcss/theme.css' layer(theme);
 @import 'tailwindcss/utilities.css' layer(utilities);
 
@@ -166,6 +173,34 @@
   }
 }
 
+@layer base {
+  /*
+   * Scoped reset.
+   *
+   * We deliberately skip Tailwind's preflight because it is a global reset and
+   * this library mounts inside someone else's page. But form controls still need
+   * normalising, or the user agent's own button chrome shows through — which is
+   * how light grey rows appeared in the dark theme. So: the same normalisation,
+   * confined to our own root.
+   */
+  .archidea-sequence :is(button, input, select, textarea) {
+    font: inherit;
+    color: inherit;
+    background-color: transparent;
+    border: 0;
+    margin: 0;
+  }
+  .archidea-sequence :is(button, [role='button']) {
+    cursor: pointer;
+  }
+  .archidea-sequence :is(button, input, select, textarea):disabled {
+    cursor: not-allowed;
+  }
+  .archidea-sequence :is(p, h1, h2, h3, h4, ul, ol) {
+    margin: 0;
+  }
+}
+
 .archidea-sequence {
   display: grid;
   grid-template-rows: auto 1fr;
@@ -210,7 +245,12 @@
   display: grid;
   align-items: center;
   justify-items: stretch;
-  gap: 0 8px;
+  /*
+   * No column gap. Lifelines sit at column centres and arrows are inset by half
+   * a column, which is only exact when columns tile without gaps. Elements carry
+   * their own padding instead.
+   */
+  gap: 0;
   min-width: min-content;
 }
 
@@ -291,7 +331,7 @@
   border-radius: 4px;
 }
 .seq-fragment__label {
-  background: transparent;
+  background: var(--seq-surface);
 }
 
 /* A message spans from sender column to receiver column; the grid centres it. */
@@ -301,7 +341,9 @@
   display: grid;
   justify-items: center;
   gap: 2px;
-  padding: 2px 6px 0;
+  /* No inline padding: the line's inset is a percentage of this box, and any
+     horizontal padding would shift it off the lifeline centres. */
+  padding: 2px 0 0;
   font: inherit;
   color: var(--seq-message-text);
   background: none;
@@ -326,7 +368,16 @@
 /* The line itself: a border, with the head drawn as a pseudo-element. */
 .seq-message__line {
   position: relative;
-  width: 100%;
+  /* The parent centres its children; the line positions itself from the left
+     edge instead, or the inset below would be applied on top of centring. */
+  justify-self: start;
+  /*
+   * The grid item spans whole columns, but lifelines are centred within them.
+   * For a span of S equal columns the line must start at W/2 and end at
+   * S*W - W/2, i.e. cover (S-1)/S of the item, offset by 1/(2S).
+   */
+  width: calc(100% * (var(--seq-span, 2) - 1) / var(--seq-span, 2));
+  margin-inline-start: calc(100% / (var(--seq-span, 2) * 2));
   height: 0;
   border-top: 1.25px solid var(--seq-message);
   transition: border-color var(--seq-duration) var(--seq-easing);
@@ -397,7 +448,8 @@
 
 /* A self message loops back on its own column. */
 .seq-message[data-self='true'] .seq-message__line {
-  width: 60%;
+  width: 50%;
+  margin-inline-start: 50%;
   height: 14px;
   border-right: 1.25px solid var(--seq-message);
   border-bottom: 1.25px solid var(--seq-message);
@@ -422,12 +474,18 @@
   border-width: 1.5px;
 }
 
-/* A variable reference reads as data, not prose. */
+/*
+ * A variable reference reads as data, not prose.
+ *
+ * Colour comes from `currentColor`, not a fixed token: the same chip appears on
+ * the canvas, on a muted step-list row, and on the accent-filled current step.
+ * Pinning one colour made it illegible on at least one of those in every theme.
+ */
 .seq-var {
   padding: 0 4px;
   font-family: var(--seq-font-mono);
   font-size: 0.92em;
-  color: var(--seq-text-strong);
-  background: color-mix(in srgb, var(--seq-accent) 18%, transparent);
+  color: inherit;
+  background: color-mix(in srgb, currentColor 16%, transparent);
   border-radius: 3px;
 }

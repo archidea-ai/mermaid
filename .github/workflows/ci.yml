@@ -37,5 +37,11 @@ jobs:
         if: github.event_name != 'pull_request'
         run: pnpm nx run-many -t lint test build
 
+      - name: Install Playwright browser
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Real-browser checks
+        run: pnpm nx e2e examples
+
       - name: Check formatting
         run: pnpm format:check

@@ -51,6 +51,7 @@ export interface GridActivation {
   readonly participantId: string;
   readonly column: number;
   readonly rowStart: number;
+  /** Exclusive grid line, as CSS `grid-row: start / end` expects. */
   readonly rowEnd: number;
   readonly depth: number;
 }
@@ -62,6 +63,7 @@ export interface GridFragment {
   readonly label: string;
   readonly depth: number;
   readonly rowStart: number;
+  /** Exclusive grid line, as CSS `grid-row: start / end` expects. */
   readonly rowEnd: number;
 }
 
@@ -165,7 +167,7 @@ function computeActivations(
       participantId,
       column: column.index,
       rowStart: entry.startRow,
-      rowEnd: Math.max(endRow, entry.startRow + 1),
+      rowEnd: Math.max(endRow + 1, entry.startRow + 1),
       depth: entry.depth,
     });
   };
