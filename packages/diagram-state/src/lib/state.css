@@ -91,7 +91,16 @@
   position: absolute;
   inset: 0;
   z-index: 0;
+  /*
+   * `inset: 0` sizes this to the visible box, but the track is wider than that
+   * once it scrolls. overflow: visible lets paths paint past the edge, and the
+   * anchors are measured in content coordinates so they scroll with the track
+   * rather than sliding against it.
+   */
   overflow: visible;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
 }
 
 .state-line {

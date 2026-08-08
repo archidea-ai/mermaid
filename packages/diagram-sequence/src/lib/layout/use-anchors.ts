@@ -28,12 +28,21 @@ export function useAnchors<C extends HTMLElement>() {
     if (!container) return;
     const origin = container.getBoundingClientRect();
 
+    /*
+     * Content coordinates, not viewport ones. getBoundingClientRect is relative
+     * to the viewport, but the arc layer is absolutely positioned inside the
+     * container and so scrolls with its content — the two diverge by exactly the
+     * scroll offset, which drew every line adrift once the track scrolled.
+     *
+     * Measuring in content space also means scrolling alone cannot invalidate
+     * these, so there is nothing to recompute on scroll.
+     */
     const next = new Map<string, StagePoint>();
     for (const [id, element] of elements.current) {
       const box = element.getBoundingClientRect();
       next.set(id, {
-        x: box.x - origin.x + box.width / 2,
-        y: box.y - origin.y + box.height / 2,
+        x: box.x - origin.x + container.scrollLeft + box.width / 2,
+        y: box.y - origin.y + container.scrollTop + box.height / 2,
       });
     }
 
