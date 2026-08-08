@@ -684,29 +684,73 @@ test('a branch decision is highlighted and takes focus', async ({ page }) => {
   await page.screenshot({ path: 'e2e-results/decision.png', fullPage: true });
 });
 
-test('a state diagram renders natively and is walked by choosing transitions', async ({ page }) => {
+test('a state diagram shows only where you are and the ways out', async ({ page }) => {
   await page.getByRole('button', { name: /Order state machine/ }).click();
   await page.waitForTimeout(250);
 
   await expect(page.locator('.app__badge')).toContainText('state-react');
-  // Every non-terminal state is on screen.
-  await expect(page.locator('.seq-stage__object')).toHaveCount(7);
 
-  // The <<choice>> asks even though its conditions are the only way out.
-  const decision = page.locator('.seq-decision');
-  await expect(decision).toBeVisible();
-  await expect(page.getByText('Choose a transition')).toBeVisible();
+  // One current state, not the whole machine.
+  await expect(page.locator('.state-view__now .seq-stage__object')).toHaveCount(1);
+  await expect(page.locator('.state-view__now')).toContainText('Draft');
 
-  await decision.getByRole('button').first().click();
-  await page.waitForTimeout(150);
+  // One clickable option per way out, each joined by a drawn line.
+  const options = page.locator('.state-option');
+  await expect(options).toHaveCount(1);
+  await expect(page.locator('.state-line')).toHaveCount(1);
 
-  // Choosing extends the run.
-  const counter = await page
-    .locator('.archidea-sequence span')
-    .filter({ hasText: /^\d+ \/ \d+$/ })
-    .first()
-    .textContent();
-  expect(Number(counter!.split('/')[1]!.trim())).toBeGreaterThan(1);
+  await options.first().click();
+  await page.waitForTimeout(200);
+  await expect(page.locator('.state-view__now')).toContainText('Submitted');
+});
 
-  await page.screenshot({ path: 'e2e-results/state.png', fullPage: true });
+test('clicking a line at a choice takes that branch', async ({ page }) => {
+  await page.getByRole('button', { name: /Order state machine/ }).click();
+  await page.waitForTimeout(200);
+
+  // Walk to the <<choice>>, which offers both risk branches.
+  for (let i = 0; i < 4; i += 1) {
+    const options = page.locator('.state-option');
+    if ((await options.count()) > 1) break;
+    await options.first().click();
+    await page.waitForTimeout(120);
+  }
+
+  const options = page.locator('.state-option');
+  await expect(options).toHaveCount(2);
+  await expect(page.locator('.state-line')).toHaveCount(2);
+
+  await options.nth(1).click();
+  await page.waitForTimeout(200);
+  await expect(page.locator('.state-view__now')).toContainText('Review');
+  await expect(page.locator('.archidea-sequence')).toContainText('Path taken');
+});
+
+test('a compound state is drawn as a box, and nested ones as boxes inside boxes', async ({
+  page,
+}) => {
+  await page.getByRole('button', { name: /Deployment machine/ }).click();
+  await page.waitForTimeout(250);
+
+  // Top level: no enclosing box.
+  await expect(page.locator('.state-box')).toHaveCount(0);
+  await expect(page.locator('.state-view__now')).toContainText('Queued');
+
+  // Step into Building — one box.
+  await page.locator('.state-option').first().click();
+  await page.waitForTimeout(200);
+  await expect(page.locator('.state-box')).toHaveCount(1);
+  await expect(page.locator('.state-box__title').first()).toContainText('Building');
+
+  // Step into Testing, nested inside Building — two boxes, outermost first.
+  await page.locator('.state-option').first().click();
+  await page.waitForTimeout(200);
+  const titles = await page.locator('.state-box__title').allTextContents();
+  expect(titles).toEqual(['Building', 'Testing']);
+
+  // And they really are nested, not siblings.
+  const nested = await page.evaluate(() => !!document.querySelector('.state-box .state-box'));
+  expect(nested).toBe(true);
+
+  await page.screenshot({ path: 'e2e-results/state-nested.png', fullPage: true });
 });

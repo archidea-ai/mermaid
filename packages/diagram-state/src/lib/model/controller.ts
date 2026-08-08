@@ -1,9 +1,10 @@
 import { useCallback, useMemo, useState } from 'react';
 import { createBindings } from '@archidea-ai/mermaid-scenario';
-import { traverse } from './traverse';
+import { entryOf, traverse } from './traverse';
 import type { VariableBindings, VariableValue } from '@archidea-ai/mermaid-scenario';
 import type { StateDiagramAst } from '../parser/ast';
 import type { StateChoice, StateStep, StateTimeline } from './traverse';
+import type { StateTransition } from '../parser/ast';
 
 export interface StatePrompt {
   readonly name: string;
@@ -25,6 +26,10 @@ export interface StateRunController {
   reset(): void;
   goTo(index: number): void;
   choose(from: string, transitionId: string): void;
+  /** Pick a transition out of the current state and move onto it. */
+  take(transitionId: string): void;
+  /** Transitions leaving the state the run is standing in. */
+  readonly options: readonly StateTransition[];
   bind(name: string, value: VariableValue): void;
   unbind(name: string): void;
 }
@@ -60,6 +65,18 @@ export function useStateRun(ast: StateDiagramAst): StateRunController {
 
   const canAdvance = clamped + 1 < timeline.steps.length && prompts.length === 0;
 
+  /*
+   * Where the *viewer* stands, which is not where the walk ended. traverse()
+   * runs as far as the decisions allow, so timeline.at is the end of that walk —
+   * using it before the first step showed a state several transitions ahead of
+   * the cursor.
+   */
+  const at = clamped >= 0 ? timeline.steps[clamped]!.to : entryOf(ast);
+  const options = useMemo(
+    () => (at === null ? [] : ast.transitions.filter((transition) => transition.from === at)),
+    [ast, at],
+  );
+
   const goTo = useCallback(
     (index: number) => setCursor(Math.min(Math.max(index, -1), timeline.steps.length - 1)),
     [timeline.steps.length],
@@ -75,7 +92,8 @@ export function useStateRun(ast: StateDiagramAst): StateRunController {
       prompts,
       canAdvance,
       // Standing where the last step landed, or at the entry before any move.
-      at: clamped >= 0 ? timeline.steps[clamped]!.to : timeline.at,
+      at,
+      options,
       next: () => canAdvance && goTo(clamped + 1),
       prev: () => goTo(clamped - 1),
       reset: () => {
@@ -86,6 +104,16 @@ export function useStateRun(ast: StateDiagramAst): StateRunController {
       goTo,
       choose: (from, transitionId) =>
         setDecisions((previous) => new Map(previous).set(from, transitionId)),
+      /*
+       * Choosing and moving are one gesture here: the viewer clicks the line
+       * they want to travel. Recording the decision re-derives the run, so the
+       * cursor simply steps onto the transition it now contains.
+       */
+      take: (transitionId) => {
+        if (at === null) return;
+        setDecisions((previous) => new Map(previous).set(at, transitionId));
+        setCursor(clamped + 1);
+      },
       bind: (name, value) => setValues((previous) => ({ ...previous, [name]: value })),
       unbind: (name) =>
         setValues((previous) => {
@@ -94,6 +122,6 @@ export function useStateRun(ast: StateDiagramAst): StateRunController {
           return next;
         }),
     }),
-    [timeline, clamped, bindings, prompts, canAdvance, goTo],
+    [timeline, clamped, bindings, prompts, canAdvance, goTo, at, options],
   );
 }

@@ -48,3 +48,124 @@
 .seq-step[data-emphasis='spent'] {
   color: var(--seq-text);
 }
+
+/* ---------------------------------------------------------------------------
+ * State view: where you are, and the ways out.
+ *
+ * Only the current state is drawn, with one line per outgoing transition to the
+ * state it leads to. The line is the control — clicking it takes that
+ * transition. Showing the whole machine at once buries the only decision the
+ * viewer actually has.
+ * ------------------------------------------------------------------------- */
+
+.state-view {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 56px;
+  padding: 18px;
+  min-height: 12rem;
+  border: 1px solid var(--seq-border);
+  border-radius: var(--seq-radius);
+  background:
+    radial-gradient(
+      circle at 22% 50%,
+      color-mix(in srgb, var(--seq-accent) 8%, transparent),
+      transparent 60%
+    ),
+    var(--seq-surface);
+}
+
+.state-view__lines {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: visible;
+}
+
+.state-line {
+  stroke: var(--seq-message);
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  stroke-dasharray: 100;
+  animation: seq-draw 0.55s var(--seq-easing) forwards;
+}
+
+.state-view__now,
+.state-view__next {
+  position: relative;
+  z-index: 1;
+}
+
+.state-view__next {
+  display: grid;
+  gap: 10px;
+  justify-items: start;
+}
+
+/* The option is the line's destination and its control at once. */
+.state-option {
+  display: grid;
+  gap: 3px;
+  padding: 9px 14px;
+  text-align: left;
+  font: inherit;
+  color: var(--seq-participant-text);
+  background: var(--seq-participant-fill);
+  border: 1.5px solid var(--seq-participant-stroke);
+  border-radius: 8px;
+  cursor: pointer;
+  transition:
+    border-color var(--seq-duration) var(--seq-easing),
+    background var(--seq-duration) var(--seq-easing),
+    translate var(--seq-duration) var(--seq-easing);
+}
+.state-option:hover,
+.state-option:focus-visible {
+  border-color: var(--seq-accent);
+  background: var(--seq-participant-current-fill);
+  translate: 3px 0;
+}
+.state-option:focus-visible {
+  outline: 2px solid var(--seq-accent);
+  outline-offset: 2px;
+}
+
+.state-option__label {
+  font-family: var(--seq-font-mono);
+  font-size: var(--seq-font-size-small);
+  color: var(--seq-text-muted);
+}
+.state-option:hover .state-option__label,
+.state-option:focus-visible .state-option__label {
+  color: var(--seq-accent);
+}
+
+/* One box per enclosing composite state, nested in the same order. */
+.state-box {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px dashed var(--seq-fragment-stroke);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--seq-surface-raised) 40%, transparent);
+}
+.state-box__title {
+  margin: 0;
+  font-size: var(--seq-font-size-small);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--seq-text-muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .state-line {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+  .state-option {
+    transition: none;
+  }
+}

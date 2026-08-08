@@ -50,7 +50,7 @@ export function parse(source: string): StateDiagramAst {
     const draft: Draft = {
       id,
       label: label ?? id,
-      kind: kind ?? (id === TERMINAL ? 'terminal' : 'state'),
+      kind: kind ?? (id.startsWith(TERMINAL) ? 'terminal' : 'state'),
       children: [],
       parent,
       note: null,
@@ -109,7 +109,7 @@ export function parse(source: string): StateDiagramAst {
     }
 
     if (TRANSITION.test(text)) {
-      transitions.push(readTransition(text, line, ensure));
+      transitions.push(readTransition(text, line, ensure, stack[stack.length - 1] ?? null));
       continue;
     }
 
@@ -144,15 +144,27 @@ export function parse(source: string): StateDiagramAst {
   };
 }
 
+/**
+ * `[*]` is scoped to the composite it appears in.
+ *
+ * Every composite declares its own start and end with the same `[*]` token, so
+ * treating them as one shared node made the machine's entry ambiguous and let a
+ * nested start masquerade as the diagram's.
+ */
+export function scopeTerminal(id: string, parent: string | null): string {
+  return id === TERMINAL && parent ? `${TERMINAL}@${parent}` : id;
+}
+
 function readTransition(
   text: string,
   line: number,
   ensure: (id: string, label?: string, kind?: StateKind) => Draft,
+  parent: string | null,
 ): StateTransition {
   const [connection, ...rest] = text.split(':');
   const [fromRaw, toRaw] = connection!.split('-->');
-  const from = fromRaw!.trim();
-  const to = toRaw?.trim() ?? '';
+  const from = scopeTerminal(fromRaw!.trim(), parent);
+  const to = scopeTerminal(toRaw?.trim() ?? '', parent);
 
   if (!from || !to) throw new StateParseError('incomplete transition', line, text);
 

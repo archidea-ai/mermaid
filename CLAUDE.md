@@ -54,6 +54,15 @@ time. The registry is the seam that makes that additive.
   `visible` — so content spills over whatever follows instead of scrolling. Use a
   plain `max-h-* overflow-y-auto` container unless you can give the root a fixed
   height.
+- **State: `[*]` is scoped to its composite.** Every composite declares its own
+  start and end with the same token, so the parser rewrites them to `[*]@Parent`.
+  Treating them as one node made the machine's entry ambiguous.
+- **Entering a composite means entering its machine.** `descend()` resolves to the
+  inner start state and the step lands there, not on the composite's name;
+  reaching a composite's internal terminal climbs back out to it.
+- **`timeline.at` is where the walk ended, not where the viewer stands.** The
+  traversal runs as far as the decisions allow, so the cursor's position must be
+  read from the step it points at.
 - **Branch on `step.kind`, never `step.node.type`.** The `+`/`-` activation
   shorthand emits a message step _and_ a lifecycle step that share one message
   node, so keying off the node renders the same message twice.

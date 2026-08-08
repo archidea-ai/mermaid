@@ -183,4 +183,35 @@ export const examples: readonly DiagramExample[] = [
     Fulfilled --> [*]
     Rejected --> [*]`,
   },
+  {
+    id: 'deploy-state',
+    title: 'Deployment machine — nested compound states',
+    description:
+      'Only the state you are in is drawn, with one line per way out. Click a line to take it. While you are inside a compound state it is drawn as a box around the view — and a box inside a box when they nest.',
+    source: `stateDiagram-v2
+    [*] --> Queued
+    Queued --> Building: pick up
+
+    state Building {
+        [*] --> Compiling
+        Compiling --> Testing: compiled
+
+        state Testing {
+            [*] --> Unit
+            Unit --> Integration: unit green
+            Unit --> Failed: unit red
+            Integration --> Passed: all green
+            Integration --> Failed: integration red
+        }
+
+        Passed --> Packaging: package
+        Failed --> [*]
+    }
+
+    Packaging --> Deploying: upload
+    Deploying --> Live: health check ok
+    Deploying --> RolledBack: health check failed
+    Live --> [*]
+    RolledBack --> [*]`,
+  },
 ];

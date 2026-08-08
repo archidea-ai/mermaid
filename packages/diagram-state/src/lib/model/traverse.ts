@@ -59,6 +59,13 @@ export function traverse(
   for (let guard = 0; guard < 500 && current !== null; guard += 1) {
     visited.add(current);
 
+    // A composite's internal terminal hands control back to the composite.
+    const climbed = ascend(ast, current);
+    if (climbed) {
+      current = climbed;
+      visited.add(current);
+    }
+
     const outgoing = ast.transitions.filter((transition) => transition.from === current);
     if (outgoing.length === 0) {
       done = true;
@@ -74,13 +81,18 @@ export function traverse(
       break;
     }
 
+    // The step lands where the run actually ends up: entering a composite means
+    // entering its machine, so the cursor belongs on the inner state, not on the
+    // composite's name.
+    const landing = chosen.to === TERMINAL ? TERMINAL : descend(ast, chosen.to);
+
     const step: StateStep = {
       id: `${chosen.id}#${steps.length}`,
       index: steps.length,
       transition: chosen,
       from: chosen.from,
-      to: chosen.to,
-      involved: [chosen.from, chosen.to],
+      to: landing,
+      involved: [chosen.from, landing],
       effects: chosen.label?.effects ?? [],
       reads: (chosen.label?.reads ?? []).filter((read) => !read.assigns),
     };
@@ -93,7 +105,11 @@ export function traverse(
       done = true;
       break;
     }
-    current = chosen.to;
+
+    // Entering a composite means entering its machine, so descend to whatever
+    // its own `[*]` points at. Reaching a composite's internal terminal means
+    // that machine finished, so climb back out to the composite itself.
+    current = landing;
   }
 
   return {
@@ -110,8 +126,36 @@ export function traverse(
 /** `[*] --> X` names the entry; otherwise the first state declared. */
 export function entryOf(ast: StateDiagramAst): string | null {
   const start = ast.transitions.find((transition) => transition.from === TERMINAL);
-  if (start) return start.to;
-  return ast.states.find((state) => state.kind !== 'terminal')?.id ?? null;
+  if (start) return descend(ast, start.to);
+  const first = ast.states.find((state) => state.kind !== 'terminal');
+  return first ? descend(ast, first.id) : null;
+}
+
+/** The innermost state actually occupied when arriving at `stateId`. */
+export function descend(ast: StateDiagramAst, stateId: string): string {
+  let current = stateId;
+  const seen = new Set<string>();
+
+  while (!seen.has(current)) {
+    seen.add(current);
+    const node = ast.stateById.get(current);
+    if (!node || node.children.length === 0) return current;
+
+    const inner = ast.transitions.find(
+      (transition) => transition.from === `${TERMINAL}@${current}`,
+    );
+    if (!inner) return current;
+    current = inner.to;
+  }
+  return current;
+}
+
+/** Where the run continues when a composite's internal machine finishes. */
+export function ascend(ast: StateDiagramAst, terminalId: string): string | null {
+  const composite = terminalId.startsWith(`${TERMINAL}@`)
+    ? terminalId.slice(`${TERMINAL}@`.length)
+    : null;
+  return composite;
 }
 
 function resolve(

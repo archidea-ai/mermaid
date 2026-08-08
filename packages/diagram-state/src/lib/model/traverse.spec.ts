@@ -93,3 +93,61 @@ describe('traverse', () => {
     expect(timeline.at).toBe('B');
   });
 });
+
+describe('where the viewer stands', () => {
+  // traverse() walks as far as the decisions allow, so its `at` is the end of
+  // that walk. Before the first step the viewer is still at the entry, and
+  // conflating the two showed a state several transitions ahead of the cursor.
+  it('separates the end of the walk from the entry point', () => {
+    const ast = parse('stateDiagram-v2\n[*] --> A\nA --> B: one\nB --> C: two');
+    const timeline = traverse(ast, new Map(), createBindings());
+
+    expect(entryOf(ast)).toBe('A');
+    expect(timeline.at).toBe('C');
+    expect(timeline.steps.map((s) => s.to)).toEqual(['B', 'C']);
+  });
+});
+
+describe('composite states', () => {
+  const NESTED = `stateDiagram-v2
+    [*] --> Queued
+    Queued --> Building: pick up
+    state Building {
+      [*] --> Compiling
+      Compiling --> Testing: compiled
+      state Testing {
+        [*] --> Unit
+        Unit --> Passed: green
+      }
+      Passed --> [*]
+    }
+    Building --> Live: deploy`;
+
+  it("scopes each composite's [*] so a nested start is not the diagram's", () => {
+    const ast = parse(NESTED);
+
+    expect(entryOf(ast)).toBe('Queued');
+    expect(ast.stateById.has('[*]@Building')).toBe(true);
+    expect(ast.stateById.has('[*]@Testing')).toBe(true);
+  });
+
+  it('descends into a composite on entering it, not just onto its name', () => {
+    const ast = parse(NESTED);
+    const timeline = traverse(ast, new Map(), createBindings());
+
+    // Entering Building means entering its machine, so the run lands on the
+    // inner state rather than on the composite's name.
+    expect(timeline.steps.map((s) => s.to)).toContain('Compiling');
+    expect(timeline.steps.map((s) => s.to)).not.toContain('Building');
+    expect(timeline.steps.some((s) => s.transition.label?.raw === 'compiled')).toBe(true);
+  });
+
+  it("climbs back out when a composite's internal machine finishes", () => {
+    const ast = parse(NESTED);
+    const timeline = traverse(ast, new Map(), createBindings());
+
+    // Passed --> [*] ends Building's machine, so the run continues from Building.
+    expect(timeline.steps.some((s) => s.transition.label?.raw === 'deploy')).toBe(true);
+    expect(timeline.done).toBe(true);
+  });
+});
