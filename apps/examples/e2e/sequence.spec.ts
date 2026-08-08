@@ -917,6 +917,9 @@ test('the track follows the run to the right, and history keeps its containers',
   }
 
   const track = page.locator('.state-view');
+  // The track grows in the same commit as the move, so give the scroll its
+  // frame before measuring — reading too early is exactly the bug this covers.
+  await page.waitForTimeout(600);
   const scrolled = await track.evaluate((el) => ({
     left: el.scrollLeft,
     width: el.scrollWidth,
@@ -924,7 +927,10 @@ test('the track follows the run to the right, and history keeps its containers',
   }));
 
   if (scrolled.width > scrolled.visible) {
+    // Scrolled to the end, not merely somewhere: a stale scrollWidth would land
+    // short of it.
     expect(scrolled.left).toBeGreaterThan(0);
+    expect(scrolled.left + scrolled.visible).toBeGreaterThanOrEqual(scrolled.width - 2);
   }
 
   // History states are still wrapped by the containers they happened inside.
