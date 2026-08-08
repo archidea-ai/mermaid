@@ -450,3 +450,37 @@ describe('why the state view shows no step counter', () => {
     expect(direct.steps[0]!.to).toBe('B');
   });
 });
+
+describe('completion transitions out of a composite', () => {
+  const MACHINE = `stateDiagram-v2
+    [*] --> Work
+    state Work {
+      [*] --> Doing
+      Doing --> [*]: finished
+    }
+    Work --> Next
+    Work --> Abort: cancel`;
+
+  it('withholds an unlabelled escape until the composite has ended', async () => {
+    const { outgoingFrom } = await import('./traverse');
+
+    // Inside Work: `Work --> Next` carries no trigger, so it is a completion
+    // transition and is not yet on offer. `cancel` is a trigger and is.
+    const inside = outgoingFrom(parse(MACHINE), 'Doing').map((t) => t.label?.raw ?? null);
+    expect(inside).toEqual(['finished', 'cancel']);
+  });
+
+  it('offers it once the composite reaches its end', async () => {
+    const { outgoingFrom } = await import('./traverse');
+
+    const atEnd = outgoingFrom(parse(MACHINE), '[*]@Work').map((t) => t.label?.raw ?? null);
+    expect(atEnd).toEqual([null, 'cancel']);
+  });
+
+  it('still offers a state its own unlabelled transitions', async () => {
+    const { outgoingFrom } = await import('./traverse');
+    const ast = parse('stateDiagram-v2\n[*] --> A\nA --> B');
+
+    expect(outgoingFrom(ast, 'A')).toHaveLength(1);
+  });
+});

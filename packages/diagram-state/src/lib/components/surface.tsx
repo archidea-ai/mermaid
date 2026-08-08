@@ -1,7 +1,6 @@
 import { useEffect, useMemo } from 'react';
 import { proxyRenderer } from '@archidea-ai/mermaid-core';
 import {
-  RichLabel,
   computeArc,
   humaniseLabel,
   useAnchors,
@@ -11,8 +10,8 @@ import { parse } from '../parser/parse';
 import { useStateRun } from '../model/controller';
 import { displayName, isTerminal } from '../parser/ast';
 import type { DiagramSurfaceProps } from '@archidea-ai/mermaid-core';
-import { enclosingStates, isWithin } from '../model/nesting';
-import type { StateDiagramAst, StateNode } from '../parser/ast';
+import { depthWithin, enclosingStates } from '../model/nesting';
+import type { StateDiagramAst } from '../parser/ast';
 import type { ReactNode } from 'react';
 import { useState } from 'react';
 
@@ -102,15 +101,26 @@ function StateRun({
   const { containerRef, register, anchors } = useAnchors<HTMLDivElement>();
 
   const current = run.at;
-  const currentNode = current ? ast.stateById.get(current) : undefined;
-  // Any `[*]` is an end and reads as one; whether it *stops* the run is separate.
   const currentIsEnd = isTerminal(current);
   const nameOf = (id: string) => displayName(id, (key) => ast.stateById.get(key)?.label);
-  const boxes = useMemo(() => enclosingStates(ast, current), [ast, current]);
-  // The box the viewer is standing in, if any.
-  const innermostBox = boxes.length > 0 ? boxes[boxes.length - 1]!.id : null;
 
-  // One line per way out of here. Clicking a line is choosing that way.
+  // Containers around where we stand, outermost first.
+  const boxes = useMemo(() => enclosingStates(ast, current), [ast, current]);
+
+  /** Everywhere the run has been, oldest first, ending at the current state. */
+  const trail = useMemo(() => {
+    const walked = run.timeline.steps.slice(0, run.current + 1);
+    if (walked.length === 0) return [];
+    return [walked[0]!.from, ...walked.slice(0, -1).map((step) => step.to)];
+  }, [run.timeline, run.current]);
+
+  /*
+   * Each element is placed at the nesting level that actually holds it. A state
+   * visited before entering a composite belongs outside its box; an option that
+   * leaves a composite belongs outside it too. Level 0 is outside everything.
+   */
+  const levelOf = (stateId: string) => depthWithin(ast, stateId, boxes);
+
   const lines = useMemo(() => {
     const from = current ? anchors.get(current) : undefined;
     if (!from) return [];
@@ -122,6 +132,75 @@ function StateRun({
     });
   }, [run.options, anchors, current]);
 
+  const stateChip = (stateId: string, kind: 'past' | 'now') => (
+    <div
+      key={`${kind}-${stateId}`}
+      ref={kind === 'now' ? register(stateId) : undefined}
+      className="seq-stage__object state-chip"
+      data-kind={ast.stateById.get(stateId)?.kind === 'choice' ? 'actor' : 'participant'}
+      data-state={kind === 'now' ? 'sending' : 'resting'}
+      data-terminal={isTerminal(stateId)}
+    >
+      <span className="seq-stage__name">
+        {isTerminal(stateId)
+          ? nameOf(stateId)
+          : withBreaks(ast.stateById.get(stateId)?.label ?? stateId)}
+      </span>
+    </div>
+  );
+
+  const optionChip = (option: (typeof run.options)[number]) => {
+    const target = ast.stateById.get(option.to);
+    const ends = isTerminal(option.to);
+    const leaves = option.from !== current && levelOf(option.to) < boxes.length;
+
+    return (
+      <button
+        key={option.id}
+        ref={register(`option-${option.id}`)}
+        className="state-option"
+        data-terminal={ends}
+        onClick={() => run.take(option.id)}
+      >
+        {option.label ? (
+          <span className="state-option__label">{humaniseLabel(option.label.raw)}</span>
+        ) : null}
+        {leaves ? <span className="state-option__from">leaves {nameOf(option.from)}</span> : null}
+        <span className="seq-stage__name">
+          {ends ? nameOf(option.to) : withBreaks(target?.label ?? option.to)}
+        </span>
+      </button>
+    );
+  };
+
+  /** Renders the track from the outside in, so the boxes nest around it. */
+  const renderLevel = (level: number): ReactNode => {
+    const past = trail
+      .filter((stateId) => levelOf(stateId) === level)
+      .map((id) => stateChip(id, 'past'));
+    const options = run.options.filter((option) => levelOf(option.to) === level).map(optionChip);
+
+    const inner =
+      level === boxes.length ? (
+        current ? (
+          stateChip(current, 'now')
+        ) : null
+      ) : (
+        <section key={boxes[level]!.id} className="state-box" aria-label={boxes[level]!.label}>
+          <h4 className="state-box__title">{withBreaks(boxes[level]!.label)}</h4>
+          <div className="state-track">{renderLevel(level + 1)}</div>
+        </section>
+      );
+
+    return (
+      <>
+        {past}
+        {inner}
+        {options.length > 0 ? <div className="state-options">{options}</div> : null}
+      </>
+    );
+  };
+
   return (
     <div className={['archidea-sequence', className].filter(Boolean).join(' ')} style={style}>
       <div className="flex flex-wrap items-center gap-2">
@@ -131,157 +210,45 @@ function StateRun({
         <button className="seq-btn" onClick={run.reset}>
           Restart
         </button>
-        {/*
-          No "n of m" counter. A machine with a loop has no fixed length, so a
-          total is either wrong or invented — and a denominator that changes as
-          you choose reads as progress that went backwards. The path taken says
-          where you have been; the options say where you can go.
-        */}
         {run.options.length > 0 ? (
           <span className="text-muted-foreground text-xs">Click a transition to take it</span>
         ) : null}
       </div>
 
-      <div className="archidea-sequence__body">
-        <div className="seq-stage">
-          {/* Each enclosing composite state is a box around everything inside it. */}
-          <Nested boxes={boxes}>
-            <div className="state-view" ref={containerRef}>
-              <svg className="seq-stage__arcs state-view__lines" aria-hidden="true">
-                {lines.map(({ option, arc }) => (
-                  <path
-                    key={option.id}
-                    className="state-line"
-                    d={arc.path}
-                    pathLength={100}
-                    fill="none"
-                  />
-                ))}
-              </svg>
+      <div className="seq-stage">
+        <div className="state-view" ref={containerRef}>
+          <svg className="seq-stage__arcs state-view__lines" aria-hidden="true">
+            {lines.map(({ option, arc }) => (
+              <path
+                key={option.id}
+                className="state-line"
+                d={arc.path}
+                pathLength={100}
+                fill="none"
+              />
+            ))}
+          </svg>
 
-              <div className="state-view__now">
-                {current ? (
-                  <div
-                    ref={register(current)}
-                    className="seq-stage__object"
-                    data-kind={currentNode?.kind === 'choice' ? 'actor' : 'participant'}
-                    data-state="sending"
-                    data-terminal={currentIsEnd}
-                  >
-                    <span className="seq-stage__name">
-                      {currentIsEnd ? nameOf(current) : withBreaks(currentNode?.label ?? current)}
-                    </span>
-                  </div>
-                ) : null}
-              </div>
+          {/* Grows rightwards: where we came from, where we are, where we can go. */}
+          <div className="state-track state-track--root">{renderLevel(0)}</div>
 
-              <div className="state-view__next">
-                {run.options.map((option) => {
-                  const target = ast.stateById.get(option.to);
-                  const ends = isTerminal(option.to);
-                  return (
-                    <button
-                      key={option.id}
-                      ref={register(`option-${option.id}`)}
-                      className="state-option"
-                      data-terminal={ends}
-                      onClick={() => run.take(option.id)}
-                    >
-                      {/* No label means the transition has no condition to
-                          state; inventing "go" said nothing. */}
-                      {option.label ? (
-                        <span className="state-option__label">
-                          {humaniseLabel(option.label.raw)}
-                        </span>
-                      ) : null}
-                      {/*
-                        Only flag a transition that actually takes you out of the
-                        box you are in. One drawn on an enclosing state but
-                        landing back inside it is an ordinary move, and saying
-                        "leaves X" about it would be noise.
-                      */}
-                      {option.from !== current && !isWithin(ast, option.to, innermostBox) ? (
-                        <span className="state-option__from">leaves {nameOf(option.from)}</span>
-                      ) : null}
-                      <span className="seq-stage__name">
-                        {ends ? nameOf(option.to) : withBreaks(target?.label ?? option.to)}
-                      </span>
-                    </button>
-                  );
-                })}
-
-                {run.options.length === 0 ? (
-                  <p className="seq-stage__idle">
-                    {run.atEnd ? 'This is the end of the run.' : 'Nothing leaves this state.'}
-                  </p>
-                ) : null}
-              </div>
-            </div>
-          </Nested>
-
-          {boxes.length > 0 ? (
-            <p className="seq-stage__context">
-              {boxes.map((box) => (
-                <span key={box.id}>
-                  <span className="seq-stage__kind">in</span> {box.label}
-                </span>
-              ))}
+          {run.options.length === 0 ? (
+            <p className="seq-stage__idle">
+              {currentIsEnd ? 'This is the end of the run.' : 'Nothing leaves this state.'}
             </p>
           ) : null}
         </div>
 
-        <div>
-          <div className="archidea-sequence__panel">
-            <h3>Values</h3>
-            {run.bindings.entries().length === 0 ? (
-              <p className="text-muted-foreground m-0 text-xs">No values yet.</p>
-            ) : (
-              run.bindings.entries().map(([name, value]) => (
-                <div key={name} className="flex justify-between gap-2 font-mono text-xs">
-                  <b>{name}</b>
-                  <span>{String(value)}</span>
-                </div>
-              ))
-            )}
-          </div>
-
-          <div className="archidea-sequence__panel">
-            <h3>Path taken</h3>
-            <div className="seq-steps grid max-h-64 gap-0.5 overflow-y-auto">
-              {run.timeline.steps.slice(0, run.current + 1).map((step, index) => (
-                <button
-                  key={step.id}
-                  className="seq-step"
-                  data-emphasis={index === run.current ? 'current' : 'spent'}
-                  onClick={() => run.goTo(index)}
-                >
-                  {step.transition.label ? (
-                    <RichLabel text={step.transition.label} values={run.bindings} />
-                  ) : (
-                    `${nameOf(step.from)} \u2192 ${nameOf(step.to)}`
-                  )}
-                </button>
-              ))}
-              {run.current < 0 ? (
-                <p className="text-muted-foreground m-0 text-xs">Nowhere yet.</p>
-              ) : null}
-            </div>
-          </div>
-        </div>
+        {boxes.length > 0 ? (
+          <p className="seq-stage__context">
+            {boxes.map((box) => (
+              <span key={box.id}>
+                <span className="seq-stage__kind">in</span> {box.label}
+              </span>
+            ))}
+          </p>
+        ) : null}
       </div>
     </div>
-  );
-}
-
-/** Wraps its children in one box per enclosing composite state, outermost first. */
-function Nested({ boxes, children }: { boxes: readonly StateNode[]; children: ReactNode }) {
-  return boxes.reduceRight(
-    (inner, box) => (
-      <section key={box.id} className="state-box" aria-label={box.label}>
-        <h4 className="state-box__title">{withBreaks(box.label)}</h4>
-        {inner}
-      </section>
-    ),
-    children,
   );
 }

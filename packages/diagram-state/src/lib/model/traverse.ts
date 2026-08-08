@@ -261,7 +261,20 @@ export function outgoingFrom(
   while (owner && !seen.has(owner)) {
     seen.add(owner);
     for (const transition of ast.transitions) {
-      if (transition.from === owner) result.push(transition);
+      if (transition.from !== owner) continue;
+
+      /*
+       * An unlabelled transition leaving a composite is a completion
+       * transition: it fires when that composite's machine finishes, not
+       * whenever you happen to be somewhere inside it. Offering it early
+       * invited leaving a machine that had not run.
+       *
+       * A labelled one is a trigger and stays available throughout — that is
+       * how you interrupt a submachine.
+       */
+      if (owner !== point && transition.label === null) continue;
+
+      result.push(transition);
     }
     owner = ast.stateById.get(owner)?.parent ?? null;
   }

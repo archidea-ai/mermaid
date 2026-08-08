@@ -60,21 +60,31 @@
 
 .state-view {
   position: relative;
-  display: grid;
-  grid-template-columns: auto 1fr;
-  align-items: center;
-  gap: 56px;
   padding: 18px;
-  min-height: 12rem;
+  min-height: 10rem;
+  overflow-x: auto;
   border: 1px solid var(--seq-border);
   border-radius: var(--seq-radius);
   background:
     radial-gradient(
-      circle at 22% 50%,
+      circle at 30% 50%,
       color-mix(in srgb, var(--seq-accent) 8%, transparent),
-      transparent 60%
+      transparent 62%
     ),
     var(--seq-surface);
+}
+
+/*
+ * The run reads left to right: where we came from, where we are, where we can
+ * go. It grows rightwards rather than re-centring, so the history stays put.
+ */
+.state-track {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  min-width: max-content;
 }
 
 .state-view__lines {
@@ -90,18 +100,6 @@
   stroke-linecap: round;
   stroke-dasharray: 100;
   animation: seq-draw 0.55s var(--seq-easing) forwards;
-}
-
-.state-view__now,
-.state-view__next {
-  position: relative;
-  z-index: 1;
-}
-
-.state-view__next {
-  display: grid;
-  gap: 10px;
-  justify-items: start;
 }
 
 /* The option is the line's destination and its control at once. */
@@ -143,9 +141,11 @@
 }
 
 /* One box per enclosing composite state, nested in the same order. */
+/* A container wraps exactly the run that happened inside it. */
 .state-box {
   display: grid;
   gap: 8px;
+  align-content: center;
   padding: 12px;
   border: 1px dashed var(--seq-fragment-stroke);
   border-radius: 12px;
@@ -193,4 +193,23 @@
 }
 .state-option[data-terminal='true'] .state-option__from {
   color: color-mix(in srgb, var(--seq-end) 70%, var(--seq-text-muted));
+}
+
+/* Visited states recede; they are context, not the decision. */
+.state-chip {
+  white-space: nowrap;
+}
+.state-chip[data-state='resting'] {
+  opacity: 0.55;
+}
+
+.state-option {
+  white-space: nowrap;
+}
+
+/* The ways out stack vertically beside the state they leave. */
+.state-options {
+  display: grid;
+  gap: 10px;
+  justify-items: start;
 }

@@ -52,3 +52,26 @@ export function isWithin(
   }
   return false;
 }
+
+/**
+ * How deeply a state sits inside a given chain of containers.
+ *
+ * Returns the number of leading containers that hold it, so a state can be
+ * placed at the right nesting level of a view built around some *other* state's
+ * containers — which is what the trail needs: states visited before entering a
+ * composite belong outside its box.
+ */
+export function depthWithin(
+  ast: StateDiagramAst,
+  stateId: string | null,
+  chain: readonly StateNode[],
+): number {
+  let depth = 0;
+  for (const container of chain) {
+    // A container does not nest inside itself: its own chip belongs outside its
+    // box, which is what makes the box wrap only what happened within it.
+    if (container.id === stateId || !isWithin(ast, stateId, container.id)) break;
+    depth += 1;
+  }
+  return depth;
+}

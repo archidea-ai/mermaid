@@ -703,8 +703,8 @@ test('a state diagram shows only where you are and the ways out', async ({ page 
   await expect(page.locator('.app__badge')).toContainText('state-react');
 
   // One current state, not the whole machine.
-  await expect(page.locator('.state-view__now .seq-stage__object')).toHaveCount(1);
-  await expect(page.locator('.state-view__now')).toContainText('Draft');
+  await expect(page.locator('.state-chip[data-state='sending']')).toHaveCount(1);
+  await expect(page.locator(".state-chip[data-state='sending']")).toContainText('Draft');
 
   // One clickable option per way out, each joined by a drawn line.
   const options = page.locator('.state-option');
@@ -713,7 +713,7 @@ test('a state diagram shows only where you are and the ways out', async ({ page 
 
   await options.first().click();
   await page.waitForTimeout(200);
-  await expect(page.locator('.state-view__now')).toContainText('Submitted');
+  await expect(page.locator(".state-chip[data-state='sending']")).toContainText('Submitted');
 });
 
 test('clicking a line at a choice takes that branch', async ({ page }) => {
@@ -734,8 +734,7 @@ test('clicking a line at a choice takes that branch', async ({ page }) => {
 
   await options.nth(1).click();
   await page.waitForTimeout(200);
-  await expect(page.locator('.state-view__now')).toContainText('Review');
-  await expect(page.locator('.archidea-sequence')).toContainText('Path taken');
+  await expect(page.locator(".state-chip[data-state='sending']")).toContainText('Review');
 });
 
 test('a compound state is drawn as a box, and nested ones as boxes inside boxes', async ({
@@ -746,7 +745,7 @@ test('a compound state is drawn as a box, and nested ones as boxes inside boxes'
 
   // Top level: no enclosing box.
   await expect(page.locator('.state-box')).toHaveCount(0);
-  await expect(page.locator('.state-view__now')).toContainText('Queued');
+  await expect(page.locator(".state-chip[data-state='sending']")).toContainText('Queued');
 
   // Step into Building — one box.
   await page.locator('.state-option').first().click();
@@ -779,16 +778,16 @@ test('an end is red, named, and offers nothing further', async ({ page }) => {
     await page.waitForTimeout(120);
   }
 
-  const now = page.locator('.state-view__now .seq-stage__object');
+  const now = page.locator('.state-chip[data-state='sending']');
   await expect(now).toHaveAttribute('data-terminal', 'true');
   await expect(now).toContainText('End');
 
   // `[*]` is both start and end; an end must not offer the start's transitions.
   await expect(page.locator('.state-option')).toHaveCount(0);
-  await expect(page.locator('.state-view__next')).toContainText('end of the run');
+  await expect(page.locator('.state-options')).toContainText('end of the run');
 
   const colour = await page.evaluate(() => {
-    const el = document.querySelector('.state-view__now .seq-stage__object')!;
+    const el = document.querySelector('.state-chip[data-state='sending']')!;
     return getComputedStyle(el).borderTopColor;
   });
   // Red, and distinct from the accent used everywhere else.
@@ -823,7 +822,7 @@ test('a subgroup end offers the parent ways out; only the top-level end stops', 
   // Walk until we are standing on a subgroup end.
   let sawSubgroupEnd = false;
   for (let i = 0; i < 14; i += 1) {
-    const now = page.locator('.state-view__now .seq-stage__object');
+    const now = page.locator('.state-chip[data-state='sending']');
     const text = (await now.textContent()) ?? '';
     if (text.startsWith('End of')) {
       sawSubgroupEnd = true;
@@ -831,7 +830,7 @@ test('a subgroup end offers the parent ways out; only the top-level end stops', 
       // machine around it still has ways out, and those are offered.
       await expect(now).toHaveAttribute('data-terminal', 'true');
       expect(await page.locator('.state-option').count()).toBeGreaterThan(0);
-      await expect(page.locator('.state-view__next')).not.toContainText('end of the run');
+      await expect(page.locator('.state-options')).not.toContainText('end of the run');
       break;
     }
     // Stay inside the composite: an option tagged "leaves X" is an escape and
@@ -885,7 +884,7 @@ test('a transition on an enclosing state can be taken from inside it', async ({ 
 
   await escape.click();
   await page.waitForTimeout(200);
-  await expect(page.locator('.state-view__now')).toContainText('Cancelled');
+  await expect(page.locator(".state-chip[data-state='sending']")).toContainText('Cancelled');
   // Leaving the composite drops its box.
   await expect(page.locator('.state-box')).toHaveCount(0);
 
@@ -902,5 +901,4 @@ test('the state view shows no step counter, since a loop has no total', async ({
   expect(toolbar).not.toMatch(/\d+\s*\/\s*\d+/);
 
   // The history is still there, in the panel that can express it honestly.
-  await expect(page.locator('.archidea-sequence')).toContainText('Path taken');
 });

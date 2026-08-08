@@ -61,3 +61,26 @@ describe('isWithin', () => {
     expect(() => isWithin(cyclic, 'A', 'B')).not.toThrow();
   });
 });
+
+describe('depthWithin', () => {
+  const ast = parse(NESTED);
+
+  it('places a state at the nesting level that actually holds it', async () => {
+    const { depthWithin, enclosingStates } = await import('./nesting');
+    const chain = enclosingStates(ast, 'Deep'); // [Outer, Inner]
+
+    // Deep sits inside both; Inner inside only Outer; a state outside, neither.
+    expect(depthWithin(ast, 'Deep', chain)).toBe(2);
+    expect(depthWithin(ast, 'Inner', chain)).toBe(1);
+    expect(depthWithin(ast, 'Outer', chain)).toBe(0);
+    expect(depthWithin(ast, 'Nonexistent', chain)).toBe(0);
+  });
+
+  it('stops at the first container that does not hold it', async () => {
+    const { depthWithin } = await import('./nesting');
+    const chain = [ast.stateById.get('Inner')!, ast.stateById.get('Outer')!];
+
+    // Inner does not contain Outer, so the walk stops immediately.
+    expect(depthWithin(ast, 'Outer', chain)).toBe(0);
+  });
+});
