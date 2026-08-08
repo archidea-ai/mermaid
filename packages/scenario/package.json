@@ -1,0 +1,43 @@
+{
+  "name": "@archidea-ai/mermaid-scenario",
+  "version": "0.1.0",
+  "description": "Shared run model for scenario-family diagram renderers",
+  "keywords": [
+    "mermaid",
+    "scenario",
+    "step-through",
+    "react"
+  ],
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist"
+  ],
+  "dependencies": {
+    "@archidea-ai/mermaid-core": "workspace:*"
+  },
+  "peerDependencies": {
+    "mermaid": "^11.16.0",
+    "react": "^18.0.0 || ^19.0.0",
+    "react-dom": "^18.0.0 || ^19.0.0"
+  },
+  "peerDependenciesMeta": {
+    "mermaid": {
+      "optional": true
+    }
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

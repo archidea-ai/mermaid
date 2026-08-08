@@ -1,4 +1,4 @@
-import type { VariableEffect } from '../parser/ast';
+import type { VariableEffect } from './types';
 
 export type VariableValue = string | number | boolean;
 

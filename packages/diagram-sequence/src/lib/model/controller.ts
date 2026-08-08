@@ -1,8 +1,8 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { createBindings, replayEffects } from './bindings';
+import { createBindings, replayEffects } from '@archidea-ai/mermaid-scenario';
 import { buildTimeline } from './timeline';
 import { collectDeclaredTypes } from '../parser/parse';
-import type { VariableBindings, VariableValue } from './bindings';
+import type { VariableBindings, VariableValue } from '@archidea-ai/mermaid-scenario';
 import type { Decision, PendingDecision, Step, Timeline } from './timeline';
 import type { SequenceDiagramAst, VariableDeclaration } from '../parser/ast';
 import type { StepController } from '@archidea-ai/mermaid-core';

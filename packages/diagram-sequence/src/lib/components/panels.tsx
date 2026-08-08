@@ -12,7 +12,7 @@ import type { SequenceRunController, VariablePrompt } from '../model/controller'
 import type { Timeline } from '../model/timeline';
 import type { EmphasisMap } from '../layout/emphasis';
 import type { VariableType } from '../parser/ast';
-import type { VariableValue } from '../model/bindings';
+import type { VariableValue } from '@archidea-ai/mermaid-scenario';
 
 /** Classic lays out the whole protocol; modern shows only the active call. */
 export type SequenceVariant = 'classic' | 'modern';

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { parse } from '../parser/parse';
 import { buildTimeline } from '../model/timeline';
-import { createBindings } from '../model/bindings';
+import { createBindings } from '@archidea-ai/mermaid-scenario';
 import { computeGrid, HEADER_ROW } from './grid';
 import { computeEmphasis } from './emphasis';
 

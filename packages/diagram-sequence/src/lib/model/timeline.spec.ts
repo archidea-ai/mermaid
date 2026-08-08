@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { parse } from '../parser/parse';
 import { buildTimeline } from './timeline';
-import { createBindings } from './bindings';
+import { createBindings } from '@archidea-ai/mermaid-scenario';
 import type { Decision, DecisionMap } from './timeline';
 
 const decisions = (...list: Decision[]): DecisionMap =>

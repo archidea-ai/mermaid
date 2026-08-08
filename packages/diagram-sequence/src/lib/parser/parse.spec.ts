@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { parse } from './parse';
 import { preprocess } from './preprocess';
-import { parseRichText } from './variables';
+import { parseRichText } from '@archidea-ai/mermaid-scenario';
 import { SequenceParseError } from './errors';
 import type { Fragment, Message, Note } from './ast';
 
@@ -298,7 +298,7 @@ describe('parse — large real-world shapes', () => {
   });
 
   it('reads declared types out of fragment labels as well as message text', async () => {
-    const { parseCondition, conditionDeclarations } = await import('../model/conditions');
+    const { parseCondition, conditionDeclarations } = await import('@archidea-ai/mermaid-scenario');
     const opt = parseCondition('{{stepUp : boolean}}')!;
 
     expect(conditionDeclarations(opt)).toEqual([

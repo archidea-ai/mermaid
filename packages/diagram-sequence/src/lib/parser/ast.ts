@@ -1,5 +1,5 @@
 import type { ArrowKind, FragmentKeyword, NotePlacement } from './tokenize';
-import type { Condition } from '../model/conditions';
+import type { Condition } from '@archidea-ai/mermaid-scenario';
 
 export type VariableType = 'string' | 'number' | 'boolean' | { union: readonly string[] };
 

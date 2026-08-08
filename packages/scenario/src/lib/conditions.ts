@@ -1,5 +1,5 @@
-import { parseLiteral, parseVariableToken } from '../parser/variables';
-import type { VariableDeclaration, VariableType } from '../parser/ast';
+import { parseLiteral, parseVariableToken } from './variables';
+import type { VariableDeclaration, VariableType } from './types';
 
 export type Operand =
   | {

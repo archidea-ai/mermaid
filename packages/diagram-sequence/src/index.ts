@@ -1,5 +1,27 @@
 import './lib/theme.css';
 
+// The shared run vocabulary, re-exported so consumers need one import.
+export {
+  conditionDeclarations,
+  conditionVariables,
+  createBindings,
+  evaluateCondition,
+  parseCondition,
+  parseRichText,
+  replayEffects,
+} from '@archidea-ai/mermaid-scenario';
+export type {
+  Condition,
+  RichText,
+  TextSegment,
+  Tristate,
+  VariableBindings,
+  VariableDeclaration,
+  VariableEffect,
+  VariableType,
+  VariableValue,
+} from '@archidea-ai/mermaid-scenario';
+
 export { sequenceRenderer } from './lib/renderer';
 export { SequenceDiagramSurface } from './lib/components/surface';
 export { SequenceCanvas } from './lib/components/canvas';
@@ -21,7 +43,6 @@ export type { SequenceVariant } from './lib/components/panels';
 
 export { parse } from './lib/parser/parse';
 export { SequenceParseError } from './lib/parser/errors';
-export { parseRichText } from './lib/parser/variables';
 export type {
   Fragment,
   FragmentBranch,
@@ -29,13 +50,8 @@ export type {
   Note,
   Participant,
   ParticipantBox,
-  RichText,
   SequenceDiagramAst,
   Statement,
-  TextSegment,
-  VariableDeclaration,
-  VariableEffect,
-  VariableType,
 } from './lib/parser/ast';
 
 export { buildTimeline } from './lib/model/timeline';
@@ -49,12 +65,6 @@ export type {
   StepKind,
   Timeline,
 } from './lib/model/timeline';
-
-export { createBindings, replayEffects } from './lib/model/bindings';
-export type { VariableBindings, VariableValue } from './lib/model/bindings';
-
-export { conditionVariables, evaluateCondition, parseCondition } from './lib/model/conditions';
-export type { Condition, Tristate } from './lib/model/conditions';
 
 export { useSequenceRun } from './lib/model/controller';
 export type { SequenceRunController, VariablePrompt } from './lib/model/controller';

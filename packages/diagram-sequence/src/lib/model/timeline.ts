@@ -1,6 +1,6 @@
-import { conditionDeclarations, evaluateCondition } from './conditions';
-import { createBindings } from './bindings';
-import type { VariableBindings } from './bindings';
+import { conditionDeclarations, evaluateCondition } from '@archidea-ai/mermaid-scenario';
+import { createBindings } from '@archidea-ai/mermaid-scenario';
+import type { VariableBindings } from '@archidea-ai/mermaid-scenario';
 import type {
   Fragment,
   FragmentBranch,

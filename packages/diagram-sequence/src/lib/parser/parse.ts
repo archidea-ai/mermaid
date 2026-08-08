@@ -1,8 +1,8 @@
-import { parseCondition } from '../model/conditions';
+import { parseCondition } from '@archidea-ai/mermaid-scenario';
 import { SequenceParseError } from './errors';
 import { preprocess } from './preprocess';
 import { tokenize } from './tokenize';
-import { parseRichText } from './variables';
+import { parseRichText } from '@archidea-ai/mermaid-scenario';
 import type { Token } from './tokenize';
 import type {
   Fragment,

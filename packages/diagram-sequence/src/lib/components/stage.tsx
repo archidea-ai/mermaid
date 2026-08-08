@@ -5,7 +5,7 @@ import { useAnchors } from '../layout/use-anchors';
 import { isPhaseBanner } from '../model/notes';
 import type { ArrowKind } from '../parser/tokenize';
 import type { Timeline } from '../model/timeline';
-import type { VariableBindings } from '../model/bindings';
+import type { VariableBindings } from '@archidea-ai/mermaid-scenario';
 import type { Participant, RichText, SequenceDiagramAst } from '../parser/ast';
 
 const DOTTED: readonly ArrowKind[] = ['-->', '-->>', '--x', '--)', '<<-->>'];

@@ -23,7 +23,8 @@
       "@archidea-ai/mermaid-diagram-sequence": ["packages/diagram-sequence/src/index.ts"],
       "@archidea-ai/mermaid": ["packages/mermaid/src/index.ts"],
       "@archidea-ai/mermaid/react": ["packages/mermaid/src/react.ts"],
-      "@archidea-ai/mermaid/registry": ["packages/mermaid/src/registry.ts"]
+      "@archidea-ai/mermaid/registry": ["packages/mermaid/src/registry.ts"],
+      "@archidea-ai/mermaid-scenario": ["packages/scenario/src/index.ts"]
     }
   },
   "exclude": ["node_modules", "dist", "tmp"]

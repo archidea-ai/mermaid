@@ -122,6 +122,9 @@ importers:
       '@archidea-ai/mermaid-react':
         specifier: workspace:*
         version: link:../react
+      '@archidea-ai/mermaid-scenario':
+        specifier: workspace:*
+        version: link:../scenario
       '@base-ui/react':
         specifier: ^1.7.0
         version: 1.7.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -182,6 +185,21 @@ importers:
         version: 19.2.8(react@19.2.8)
 
   packages/react:
+    dependencies:
+      '@archidea-ai/mermaid-core':
+        specifier: workspace:*
+        version: link:../core
+      mermaid:
+        specifier: ^11.16.0
+        version: 11.16.0
+      react:
+        specifier: ^18.0.0 || ^19.0.0
+        version: 19.2.8
+      react-dom:
+        specifier: ^18.0.0 || ^19.0.0
+        version: 19.2.8(react@19.2.8)
+
+  packages/scenario:
     dependencies:
       '@archidea-ai/mermaid-core':
         specifier: workspace:*

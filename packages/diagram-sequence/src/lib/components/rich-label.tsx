@@ -1,6 +1,6 @@
 import { Fragment } from 'react';
 import type { ReactNode } from 'react';
-import type { VariableBindings } from '../model/bindings';
+import type { VariableBindings } from '@archidea-ai/mermaid-scenario';
 import type { RichText, TextSegment } from '../parser/ast';
 
 export interface RichLabelProps {

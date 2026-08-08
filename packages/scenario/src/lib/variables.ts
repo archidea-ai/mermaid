@@ -4,7 +4,7 @@ import type {
   VariableDeclaration,
   VariableEffect,
   VariableType,
-} from './ast';
+} from './types';
 
 const TOKEN = /\{\{([^}]*)\}\}/g;
 
