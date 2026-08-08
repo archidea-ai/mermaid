@@ -12,8 +12,9 @@
       "@archidea-ai/mermaid/react": ["../../packages/mermaid/src/react.ts"],
       "@archidea-ai/mermaid/registry": ["../../packages/mermaid/src/registry.ts"],
       "@archidea-ai/mermaid-scenario": ["../../packages/scenario/src/index.ts"],
+      "@archidea-ai/mermaid-diagram-flowchart": ["../../packages/diagram-flowchart/src/index.ts"],
       "@archidea-ai/mermaid-diagram-state": ["../../packages/diagram-state/src/index.ts"],
-      "@archidea-ai/mermaid-diagram-flowchart": ["../../packages/diagram-flowchart/src/index.ts"]
+      "@/*": ["./src/*"]
     }
   },
   "include": ["src/**/*.ts", "src/**/*.tsx"],

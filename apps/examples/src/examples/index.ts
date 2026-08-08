@@ -220,4 +220,28 @@ export const examples: readonly DiagramExample[] = [
     RolledBack --> [*]
     Cancelled --> [*]`,
   },
+  {
+    id: 'release-flowchart',
+    title: 'Release pipeline — a flowchart to explore',
+    description:
+      'A flowchart is a map rather than a run, so there is one view: the whole chart, in dependency order. Click a node to light it, everything one edge away, and the edges between them.',
+    source: `flowchart LR
+    Commit([Commit pushed]) --> Lint[Lint and typecheck]
+    Lint --> Unit[Unit tests]
+
+    subgraph gates [Quality gates]
+        Unit --> Coverage{Coverage >= 80%?}
+        Coverage -- no --> Fail[/Report and stop/]
+        Coverage -- yes --> Bundle[Build bundle]
+    end
+
+    Bundle --> Sign[[Sign artefacts]]
+    Sign --> Stage[(Publish to staging)]
+    Stage --> Smoke{Smoke tests pass?}
+    Smoke -- no --> Rollback[Roll back staging]
+    Smoke -- yes --> Approve[Await approval]
+    Approve --> Prod[(Publish to production)]
+    Prod --> Announce([Announce release])
+    Rollback --> Lint`,
+  },
 ];

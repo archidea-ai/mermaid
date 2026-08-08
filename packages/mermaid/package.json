@@ -46,6 +46,7 @@
     "@archidea-ai/mermaid-react": "workspace:*",
     "@archidea-ai/mermaid-diagram-sequence": "workspace:*",
     "@archidea-ai/mermaid-diagram-state": "workspace:*",
+    "@archidea-ai/mermaid-diagram-flowchart": "workspace:*",
     "@archidea-ai/mermaid-scenario": "workspace:*"
   },
   "peerDependencies": {

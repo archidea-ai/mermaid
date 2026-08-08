@@ -1,6 +1,7 @@
 import { defaultRegistry } from '@archidea-ai/mermaid-core';
 import { sequenceRenderer } from '@archidea-ai/mermaid-diagram-sequence';
 import { stateRenderer } from '@archidea-ai/mermaid-diagram-state';
+import { flowchartRenderer } from '@archidea-ai/mermaid-diagram-flowchart';
 
 /**
  * Registers the renderers the drop-in ships with.
@@ -14,7 +15,7 @@ import { stateRenderer } from '@archidea-ai/mermaid-diagram-state';
  * kept working. `sideEffects` in package.json now names these entry points too.
  */
 export function registerDefaultRenderers(): void {
-  for (const renderer of [sequenceRenderer, stateRenderer]) {
+  for (const renderer of [sequenceRenderer, stateRenderer, flowchartRenderer]) {
     if (defaultRegistry.list().some((existing) => existing.id === renderer.id)) continue;
     defaultRegistry.register(renderer);
   }

@@ -14,13 +14,14 @@ time. The registry is the seam that makes that additive.
 
 ## Package graph
 
-| Package                                 | Role                                                                                                                                                              |
-| --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `@archidea-ai/mermaid-core`             | Framework-free. Renderer registry, lazy loader for the optional `mermaid` peer, proxy renderer, config store, interaction contracts. **No runtime React import.** |
-| `@archidea-ai/mermaid-react`            | `<Mermaid>` host, `<SequenceDiagram>`, hooks.                                                                                                                     |
-| `@archidea-ai/mermaid-diagram-sequence` | Native interactive sequence renderer: parser, timeline, layout, components.                                                                                       |
-| `@archidea-ai/mermaid`                  | Drop-in facade. Mirrors upstream's module shape, registers the native renderers.                                                                                  |
-| `apps/examples`                         | Not published. Consumes the facade as an end user would; deploys to GitHub Pages.                                                                                 |
+| Package                                  | Role                                                                                                                                                              |
+| ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@archidea-ai/mermaid-core`              | Framework-free. Renderer registry, lazy loader for the optional `mermaid` peer, proxy renderer, config store, interaction contracts. **No runtime React import.** |
+| `@archidea-ai/mermaid-react`             | `<Mermaid>` host, `<SequenceDiagram>`, hooks.                                                                                                                     |
+| `@archidea-ai/mermaid-diagram-sequence`  | Native interactive sequence renderer: parser, timeline, layout, components.                                                                                       |
+| `@archidea-ai/mermaid-diagram-flowchart` | Native flowchart renderer: parser, layered layout, overview component.                                                                                            |
+| `@archidea-ai/mermaid`                   | Drop-in facade. Mirrors upstream's module shape, registers the native renderers.                                                                                  |
+| `apps/examples`                          | Not published. Consumes the facade as an end user would; deploys to GitHub Pages.                                                                                 |
 
 ### Key architectural facts
 
@@ -28,6 +29,20 @@ time. The registry is the seam that makes that additive.
   proxy is the terminal fallback and supports every type, so resolution never
   fails. Adding a diagram type is one `register()` call — never a change to the
   facade or the host component.
+- **A flowchart has one view, and no selector.** It is a map rather than a run —
+  there is no current step — so an overview is the only honest reading of one,
+  and a chooser with a single option is chrome that says nothing. Selecting a
+  node lights it, its first-degree neighbours and the edges between them;
+  widening that ring past one step lights the whole chart back up, which is the
+  thing selecting was meant to cut through.
+- **Flowchart rank is the _longest_ path from a source**, not the shortest.
+  A node reachable both early and late belongs after both; the shortest distance
+  drew edges running backwards through the chart. A cycle is handled by refusing
+  to revisit a node on the path currently being followed.
+- **Every native renderer's root wears `archidea-sequence`.** That is the class
+  the `--seq-*` tokens are scoped to, so a host theme reaches all of them by one
+  class and nothing else. A renderer that wears only its own class renders
+  unstyled.
 - **Sequence has two views**, `classic` (CSS Grid lanes, `canvas.tsx` +
   `layout/grid.ts`) and `modern` (free placement on a stage, `stage.tsx` +
   `layout/stage.ts`). They share the run controller, tokens and emphasis

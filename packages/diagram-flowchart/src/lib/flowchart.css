@@ -1,0 +1,251 @@
+/*
+ * Flowchart chrome.
+ *
+ * Every value here is a --seq-* token, declared by the sequence package's
+ * theme.css and scoped to the renderer root — no colour is hard-coded, and a
+ * host theme reaches these components the same way it reaches the others.
+ */
+
+.archidea-flowchart {
+  display: grid;
+  gap: 10px;
+  color: var(--seq-text);
+  font-family: var(--seq-font);
+}
+
+.flow-hint {
+  margin: 0;
+  font-size: var(--seq-font-size-small);
+  color: var(--seq-text-muted);
+}
+
+.flow-view {
+  position: relative;
+  padding: 18px;
+  min-height: 10rem;
+  overflow-x: auto;
+  border: 1px solid var(--seq-border);
+  border-radius: var(--seq-radius);
+  background: var(--seq-surface-sunken);
+}
+
+.flow-chart {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  /* Wide enough for an edge's own words to sit between two columns. */
+  gap: 7rem;
+  min-width: max-content;
+  padding-block: 4px;
+}
+
+.flow-chart__lines {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  /*
+   * `inset: 0` sizes this to the visible box, but the chart is wider than that
+   * once it scrolls. overflow: visible lets paths paint past the edge, and the
+   * anchors are measured in content coordinates so they scroll with the chart
+   * rather than sliding against it.
+   */
+  overflow: visible;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.flow-column {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 12px;
+  align-content: start;
+}
+
+.flow-column__nodes {
+  display: grid;
+  gap: 10px;
+  justify-items: start;
+}
+
+/* ---------------------------------------------------------------------------
+ * Nodes. The shape an author drew carries meaning, so it is kept.
+ * ------------------------------------------------------------------------- */
+
+.flow-node {
+  position: relative;
+  display: grid;
+  place-items: center;
+  max-width: 13rem;
+  padding: 9px 14px;
+  text-align: center;
+  font: inherit;
+  font-weight: 500;
+  color: var(--seq-participant-text);
+  background: var(--seq-participant-fill);
+  border: 1.5px solid var(--seq-participant-stroke);
+  border-radius: 8px;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+  transition:
+    opacity var(--seq-duration) var(--seq-easing),
+    border-color var(--seq-duration) var(--seq-easing),
+    background var(--seq-duration) var(--seq-easing);
+}
+
+.flow-node[data-shape='round'] {
+  border-radius: 14px;
+}
+.flow-node[data-shape='stadium'],
+.flow-node[data-shape='circle'] {
+  border-radius: 999px;
+}
+.flow-node[data-shape='diamond'],
+.flow-node[data-shape='hexagon'] {
+  border-radius: 4px;
+  /* A decision reads as a diamond; clipping the box says so without an SVG. */
+  clip-path: polygon(14% 0, 86% 0, 100% 50%, 86% 100%, 14% 100%, 0 50%);
+  padding-inline: 26px;
+}
+.flow-node[data-shape='cylinder'] {
+  border-radius: 8px / 20px;
+}
+.flow-node[data-shape='subroutine'] {
+  box-shadow:
+    inset 4px 0 0 -1.5px var(--seq-participant-stroke),
+    inset -4px 0 0 -1.5px var(--seq-participant-stroke);
+  padding-inline: 20px;
+}
+.flow-node[data-shape='parallelogram'],
+.flow-node[data-shape='trapezoid'],
+.flow-node[data-shape='asymmetric'] {
+  border-radius: 3px;
+}
+
+.flow-node:hover,
+.flow-node:focus-visible {
+  border-color: var(--seq-accent);
+}
+
+/* ---------------------------------------------------------------------------
+ * Subgraphs.
+ * ------------------------------------------------------------------------- */
+
+.flow-group {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px dashed var(--seq-border);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--seq-surface) 35%, transparent);
+}
+
+.flow-group__title {
+  margin: 0;
+  font-size: var(--seq-font-size-small);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--seq-text-muted);
+}
+
+/* ---------------------------------------------------------------------------
+ * Edges.
+ * ------------------------------------------------------------------------- */
+
+.flow-edge {
+  stroke: var(--seq-message);
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  fill: none;
+  transition:
+    stroke var(--seq-duration) var(--seq-easing),
+    opacity var(--seq-duration) var(--seq-easing);
+}
+.flow-edge[data-style='dotted'] {
+  stroke-dasharray: 4 4;
+}
+.flow-edge[data-style='thick'] {
+  stroke-width: 3;
+}
+
+.flow-edge__label {
+  position: absolute;
+  z-index: 2;
+  transform: translate(-50%, -50%);
+  max-width: 6.5rem;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: var(--seq-font-size-small);
+  color: var(--seq-text-muted);
+  background: var(--seq-surface);
+  text-align: center;
+  line-height: 1.3;
+  pointer-events: none;
+  transition: opacity var(--seq-duration) var(--seq-easing);
+}
+
+/* ---------------------------------------------------------------------------
+ * Selection: a node and what it touches, with everything else out of the way.
+ * ------------------------------------------------------------------------- */
+
+/* While selecting, the lit edges are the subject, so they come to the front. */
+.flow-chart[data-selecting='true'] .flow-chart__lines {
+  z-index: 3;
+}
+
+.flow-chart[data-selecting='true'] .flow-node,
+.flow-chart[data-selecting='true'] .flow-edge,
+.flow-chart[data-selecting='true'] .flow-edge__label {
+  opacity: 0.3;
+}
+
+.flow-chart .flow-node[data-lit='true'],
+.flow-chart .flow-edge[data-lit='true'],
+.flow-chart .flow-edge__label[data-lit='true'] {
+  opacity: 1;
+}
+
+.flow-chart .flow-node[data-lit='true'] {
+  z-index: 4;
+  border-color: var(--seq-accent);
+  background: var(--seq-participant-current-fill);
+}
+
+/*
+ * The one that was clicked, distinct from the neighbours it lit up. Stated in
+ * the fill rather than only a ring around it: a diamond is drawn with
+ * `clip-path`, which cuts off anything outside the shape — including a ring.
+ */
+.flow-chart .flow-node[data-selected='true'] {
+  z-index: 5;
+  color: var(--seq-text-strong);
+  background: color-mix(in srgb, var(--seq-accent) 30%, var(--seq-participant-fill));
+  border-color: var(--seq-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--seq-accent) 32%, transparent);
+}
+
+.flow-chart .flow-edge[data-lit='true'] {
+  stroke: var(--seq-accent);
+  stroke-width: 2.5;
+}
+
+/*
+ * A lit edge's label sits above the line layer, which is itself above the
+ * nodes while selecting — so the text stays readable rather than being drawn
+ * over by the very edge it belongs to.
+ */
+.flow-chart .flow-edge__label[data-lit='true'] {
+  z-index: 6;
+  color: var(--seq-text-strong);
+  border: 1px solid var(--seq-accent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flow-node,
+  .flow-edge,
+  .flow-edge__label {
+    transition: none;
+  }
+}

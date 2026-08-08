@@ -25,12 +25,34 @@ describe('default registration', () => {
     expect(defaultRegistry.resolve('sequence').capabilities.step).toBe(true);
   });
 
-  it('leaves every other diagram type on the proxy', async () => {
+  it('leaves every type without a native renderer on the proxy', async () => {
     await import('../index');
     const { defaultRegistry } = await import('@archidea-ai/mermaid-core');
 
-    expect(defaultRegistry.resolve('flowchart-v2').id).toBe('proxy');
     expect(defaultRegistry.resolve('gantt').id).toBe('proxy');
+    expect(defaultRegistry.resolve('classDiagram').id).toBe('proxy');
+  });
+});
+
+describe('flowchart registration', () => {
+  it('resolves flowcharts to the native renderer, under either spelling', async () => {
+    await import('../index');
+    const { defaultRegistry } = await import('@archidea-ai/mermaid-core');
+
+    for (const type of ['flowchart', 'flowchart-v2', 'graph']) {
+      expect(defaultRegistry.resolve(type).id).toBe('flowchart-react');
+    }
+  });
+
+  it('claims no stepping, because a chart is a map rather than a run', async () => {
+    await import('../index');
+    const { defaultRegistry } = await import('@archidea-ai/mermaid-core');
+
+    expect(defaultRegistry.resolve('flowchart').capabilities).toEqual({
+      events: true,
+      viewport: false,
+      step: false,
+    });
   });
 });
 
