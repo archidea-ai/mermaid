@@ -128,20 +128,23 @@ test('pointing at a state lights the route back to the active one', async ({ pag
 
   // Lit and unlit have to be tellable apart on screen, not just in the markup —
   // the route is drawn over the chart, and everything else recedes behind it.
-  const contrast = await page.evaluate(() => {
-    const opacity = (selector: string) =>
-      Number(getComputedStyle(document.querySelector(selector)!).opacity);
-    const layer = (selector: string) =>
-      Number(getComputedStyle(document.querySelector(selector)!).zIndex);
+  // Retried because dimming is a transition, not an instant state change.
+  await expect(async () => {
+    const contrast = await page.evaluate(() => {
+      const opacity = (selector: string) =>
+        Number(getComputedStyle(document.querySelector(selector)!).opacity);
+      const layer = (selector: string) =>
+        Number(getComputedStyle(document.querySelector(selector)!).zIndex);
 
-    return {
-      onRoute: opacity('.state-chip[data-lit="true"]'),
-      offRoute: opacity('.state-chip[data-lit="false"]'),
-      lines: layer('.state-view__lines'),
-      columns: layer('.state-overview__column'),
-    };
-  });
+      return {
+        onRoute: opacity('.state-chip[data-lit="true"]'),
+        offRoute: opacity('.state-chip[data-lit="false"]'),
+        lines: layer('.state-view__lines'),
+        columns: layer('.state-overview__column'),
+      };
+    });
 
-  expect(contrast.onRoute).toBeGreaterThan(contrast.offRoute);
-  expect(contrast.lines).toBeGreaterThan(contrast.columns);
+    expect(contrast.onRoute).toBeGreaterThan(contrast.offRoute);
+    expect(contrast.lines).toBeGreaterThan(contrast.columns);
+  }).toPass();
 });

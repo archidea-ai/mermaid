@@ -60,20 +60,27 @@ test('choosing a node lights it, its neighbours, and the edges between', async (
     'Build bundle',
   ]);
 
-  // Lit and unlit have to be tellable apart on screen, not just in the markup.
-  const contrast = await page.evaluate(() => {
-    const opacity = (selector: string) =>
-      Number(getComputedStyle(document.querySelector(selector)!).opacity);
-    return {
-      on: opacity('.flow-node[data-lit="true"]'),
-      off: opacity('.flow-node[data-lit="false"]'),
-      onEdge: opacity('.flow-edge[data-lit="true"]'),
-      offEdge: opacity('.flow-edge[data-lit="false"]'),
-    };
-  });
+  /*
+   * Lit and unlit have to be tellable apart on screen, not just in the markup.
+   * Retried because dimming is a transition: read the instant the class lands
+   * and both are still at full opacity, which is a slow runner rather than a
+   * broken highlight.
+   */
+  await expect(async () => {
+    const contrast = await page.evaluate(() => {
+      const opacity = (selector: string) =>
+        Number(getComputedStyle(document.querySelector(selector)!).opacity);
+      return {
+        on: opacity('.flow-node[data-lit="true"]'),
+        off: opacity('.flow-node[data-lit="false"]'),
+        onEdge: opacity('.flow-edge[data-lit="true"]'),
+        offEdge: opacity('.flow-edge[data-lit="false"]'),
+      };
+    });
 
-  expect(contrast.on).toBeGreaterThan(contrast.off);
-  expect(contrast.onEdge).toBeGreaterThan(contrast.offEdge);
+    expect(contrast.on).toBeGreaterThan(contrast.off);
+    expect(contrast.onEdge).toBeGreaterThan(contrast.offEdge);
+  }).toPass();
 });
 
 test("a lit edge's own text stays readable over the edge it belongs to", async ({ page }) => {
