@@ -492,167 +492,271 @@
 }
 
 /* ---------------------------------------------------------------------------
- * Modern ("spotlight") view.
+ * Modern view: objects on a stage.
  *
- * Participants pinned across the top, only the active call drawn between them.
- * It reuses .seq-participant, .seq-message and .seq-note wholesale — the only
- * additions here are the stage, the recede treatment, and the context line.
+ * No lanes, no columns, no grid. Participants are placed freely around an
+ * ellipse and the current call is a curved arc that draws itself in with a
+ * packet travelling along it. Motion here conveys state — who is calling whom,
+ * right now — and every duration collapses under prefers-reduced-motion.
  * ------------------------------------------------------------------------- */
 
-.seq-spotlight {
+.seq-stage {
   display: grid;
-  gap: 14px;
+  gap: 10px;
   align-content: start;
-  min-height: 11rem;
+}
+
+.seq-stage__floor {
+  position: relative;
+  width: 100%;
+  min-height: 19rem;
+  aspect-ratio: 16 / 10;
+  border: 1px solid var(--seq-border);
+  border-radius: var(--seq-radius);
+  background:
+    radial-gradient(
+      circle at 50% 45%,
+      color-mix(in srgb, var(--seq-accent) 9%, transparent),
+      transparent 62%
+    ),
+    var(--seq-surface);
   overflow: hidden;
 }
 
-.seq-spotlight__stage {
-  display: grid;
-  grid-template-rows: auto minmax(5.25rem, auto);
-  align-items: center;
-  gap: 0;
-  /* Deliberately no min-width: this view never scrolls sideways. */
+.seq-stage__arcs {
+  position: absolute;
+  inset: 0;
   width: 100%;
+  height: 100%;
+  pointer-events: none;
 }
 
-/*
- * Everything not in the current step recedes rather than competing — but stays
- * legible. A participant dimmed out of visibility reads as absent from the
- * system, which is a different and wrong statement.
- */
-.seq-spotlight .seq-participant {
+.seq-stage__arc {
+  stroke: var(--seq-message-current);
+  stroke-width: 2;
+  stroke-linecap: round;
+  /* pathLength is normalised to 100, so the dash maths is resolution-free. */
+  stroke-dasharray: 100;
+  animation: seq-draw 0.75s var(--seq-easing) forwards;
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--seq-accent) 45%, transparent));
+}
+.seq-stage__call[data-dotted='true'] .seq-stage__arc {
+  stroke-dasharray: 6 5;
+  animation: seq-dash 0.9s linear infinite;
+}
+
+@keyframes seq-draw {
+  from {
+    stroke-dashoffset: 100;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes seq-dash {
+  to {
+    stroke-dashoffset: -22;
+  }
+}
+
+.seq-stage__packet {
+  fill: var(--seq-accent);
+  filter: drop-shadow(0 0 7px var(--seq-accent));
+}
+
+.seq-stage__object {
+  position: absolute;
+  translate: -50% -50%;
+  display: grid;
+  place-items: center;
+  padding: 10px 16px;
+  max-width: 9.5rem;
+  text-align: center;
+  font-weight: 500;
+  color: var(--seq-participant-text);
+  background: var(--seq-participant-fill);
+  border: 1.5px solid var(--seq-participant-stroke);
+  border-radius: 10px;
+  overflow-wrap: anywhere;
   transition:
+    scale var(--seq-duration) var(--seq-easing),
     opacity var(--seq-duration) var(--seq-easing),
+    border-color var(--seq-duration) var(--seq-easing),
     background var(--seq-duration) var(--seq-easing);
 }
-.seq-spotlight .seq-participant[data-dimmed='true'] {
+.seq-stage__object[data-kind='actor'] {
+  border-radius: 999px;
+}
+
+/* Not involved: recede, but stay legible — absent is a different statement. */
+.seq-stage__object[data-state='resting'] {
+  opacity: 0.55;
+  scale: 0.92;
+}
+.seq-stage__object[data-state='sending'],
+.seq-stage__object[data-state='receiving'] {
+  background: var(--seq-participant-current-fill);
+  border-color: var(--seq-participant-current-stroke);
+  scale: 1.06;
+  font-weight: 600;
+}
+
+.seq-stage__name {
+  position: relative;
+  z-index: 1;
+}
+
+/* The receiver rings when the packet lands. */
+.seq-stage__ripple {
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  border: 2px solid var(--seq-accent);
+  opacity: 0;
+}
+.seq-stage__object[data-state='receiving'] .seq-stage__ripple {
+  animation: seq-ripple 0.85s var(--seq-easing) 0.75s;
+}
+.seq-stage__object[data-state='sending'] .seq-stage__ripple {
+  animation: seq-ripple 0.6s var(--seq-easing);
+}
+
+@keyframes seq-ripple {
+  0% {
+    opacity: 0.85;
+    scale: 1;
+  }
+  100% {
+    opacity: 0;
+    scale: 1.45;
+  }
+}
+
+.seq-stage__label {
+  position: absolute;
+  translate: -50% -50%;
+  max-width: 15rem;
+  margin: 0;
+  padding: 5px 11px;
+  text-align: center;
+  border-radius: 8px;
+  animation: seq-rise 0.45s var(--seq-easing) 0.35s backwards;
+  color: var(--seq-text-strong);
+  background: color-mix(in srgb, var(--seq-surface) 88%, transparent);
+  border: 1px solid var(--seq-border);
+  backdrop-filter: blur(3px);
+}
+
+/* A note takes the stage: it is an aside from the author, not the mechanism. */
+.seq-stage__overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+}
+
+.seq-stage__scrim {
+  position: absolute;
+  inset: 0;
+  background: color-mix(in srgb, var(--seq-surface) 72%, transparent);
+  backdrop-filter: blur(2px);
+  animation: seq-fade 0.28s var(--seq-easing);
+}
+
+.seq-stage__note {
+  position: relative;
+  max-width: 22rem;
+  margin: 0;
+  padding: 14px 18px;
+  text-align: center;
+  color: var(--seq-note-text);
+  background: var(--seq-note-fill);
+  border: 1px solid var(--seq-note-stroke);
+  border-radius: 12px;
+  box-shadow: 0 12px 32px color-mix(in srgb, #000 34%, transparent);
+  animation: seq-pop 0.32s var(--seq-easing);
+}
+
+.seq-stage__note-tag {
+  display: block;
+  margin-bottom: 5px;
+  font-family: var(--seq-font-mono);
+  font-size: var(--seq-font-size-small);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
   opacity: 0.62;
 }
 
-.seq-spotlight .seq-participant {
-  min-width: 0;
-  max-width: 100%;
-  padding-inline: 8px;
+@keyframes seq-fade {
+  from {
+    opacity: 0;
+  }
 }
 
-.seq-spotlight .seq-message {
-  align-self: start;
-  min-width: 0;
-  padding-top: 0;
+@keyframes seq-pop {
+  from {
+    opacity: 0;
+    scale: 0.94;
+    translate: 0 8px;
+  }
 }
 
-/*
- * The call attaches to the boxes rather than floating below them: the line
- * carries a leg at each end that rises to the participant it touches, so the
- * connection is drawn rather than implied by alignment.
- */
-.seq-spotlight .seq-message__line {
-  /*
-   * Drawn first, so the connector meets the participant boxes directly and the
-   * label reads beneath it. With the label between the two, the line floated
-   * ~47px clear of the boxes and the connection was implied rather than shown.
-   */
-  order: -1;
-  height: 20px;
-  margin-top: 0;
-  border-top: 0;
-  border-bottom: 1.75px solid var(--seq-message-current);
-  border-left: 1.75px solid var(--seq-message-current);
-  border-right: 1.75px solid var(--seq-message-current);
-  border-radius: 8px 8px 0 0;
-}
-.seq-spotlight .seq-message[data-dotted='true'] .seq-message__line {
-  border-bottom-style: dashed;
+@keyframes seq-rise {
+  from {
+    opacity: 0;
+    translate: -50% calc(-50% + 10px);
+  }
+  to {
+    opacity: 1;
+    translate: -50% -50%;
+  }
 }
 
-/*
- * The head points up into the receiving participant, not sideways along the
- * connector — the call arrives at a box, and that is what the arrow should say.
- *
- * The modern view uses one head shape for every arrow kind. Solid/dotted still
- * distinguishes synchronous from asynchronous, but open-vs-cross-vs-async head
- * nuance is detail this view's audience does not read, and four near-identical
- * triangles at 10px cost more than they explain.
- */
-.seq-spotlight .seq-message__line::after {
-  top: 0;
-  bottom: auto;
-  left: auto;
-  right: -6px;
-  width: 0;
-  height: 0;
-  background: none;
-  transform: translateY(-100%);
-  border: 6px solid transparent;
-  border-top-width: 0;
-  border-bottom-color: var(--seq-message-current);
-}
-.seq-spotlight .seq-message[data-direction='backward'] .seq-message__line::after {
-  right: auto;
-  left: -6px;
-  border-right-width: 6px;
-  border-left-width: 6px;
-  border-bottom-color: var(--seq-message-current);
-}
-/* A bidirectional call arrives at both ends. */
-.seq-spotlight .seq-message[data-bidirectional='true'] .seq-message__line::before {
-  top: 0;
-  bottom: auto;
-  left: -6px;
-  right: auto;
-  transform: translateY(-100%);
-  border: 6px solid transparent;
-  border-top-width: 0;
-  border-bottom-color: var(--seq-message-current);
-}
-.seq-spotlight .seq-message[data-bidirectional='false'] .seq-message__line::before {
-  content: none;
-}
-
-/* A self call needs no second leg — it leaves and returns to one participant. */
-.seq-spotlight .seq-message[data-self='true'] .seq-message__line {
-  width: 46%;
-  margin-inline-start: 27%;
-  border-radius: 8px;
-  border-top: 1.75px solid var(--seq-message-current);
-}
-
-.seq-spotlight .seq-message__label {
-  order: 1;
-  margin-top: 6px;
-  font-size: 1.05em;
-}
-
-.seq-spotlight__idle,
-.seq-spotlight__event {
-  justify-self: center;
-  align-self: center;
-  color: var(--seq-text-muted);
+.seq-stage__idle {
+  position: absolute;
+  inset: auto 0 16px;
+  margin: 0;
   text-align: center;
+  color: var(--seq-text-muted);
 }
 
-.seq-spotlight__event {
-  font-family: var(--seq-font-mono);
-  font-size: var(--seq-font-size-small);
-}
-
-.seq-spotlight__context {
+.seq-stage__context {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   justify-content: center;
+  margin: 0;
   color: var(--seq-text-muted);
   font-size: var(--seq-font-size-small);
 }
-
-.seq-spotlight__context > span {
+.seq-stage__context > span {
   padding: 2px 8px;
   border: 1px dashed var(--seq-fragment-stroke);
   border-radius: 999px;
 }
-
-.seq-spotlight__kind {
+.seq-stage__kind {
   font-family: var(--seq-font-mono);
   color: var(--seq-text);
+}
+
+/*
+ * Reduced motion: keep every state change, drop every animation. The arc must
+ * still be fully drawn rather than stuck at its starting dash offset.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .seq-stage__arc {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+  .seq-stage__packet,
+  .seq-stage__ripple {
+    display: none;
+  }
+  .seq-stage__label,
+  .seq-stage__note,
+  .seq-stage__scrim {
+    animation: none;
+  }
 }

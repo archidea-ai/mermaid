@@ -6,7 +6,7 @@ import { buildTimeline } from '../model/timeline';
 import { computeEmphasis } from '../layout/emphasis';
 import { computeGrid } from '../layout/grid';
 import { SequenceCanvas } from './canvas';
-import { SequenceSpotlight } from './spotlight';
+import { SequenceStage } from './stage';
 import { DecisionPanel, NotePanel, SequenceToolbar, StepList, VariablePanel } from './panels';
 import type { SequenceVariant } from './panels';
 import type { DiagramSurfaceProps } from '@archidea-ai/mermaid-core';
@@ -73,8 +73,8 @@ function InteractiveSurface({
       <SequenceToolbar controller={controller} variant={variant} onVariantChange={setVariant} />
       <div className="archidea-sequence__body">
         {variant === 'modern' ? (
-          <SequenceSpotlight
-            grid={grid}
+          <SequenceStage
+            ast={ast}
             timeline={timeline}
             cursor={current}
             bindings={controller.bindings}

@@ -28,9 +28,17 @@ time. The registry is the seam that makes that additive.
   proxy is the terminal fallback and supports every type, so resolution never
   fails. Adding a diagram type is one `register()` call — never a change to the
   facade or the host component.
-- **Sequence has two views**, `classic` and `modern`, both driven by the same
-  grid, controller and tokens. `spotlight.tsx` filters to the current step; it
-  must not fork the emphasis model or the arrow CSS.
+- **Sequence has two views**, `classic` (CSS Grid lanes, `canvas.tsx` +
+  `layout/grid.ts`) and `modern` (free placement on a stage, `stage.tsx` +
+  `layout/stage.ts`). They share the run controller, tokens and emphasis
+  vocabulary but deliberately not their layout. Modern is the default.
+- **`layout/stage.ts` is pure and takes a measured size**, so it stays testable
+  under `node`; `use-stage-size.ts` does the measuring. It falls back to a fixed
+  size when unmeasured — without that, the first paint stacks every object at
+  the origin, and nothing renders under jsdom at all.
+- **Branch on `step.kind`, never `step.node.type`.** The `+`/`-` activation
+  shorthand emits a message step _and_ a lifecycle step that share one message
+  node, so keying off the node renders the same message twice.
 - **Renderers draw HTML, not SVG.** The sequence canvas is a CSS Grid of real
   elements: text wraps, is selectable and findable, screen readers get content
   rather than `<text>` nodes, and shadcn primitives can live _on_ the diagram.

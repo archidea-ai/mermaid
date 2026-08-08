@@ -146,43 +146,6 @@ test('form controls are normalised inside the renderer but not outside it', asyn
   expect(hostSelect).not.toBe('rgba(0, 0, 0, 0)');
 });
 
-test('the modern view shows only the active call, with the rest receded', async ({ page }) => {
-  await page.getByRole('button', { name: 'admin', exact: true }).click();
-  await page.getByRole('button', { name: 'Next step' }).click();
-
-  const spotlight = page.locator('.seq-spotlight');
-  await expect(spotlight).toBeVisible();
-
-  // Every participant stays pinned at the top; only one call is drawn.
-  await expect(spotlight.locator('.seq-participant')).toHaveCount(3);
-  await expect(spotlight.locator('.seq-message')).toHaveCount(1);
-  await expect(spotlight.locator('.seq-message')).toContainText('POST /login');
-
-  // Uninvolved participants recede rather than disappearing.
-  await expect(spotlight.locator('.seq-participant[data-dimmed="true"]')).toHaveCount(1);
-
-  // The active call still spans sender to receiver centre-to-centre.
-  const offsets = await page.evaluate(() => {
-    const centre = (el: Element) => {
-      const r = el.getBoundingClientRect();
-      return r.x + r.width / 2;
-    };
-    const anchors = [...document.querySelectorAll('.seq-spotlight .seq-participant')].map(centre);
-    const line = document
-      .querySelector('.seq-spotlight .seq-message__line')!
-      .getBoundingClientRect();
-    const nearest = (v: number) =>
-      anchors.reduce((best, c) => (Math.abs(c - v) < Math.abs(best - v) ? c : best));
-    return [l1(line.x), l1(line.x + line.width)];
-    function l1(v: number) {
-      return v - nearest(v);
-    }
-  });
-  for (const offset of offsets) expect(Math.abs(offset)).toBeLessThan(1.5);
-
-  await page.screenshot({ path: 'e2e-results/modern.png', fullPage: true });
-});
-
 test('the stepper and values survive switching between views', async ({ page }) => {
   await page.getByRole('button', { name: 'admin', exact: true }).click();
   await page.getByRole('button', { name: 'Next step' }).click();
@@ -198,97 +161,189 @@ test('the app opens on the midnight theme', async ({ page }) => {
   await expect(page.getByLabel('Diagram theme')).toHaveValue('midnight');
 });
 
-test('receded participants stay legible and the view toggle stays in view', async ({ page }) => {
-  await page.getByRole('button', { name: 'admin', exact: true }).click();
-  await page.getByRole('button', { name: 'Next step' }).click();
-
-  // A participant dimmed out of visibility reads as absent from the system.
-  const dimmed = page.locator('.seq-spotlight .seq-participant[data-dimmed="true"]').first();
-  const opacity = await dimmed.evaluate((el) => Number(getComputedStyle(el).opacity));
-  expect(opacity).toBeGreaterThanOrEqual(0.55);
-  await expect(dimmed).toBeVisible();
-
-  // The toggle must sit inside the renderer, not overflow past its edge.
-  const overflow = await page.evaluate(() => {
-    const root = document.querySelector('.archidea-sequence')!.getBoundingClientRect();
-    const toggle = document
-      .querySelector('.archidea-sequence [aria-label="Diagram view"]')!
-      .getBoundingClientRect();
-    return toggle.right - root.right;
-  });
-  expect(overflow).toBeLessThanOrEqual(0);
-});
-
-test('every participant fits on screen in the modern view', async ({ page }) => {
-  await page.getByRole('button', { name: 'admin', exact: true }).click();
-  await page.getByRole('button', { name: 'Next step' }).click();
-
-  // This view exists so the whole cast is visible at once; a participant pushed
-  // into a horizontal scroll defeats it.
-  const overflow = await page.evaluate(() => {
-    const stage = document.querySelector('.seq-spotlight')!.getBoundingClientRect();
-    return [...document.querySelectorAll('.seq-spotlight .seq-participant')].map((el) => {
-      const r = el.getBoundingClientRect();
-      return Math.max(stage.left - r.left, r.right - stage.right);
-    });
-  });
-
-  expect(overflow).toHaveLength(3);
-  for (const amount of overflow) expect(amount).toBeLessThanOrEqual(0);
-});
-
 test('the modern view shows bound values, not reference names', async ({ page }) => {
   await page.getByRole('button', { name: 'admin', exact: true }).click();
   await page.getByRole('button', { name: 'Next step' }).click();
 
-  const chip = page.locator('.seq-spotlight .seq-var').first();
+  const chip = page.locator('.seq-stage__label .seq-var').first();
   await expect(chip).toHaveText('admin');
   await expect(chip).toHaveAttribute('data-resolved', 'true');
   await expect(chip).toHaveAttribute('title', 'role');
 });
 
-test('the call connects to both participant boxes', async ({ page }) => {
+test('the modern view is objects on a stage, with no lanes', async ({ page }) => {
   await page.getByRole('button', { name: 'admin', exact: true }).click();
   await page.getByRole('button', { name: 'Next step' }).click();
 
-  const gap = await page.evaluate(() => {
-    const line = document.querySelector('.seq-spotlight .seq-message__line')!;
-    const style = getComputedStyle(line);
-    const rect = line.getBoundingClientRect();
-    const involved = [...document.querySelectorAll('.seq-spotlight .seq-participant')]
-      .filter((el) => (el as HTMLElement).dataset.dimmed === 'false')
-      .map((el) => el.getBoundingClientRect());
-    const lowestBox = Math.max(...involved.map((r) => r.bottom));
-    return {
-      legLeft: parseFloat(style.borderLeftWidth),
-      legRight: parseFloat(style.borderRightWidth),
-      distanceToBoxes: rect.top - lowestBox,
-    };
-  });
+  const stage = page.locator('.seq-stage');
+  await expect(stage).toBeVisible();
 
-  // Legs rise from both ends, and the connector meets the boxes rather than
-  // floating in the middle of the row.
-  expect(gap.legLeft).toBeGreaterThan(0);
-  expect(gap.legRight).toBeGreaterThan(0);
-  expect(gap.distanceToBoxes).toBeLessThanOrEqual(8);
+  // Every participant is present as a free-placed object.
+  await expect(stage.locator('.seq-stage__object')).toHaveCount(3);
+  // None of the lane machinery survives here.
+  await expect(page.locator('.seq-grid')).toHaveCount(0);
+  await expect(page.locator('.seq-lifeline')).toHaveCount(0);
+
+  // Exactly one connection is lit, and it is a curve rather than a straight run.
+  await expect(stage.locator('.seq-stage__arc')).toHaveCount(1);
+  const d = await stage.locator('.seq-stage__arc').getAttribute('d');
+  expect(d).toMatch(/^M .* Q /);
+
+  // Let the entrance finish, or the artefact catches a half-drawn arc.
+  await page.waitForTimeout(1400);
+  await page.screenshot({ path: 'e2e-results/stage.png', fullPage: true });
 });
 
-test('the arrow head points up into the receiving participant', async ({ page }) => {
+test('objects are spread around the stage rather than lined up', async ({ page }) => {
+  await page.getByRole('button', { name: 'admin', exact: true }).click();
+
+  const boxes = await page.evaluate(() =>
+    [...document.querySelectorAll('.seq-stage__object')].map((el) => {
+      const r = el.getBoundingClientRect();
+      return { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) };
+    }),
+  );
+
+  expect(boxes).toHaveLength(3);
+  // A lane layout would put them all on one baseline; a stage does not.
+  expect(new Set(boxes.map((b) => b.y)).size).toBeGreaterThan(1);
+  // And they must not overlap each other.
+  for (let i = 0; i < boxes.length; i += 1) {
+    for (let j = i + 1; j < boxes.length; j += 1) {
+      expect(Math.hypot(boxes[i]!.x - boxes[j]!.x, boxes[i]!.y - boxes[j]!.y)).toBeGreaterThan(60);
+    }
+  }
+});
+
+test('the call animates: the arc draws in and a packet travels it', async ({ page }) => {
   await page.getByRole('button', { name: 'admin', exact: true }).click();
   await page.getByRole('button', { name: 'Next step' }).click();
 
-  const head = await page.evaluate(() => {
-    const line = document.querySelector('.seq-spotlight .seq-message__line')!;
-    const style = getComputedStyle(line, '::after');
+  const motion = await page.evaluate(() => {
+    const arc = document.querySelector('.seq-stage__arc')!;
+    const packet = document.querySelector('.seq-stage__packet animateMotion');
     return {
-      top: parseFloat(style.borderTopWidth),
-      bottom: parseFloat(style.borderBottomWidth),
-      bottomColor: style.borderBottomColor,
+      animation: getComputedStyle(arc).animationName,
+      dash: getComputedStyle(arc).strokeDasharray,
+      packetPath: packet?.getAttribute('path') ?? null,
     };
   });
 
-  // An up-pointing CSS triangle: no top border, a coloured bottom one.
-  expect(head.top).toBe(0);
-  expect(head.bottom).toBeGreaterThan(0);
-  expect(head.bottomColor).not.toBe('rgba(0, 0, 0, 0)');
+  expect(motion.animation).toBe('seq-draw');
+  expect(motion.dash).not.toBe('none');
+  expect(motion.packetPath).toMatch(/^M /);
+});
+
+test('sender and receiver are marked distinctly', async ({ page }) => {
+  await page.getByRole('button', { name: 'admin', exact: true }).click();
+  await page.getByRole('button', { name: 'Next step' }).click();
+
+  const states = await page.evaluate(() =>
+    [...document.querySelectorAll<HTMLElement>('.seq-stage__object')].map((el) => [
+      el.textContent,
+      el.dataset.state,
+    ]),
+  );
+
+  expect(states).toEqual([
+    ['User', 'sending'],
+    ['API', 'receiving'],
+    ['DB', 'resting'],
+  ]);
+});
+
+test('motion is dropped under prefers-reduced-motion, but the arc still shows', async ({
+  browser,
+}) => {
+  const context = await browser.newContext({ reducedMotion: 'reduce' });
+  const page = await context.newPage();
+  await page.goto('/');
+  await page.waitForSelector('.archidea-sequence');
+  await page.getByRole('button', { name: 'admin', exact: true }).click();
+  await page.getByRole('button', { name: 'Next step' }).click();
+
+  const state = await page.evaluate(() => {
+    const arc = document.querySelector('.seq-stage__arc')!;
+    return {
+      animation: getComputedStyle(arc).animationName,
+      offset: getComputedStyle(arc).strokeDashoffset,
+      packetShown: !!document.querySelector('.seq-stage__packet')?.checkVisibility?.(),
+    };
+  });
+
+  // The connection must be fully drawn, not frozen at its starting offset.
+  expect(state.animation).toBe('none');
+  expect(state.offset).toBe('0px');
+  expect(state.packetShown).toBe(false);
+  await context.close();
+});
+
+test('the arc and label are fully visible once the entrance settles', async ({ page }) => {
+  await page.getByRole('button', { name: 'admin', exact: true }).click();
+  await page.getByRole('button', { name: 'Next step' }).click();
+  await page.waitForTimeout(1400);
+
+  const settled = await page.evaluate(() => {
+    const arc = document.querySelector('.seq-stage__arc')!;
+    const label = document.querySelector('.seq-stage__label')!;
+    const arcBox = arc.getBoundingClientRect();
+    return {
+      arcWidth: arcBox.width,
+      arcHeight: arcBox.height,
+      dashoffset: getComputedStyle(arc).strokeDashoffset,
+      labelOpacity: Number(getComputedStyle(label).opacity),
+    };
+  });
+
+  // A stroke still offset by its dash length is an arc that never drew.
+  expect(settled.dashoffset).toBe('0px');
+  expect(settled.arcWidth + settled.arcHeight).toBeGreaterThan(40);
+  expect(settled.labelOpacity).toBe(1);
+});
+
+test('a note takes the stage as a centred overlay', async ({ page }) => {
+  // Third example carries a standalone note.
+  await page.getByRole('button', { name: 'Notes, activations and lifecycle' }).click();
+
+  const next = page.getByRole('button', { name: 'Next step' });
+  for (let i = 0; i < 6; i += 1) {
+    if (await page.locator('.seq-stage__overlay').count()) break;
+    await next.click();
+  }
+
+  const overlay = page.locator('.seq-stage__overlay');
+  await expect(overlay).toBeVisible();
+  await expect(overlay.locator('.seq-stage__scrim')).toBeVisible();
+
+  // Let the pop settle: it animates in from 8px below.
+  await page.waitForTimeout(500);
+
+  // Centred on the floor, not anchored to a participant.
+  const centring = await page.evaluate(() => {
+    const floor = document.querySelector('.seq-stage__floor')!.getBoundingClientRect();
+    const note = document.querySelector('.seq-stage__note')!.getBoundingClientRect();
+    return {
+      dx: Math.abs(note.x + note.width / 2 - (floor.x + floor.width / 2)),
+      dy: Math.abs(note.y + note.height / 2 - (floor.y + floor.height / 2)),
+    };
+  });
+  expect(centring.dx).toBeLessThan(2);
+  expect(centring.dy).toBeLessThan(2);
+
+  await page.waitForTimeout(700);
+  await page.screenshot({ path: 'e2e-results/note.png', fullPage: true });
+});
+
+test('the activation shorthand does not render its message twice', async ({ page }) => {
+  // Checkout uses `Client->>+Orders` and `Orders-->>-Client: 201 Created`.
+  await page.getByRole('button', { name: 'Checkout — parallel work and retries' }).click();
+  await page.waitForTimeout(150);
+
+  const labels = await page.locator('.archidea-sequence button[data-emphasis]').allTextContents();
+
+  // `Client->>+Orders: POST /checkout` emits a message step and an activate
+  // step sharing one node. Before the fix the label rendered on both.
+  expect(labels.filter((label) => label.includes('POST /checkout'))).toHaveLength(1);
+  // The lifecycle step is still listed, named for what it is.
+  expect(labels.some((label) => label.startsWith('activate'))).toBe(true);
 });

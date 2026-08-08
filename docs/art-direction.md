@@ -61,8 +61,13 @@ Sequence diagrams render in a **classic** view (the whole protocol) or a
 between them). They are two answers to different questions — "what is the
 protocol?" versus "what is happening now?" — not two visual languages.
 
-They therefore share columns, message markup and every token. The modern view
-adds three ideas:
+They share every token, the run controller and the emphasis vocabulary — but
+**not** their layout. Classic is a CSS Grid of lanes. Modern is free placement
+on a stage: participants around an ellipse, one curved connection lit at a time,
+nothing else on screen. Lanes are what make a sequence diagram read as a
+specification, and removing them is the point rather than a side effect.
+
+The modern view adds three ideas:
 
 - Elements outside the current step **recede**.
 - A reference renders as its **bound value**, not its name — `admin`, not `role`.

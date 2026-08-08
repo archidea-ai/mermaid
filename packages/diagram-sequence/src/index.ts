@@ -3,7 +3,9 @@ import './lib/theme.css';
 export { sequenceRenderer } from './lib/renderer';
 export { SequenceDiagramSurface } from './lib/components/surface';
 export { SequenceCanvas } from './lib/components/canvas';
-export { SequenceSpotlight } from './lib/components/spotlight';
+export { SequenceStage } from './lib/components/stage';
+export { computeArc, computeStage } from './lib/layout/stage';
+export type { StageArc, StageNode, StageSize } from './lib/layout/stage';
 export {
   DecisionPanel,
   NotePanel,

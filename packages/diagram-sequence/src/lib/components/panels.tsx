@@ -284,14 +284,20 @@ export function StepList({ controller, emphasis, timeline }: StepListProps) {
                 className="text-muted-foreground hover:bg-muted data-[emphasis=current]:bg-primary data-[emphasis=current]:text-primary-foreground data-[emphasis=spent]:text-foreground cursor-pointer px-1.5 py-0.5 text-left text-xs"
               >
                 {step.ordinal !== null ? `${step.ordinal}. ` : ''}
-                {step.node.type === 'message' ? (
+                {/*
+                  Keyed on step.kind, never node.type. The +/- activation
+                  shorthand emits a message step and a lifecycle step that share
+                  one message node, so branching on the node rendered the same
+                  message twice.
+                */}
+                {step.kind === 'message' && step.node.type === 'message' ? (
                   step.node.text.segments.length > 0 ? (
                     <RichLabel text={step.node.text} />
                   ) : (
                     `${step.node.from} → ${step.node.to}`
                   )
                 ) : (
-                  `[${step.kind}]`
+                  `${step.kind} · ${step.involved.join(', ')}`
                 )}
               </button>
             ))}
