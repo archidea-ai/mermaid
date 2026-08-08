@@ -50,6 +50,9 @@ export function traverse(
 ): StateTimeline {
   const steps: StateStep[] = [];
   const visited = new Set<string>();
+  // (state, transition) pairs already taken, so a remembered decision on a back
+  // link advances the run once and then asks again instead of spinning.
+  const taken = new Set<string>();
 
   let current = entryOf(ast, start);
   let pending: StateChoice | null = null;
@@ -67,7 +70,7 @@ export function traverse(
       visited.add(current);
     }
 
-    const outgoing = ast.transitions.filter((transition) => transition.from === current);
+    const outgoing = outgoingFrom(ast, current);
     if (outgoing.length === 0) {
       done = true;
       break;
@@ -81,6 +84,19 @@ export function traverse(
       pending = { from: current, options: outgoing, forced: Boolean(forced) };
       break;
     }
+
+    /*
+     * A decision is keyed on the state it was made in, which is what keeps the
+     * run a pure projection — but on a back link that means "retry at Idle"
+     * would fire every time the run returns to Idle, forever. Taking the same
+     * transition from the same state a second time hands control back instead.
+     */
+    const trace = `${current}|${chosen.id}`;
+    if (taken.has(trace)) {
+      pending = { from: current, options: outgoing, forced: Boolean(forced) };
+      break;
+    }
+    taken.add(trace);
 
     // The step lands where the run actually ends up: entering a composite means
     // entering its machine, so the cursor belongs on the inner state, not on the
@@ -219,4 +235,36 @@ export function choicePointOf(at: string | null): string | null {
 /** True only for the end that actually finishes the run. */
 export function isFinalEnd(at: string | null): boolean {
   return at !== null && isTerminal(at) && terminalOwner(at) === null;
+}
+
+/**
+ * Every transition that can fire from where the viewer stands.
+ *
+ * A transition drawn on an enclosing composite state leaves that composite from
+ * *any* of its substates — `Building --> Cancelled` is reachable while you are
+ * deep inside Building's machine. Offering only the innermost state's own
+ * transitions hid every way of interrupting the submachine.
+ *
+ * Innermost first, so the local choices read before the escapes.
+ */
+export function outgoingFrom(
+  ast: StateDiagramAst,
+  stateId: string | null,
+): readonly StateTransition[] {
+  const point = choicePointOf(stateId);
+  if (point === null) return [];
+
+  const result: StateTransition[] = [];
+  const seen = new Set<string>();
+  let owner: string | null = point;
+
+  while (owner && !seen.has(owner)) {
+    seen.add(owner);
+    for (const transition of ast.transitions) {
+      if (transition.from === owner) result.push(transition);
+    }
+    owner = ast.stateById.get(owner)?.parent ?? null;
+  }
+
+  return result;
 }

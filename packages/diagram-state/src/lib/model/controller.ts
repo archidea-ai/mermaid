@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import { createBindings } from '@archidea-ai/mermaid-scenario';
-import { choicePointOf, entryOf, isFinalEnd, traverse } from './traverse';
+import { choicePointOf, entryOf, isFinalEnd, outgoingFrom, traverse } from './traverse';
 import type { VariableBindings, VariableValue } from '@archidea-ai/mermaid-scenario';
 import type { StateDiagramAst } from '../parser/ast';
 import type { StateChoice, StateStep, StateTimeline } from './traverse';
@@ -93,13 +93,7 @@ export function useStateRun(
    * matched the transitions leaving the *start*.
    */
   const choicePoint = choicePointOf(at);
-  const outgoing = useMemo(
-    () =>
-      choicePoint === null
-        ? []
-        : ast.transitions.filter((transition) => transition.from === choicePoint),
-    [ast, choicePoint],
-  );
+  const outgoing = useMemo(() => outgoingFrom(ast, at), [ast, at]);
 
   const goTo = useCallback(
     (index: number) => setCursor(Math.min(Math.max(index, -1), timeline.steps.length - 1)),

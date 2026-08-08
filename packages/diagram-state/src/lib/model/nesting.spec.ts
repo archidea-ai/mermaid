@@ -33,3 +33,31 @@ describe('enclosingStates', () => {
     expect(() => enclosingStates(ast, 'A')).not.toThrow();
   });
 });
+
+describe('isWithin', () => {
+  const ast = parse(NESTED);
+
+  it('recognises a state inside a composite, however deep', async () => {
+    const { isWithin } = await import('./nesting');
+
+    expect(isWithin(ast, 'Deep', 'Outer')).toBe(true);
+    expect(isWithin(ast, 'Deep', 'Inner')).toBe(true);
+    // A composite contains itself, so a move onto it does not leave it.
+    expect(isWithin(ast, 'Outer', 'Outer')).toBe(true);
+  });
+
+  it('recognises a state outside it', async () => {
+    const { isWithin } = await import('./nesting');
+
+    expect(isWithin(ast, 'Outer', 'Inner')).toBe(false);
+    expect(isWithin(ast, 'Deep', null)).toBe(false);
+    expect(isWithin(ast, null, 'Outer')).toBe(false);
+  });
+
+  it('does not loop on a state that parents itself', async () => {
+    const { isWithin } = await import('./nesting');
+    const cyclic = parse('stateDiagram-v2\nstate A {\n  A --> A: self\n}');
+
+    expect(() => isWithin(cyclic, 'A', 'B')).not.toThrow();
+  });
+});

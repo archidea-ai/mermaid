@@ -54,6 +54,14 @@ time. The registry is the seam that makes that additive.
   `visible` — so content spills over whatever follows instead of scrolling. Use a
   plain `max-h-* overflow-y-auto` container unless you can give the root a fixed
   height.
+- **State: a transition on an enclosing composite fires from any substate.**
+  `outgoingFrom()` walks the parent chain, innermost first, so an escape drawn on
+  a composite is reachable from deep inside it. It is tagged "leaves X" only when
+  it genuinely exits the box you are in — `isWithin()` decides.
+- **State: a decision is taken once per state.** Decisions are keyed on the state
+  they were made in, which keeps the run a pure projection — but on a back link
+  that meant the same choice fired every time the run returned, forever. Taking
+  the same transition from the same state twice hands control back instead.
 - **State: only the top-level `[*]` stops the flow.** A subgroup's end hands
   back to the machine around it, so its options are the _parent's_ —
   `choicePointOf()` decides which state's transitions are the ways out. It is

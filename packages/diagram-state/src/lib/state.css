@@ -185,3 +185,12 @@
 .state-option[data-terminal='true'] .state-option__label {
   color: color-mix(in srgb, var(--seq-end) 80%, var(--seq-text-muted));
 }
+
+.state-option__from {
+  font-size: var(--seq-font-size-small);
+  color: var(--seq-text-muted);
+  font-style: italic;
+}
+.state-option[data-terminal='true'] .state-option__from {
+  color: color-mix(in srgb, var(--seq-end) 70%, var(--seq-text-muted));
+}

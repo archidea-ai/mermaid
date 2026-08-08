@@ -822,12 +822,15 @@ test('a subgroup end offers the parent ways out; only the top-level end stops', 
       await expect(page.locator('.state-view__next')).not.toContainText('end of the run');
       break;
     }
-    const options = page.locator('.state-option');
-    const count = await options.count();
+    // Stay inside the composite: an option tagged "leaves X" is an escape and
+    // would jump straight out, never reaching the subgroup's own end. Among the
+    // local moves take the last, which is the failing branch into `Failed --> [*]`.
+    const local = page.locator('.state-option').filter({
+      hasNot: page.locator('.state-option__from'),
+    });
+    const count = await local.count();
     if (count === 0) break;
-    // Take the failing branch: it is the one that runs into `Failed --> [*]`,
-    // which is Building's own end rather than the diagram's.
-    await options.nth(count - 1).click();
+    await local.nth(count - 1).click();
     await page.waitForTimeout(120);
   }
 
@@ -849,4 +852,30 @@ test('the raw scoped-terminal token never reaches the screen', async ({ page }) 
     await options.nth(count - 1).click();
     await page.waitForTimeout(120);
   }
+});
+
+test('a transition on an enclosing state can be taken from inside it', async ({ page }) => {
+  await page.getByRole('button', { name: /Deployment machine/ }).click();
+  await page.waitForTimeout(250);
+
+  // Step into Building.
+  await page.locator('.state-option').first().click();
+  await page.waitForTimeout(150);
+
+  // From inside, Building's own escape is on offer and says where it leaves from.
+  const escape = page.locator('.state-option', { hasText: 'abort' });
+  await expect(escape).toBeVisible();
+  await expect(escape.locator('.state-option__from')).toContainText('Building');
+
+  // A local move carries no such tag.
+  const local = page.locator('.state-option').first();
+  await expect(local.locator('.state-option__from')).toHaveCount(0);
+
+  await escape.click();
+  await page.waitForTimeout(200);
+  await expect(page.locator('.state-view__now')).toContainText('Cancelled');
+  // Leaving the composite drops its box.
+  await expect(page.locator('.state-box')).toHaveCount(0);
+
+  await page.screenshot({ path: 'e2e-results/state-escape.png', fullPage: true });
 });

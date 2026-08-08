@@ -27,3 +27,28 @@ export function enclosingStates(
 
   return chain;
 }
+
+/**
+ * Whether `stateId` sits inside `ancestorId` (or is it).
+ *
+ * Used to decide whether a transition is worth flagging: one drawn on an
+ * enclosing state that still lands inside the box you are in is an ordinary
+ * move, not an escape, and saying "leaves X" about it would be noise.
+ */
+export function isWithin(
+  ast: StateDiagramAst,
+  stateId: string | null,
+  ancestorId: string | null,
+): boolean {
+  if (!stateId || !ancestorId) return false;
+
+  let current: string | null = stateId;
+  const seen = new Set<string>();
+
+  while (current && !seen.has(current)) {
+    if (current === ancestorId) return true;
+    seen.add(current);
+    current = ast.stateById.get(current)?.parent ?? null;
+  }
+  return false;
+}

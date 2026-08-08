@@ -79,11 +79,12 @@ describe('traverse', () => {
     expect(timeline.unreached).toEqual(['B']);
   });
 
-  it('terminates on a machine that loops rather than running forever', () => {
+  it('takes a self loop once and then hands back, rather than spinning', () => {
     const timeline = run('stateDiagram-v2\n[*] --> A\nA --> A: again');
 
-    expect(timeline.steps.length).toBeGreaterThan(1);
-    expect(timeline.steps.length).toBeLessThanOrEqual(500);
+    // The loop is legitimate; repeating it is the viewer's call each time.
+    expect(timeline.steps).toHaveLength(1);
+    expect(timeline.pending!.from).toBe('A');
   });
 
   it('ends the run at a state with no way out', () => {
@@ -109,6 +110,8 @@ describe('where the viewer stands', () => {
 });
 
 describe('composite states', () => {
+  // No escapes on the composites, so the walk is unambiguous: this suite is
+  // about descending and climbing out, not about choosing.
   const NESTED = `stateDiagram-v2
     [*] --> Queued
     Queued --> Building: pick up
@@ -120,8 +123,7 @@ describe('composite states', () => {
         Unit --> Passed: green
       }
       Passed --> [*]
-    }
-    Building --> Live: deploy`;
+    }`;
 
   it("scopes each composite's [*] so a nested start is not the diagram's", () => {
     const ast = parse(NESTED);
@@ -146,8 +148,9 @@ describe('composite states', () => {
     const ast = parse(NESTED);
     const timeline = traverse(ast, new Map(), createBindings());
 
-    // Passed --> [*] ends Building's machine, so the run continues from Building.
-    expect(timeline.steps.some((s) => s.transition.label?.raw === 'deploy')).toBe(true);
+    // Passed --> [*] ends Building's machine, and Building has no way onward,
+    // so that is where the run finishes.
+    expect(timeline.steps[timeline.steps.length - 1]!.to).toBe('[*]@Building');
     expect(timeline.done).toBe(true);
   });
 });
@@ -197,7 +200,9 @@ describe('ends are a special state', () => {
     const ast = parse(
       'stateDiagram-v2\n[*] --> Outer\nstate Outer {\n[*] --> Inner\nInner --> [*]: finish\n}\nOuter --> Live: deploy',
     );
-    const timeline = traverse(ast, new Map(), createBindings());
+    // `Outer --> Live` is reachable from Inner too, so the viewer picks.
+    const finish = ast.transitions.find((t) => t.label?.raw === 'finish')!;
+    const timeline = traverse(ast, new Map([['Inner', finish.id]]), createBindings());
 
     expect(timeline.steps.some((s) => s.transition.label?.raw === 'deploy')).toBe(true);
     expect(timeline.steps[timeline.steps.length - 1]!.to).toBe('Live');
@@ -261,7 +266,8 @@ describe('a subgroup end is not the end of the flow', () => {
     const ast = parse(
       'stateDiagram-v2\n[*] --> Outer\nstate Outer {\n[*] --> Inner\nInner --> [*]: finish\n}\nOuter --> Live: deploy\nOuter --> Failed: abort',
     );
-    const timeline = traverse(ast, new Map(), createBindings());
+    const finish = ast.transitions.find((t) => t.label?.raw === 'finish')!;
+    const timeline = traverse(ast, new Map([['Inner', finish.id]]), createBindings());
 
     // Two ways out of Outer, so the run stops there for the viewer to choose —
     // at the subgroup's end, not at the end of everything.
@@ -302,5 +308,127 @@ describe('what a state is called on screen', () => {
     expect(displayName('[*]', label)).toBe('End');
     expect(displayName('Inner', label)).toBe('Inner state');
     expect(displayName('Unknown', label)).toBe('Unknown');
+  });
+});
+
+describe('transitions on enclosing states', () => {
+  const NESTED = `stateDiagram-v2
+    [*] --> Building
+    state Building {
+      [*] --> Compiling
+      state Testing {
+        [*] --> Unit
+        Unit --> Passed: green
+      }
+      Compiling --> Testing: compiled
+      Testing --> Reporting: report
+    }
+    Building --> Cancelled: abort
+    Building --> Live: deploy`;
+
+  it("offers an enclosing composite's transitions from deep inside it", async () => {
+    const { outgoingFrom } = await import('./traverse');
+    const ast = parse(NESTED);
+
+    const labels = outgoingFrom(ast, 'Unit').map((t) => t.label?.raw);
+
+    // Unit's own move, then Testing's, then Building's — innermost first.
+    expect(labels).toEqual(['green', 'report', 'abort', 'deploy']);
+  });
+
+  it('lists the local choices before the escapes', async () => {
+    const { outgoingFrom } = await import('./traverse');
+    const froms = outgoingFrom(parse(NESTED), 'Unit').map((t) => t.from);
+
+    expect(froms).toEqual(['Unit', 'Testing', 'Building', 'Building']);
+  });
+
+  it('offers nothing extra to a top-level state', async () => {
+    const { outgoingFrom } = await import('./traverse');
+    expect(outgoingFrom(parse(NESTED), 'Cancelled')).toEqual([]);
+  });
+
+  it('lets the viewer take an escape drawn on an enclosing state', () => {
+    const ast = parse(NESTED);
+    const abort = ast.transitions.find((t) => t.label?.raw === 'abort')!;
+    const compiled = ast.transitions.find((t) => t.label?.raw === 'compiled')!;
+    // Building's escapes are offered from inside too, so Compiling is a fork now.
+    const timeline = traverse(
+      ast,
+      new Map([
+        ['Compiling', compiled.id],
+        ['Unit', abort.id],
+      ]),
+      createBindings(),
+    );
+
+    expect(timeline.steps.some((step) => step.to === 'Cancelled')).toBe(true);
+  });
+
+  it('does not loop when a composite somehow parents itself', async () => {
+    const { outgoingFrom } = await import('./traverse');
+    const ast = parse('stateDiagram-v2\nstate A {\n  A --> A: self\n}');
+    expect(() => outgoingFrom(ast, 'A')).not.toThrow();
+  });
+});
+
+describe('back links and arrows straight into a nested state', () => {
+  const TRICKY = `stateDiagram-v2
+    [*] --> Outer
+    state Outer {
+      [*] --> Idle
+      Idle --> Idle: retry
+      Idle --> Working: begin
+      Working --> Idle: back
+      state Deep {
+        [*] --> Bottom
+        Bottom --> Idle: surface
+      }
+    }
+    Outer --> Bottom: jump straight in
+    Outer --> Done: leave`;
+
+  it('offers a self transition as an ordinary way out of the state', async () => {
+    const { outgoingFrom } = await import('./traverse');
+    const labels = outgoingFrom(parse(TRICKY), 'Idle').map((t) => t.label?.raw);
+
+    // Its own two, then Outer's — a back link to itself is just another option.
+    expect(labels).toEqual(['retry', 'begin', 'jump straight in', 'leave']);
+  });
+
+  it('takes a self transition without stalling or looping', () => {
+    const ast = parse(TRICKY);
+    const retry = ast.transitions.find((t) => t.label?.raw === 'retry')!;
+    const timeline = traverse(ast, new Map([['Idle', retry.id]]), createBindings());
+
+    expect(timeline.steps[0]).toMatchObject({ from: 'Idle', to: 'Idle' });
+    // The decision fires once and then hands back, rather than looping forever
+    // because the same choice is remembered for the same state.
+    expect(timeline.steps).toHaveLength(1);
+    expect(timeline.pending!.from).toBe('Idle');
+  });
+
+  it('lands exactly where an arrow into a nested state points, not on the composite', () => {
+    const ast = parse(TRICKY);
+    const jump = ast.transitions.find((t) => t.label?.raw === 'jump straight in')!;
+    const timeline = traverse(ast, new Map([['Idle', jump.id]]), createBindings());
+
+    // The target is a concrete inner state, so there is nothing to descend into.
+    expect(timeline.steps[0]!.to).toBe('Bottom');
+  });
+
+  it('reports the boxes around a directly targeted inner state', async () => {
+    const { enclosingStates } = await import('./nesting');
+    expect(enclosingStates(parse(TRICKY), 'Bottom').map((s) => s.id)).toEqual(['Outer', 'Deep']);
+  });
+
+  it('flags an escape but not a move that stays in the box', async () => {
+    const { isWithin } = await import('./nesting');
+    const ast = parse(TRICKY);
+
+    // `Outer --> Bottom` is drawn on Outer but lands back inside Outer.
+    expect(isWithin(ast, 'Bottom', 'Outer')).toBe(true);
+    // `Outer --> Done` genuinely leaves.
+    expect(isWithin(ast, 'Done', 'Outer')).toBe(false);
   });
 });

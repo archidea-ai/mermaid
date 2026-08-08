@@ -11,7 +11,7 @@ import { parse } from '../parser/parse';
 import { useStateRun } from '../model/controller';
 import { displayName, isTerminal } from '../parser/ast';
 import type { DiagramSurfaceProps } from '@archidea-ai/mermaid-core';
-import { enclosingStates } from '../model/nesting';
+import { enclosingStates, isWithin } from '../model/nesting';
 import type { StateDiagramAst, StateNode } from '../parser/ast';
 import type { ReactNode } from 'react';
 import { useState } from 'react';
@@ -107,6 +107,8 @@ function StateRun({
   const currentIsEnd = isTerminal(current);
   const nameOf = (id: string) => displayName(id, (key) => ast.stateById.get(key)?.label);
   const boxes = useMemo(() => enclosingStates(ast, current), [ast, current]);
+  // The box the viewer is standing in, if any.
+  const innermostBox = boxes.length > 0 ? boxes[boxes.length - 1]!.id : null;
 
   // One line per way out of here. Clicking a line is choosing that way.
   const lines = useMemo(() => {
@@ -185,6 +187,15 @@ function StateRun({
                       <span className="state-option__label">
                         {option.label ? humaniseLabel(option.label.raw) : 'go'}
                       </span>
+                      {/*
+                        Only flag a transition that actually takes you out of the
+                        box you are in. One drawn on an enclosing state but
+                        landing back inside it is an ordinary move, and saying
+                        "leaves X" about it would be noise.
+                      */}
+                      {option.from !== current && !isWithin(ast, option.to, innermostBox) ? (
+                        <span className="state-option__from">leaves {nameOf(option.from)}</span>
+                      ) : null}
                       <span className="seq-stage__name">
                         {ends ? nameOf(option.to) : withBreaks(target?.label ?? option.to)}
                       </span>
