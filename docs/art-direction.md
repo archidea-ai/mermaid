@@ -75,7 +75,20 @@ layout uses it and the browser sizes the panels.
 **A phase note is a heading, not an aside.** A note spanning the whole cast
 (`Note over First,Last: Phase 1`) marks a section, and rendering it as a sticky
 note buries the one label that says where the reader is. It becomes a full-width
-banner in both views; narrower notes stay asides.
+banner in both views; narrower notes stay asides. It **stays up for the whole
+phase** and is replaced by the next one — a heading that flashes past for one
+step is not a heading.
+
+**Two moments earn an attention cue**: the run stopping to ask for a value, and
+becoming advanceable again once it has one. Both are state changes the viewer did
+not cause where they were looking, so motion carries the news — the field takes
+focus and pulses, the Next button pulses when it un-blocks. Focus is not motion,
+so it still happens under `prefers-reduced-motion`; the pulses do not.
+
+An animation's keyframes carry the element's positioning, so **never reuse
+keyframes across differently positioned elements**. `seq-rise` centres an
+absolutely positioned label with `translate: -50% -50%`; reused on the static
+banner it dragged it up and left by half its size for the whole animation.
 
 The modern view adds three ideas:
 

@@ -476,6 +476,51 @@ test('a phase note renders as a full-width banner, not a sticky note', async ({ 
     return el.width / stage.width;
   });
   expect(width).toBeGreaterThan(0.98);
+
+  // It marks a section, so it stays up through that section's steps. Answer
+  // whatever the run asks for so it can actually advance.
+  const values = page.locator('[data-slot="card"]', { hasText: 'Values' });
+  for (let i = 0; i < 6; i += 1) {
+    const next = page.getByRole('button', { name: 'Next step' });
+    if (await next.isDisabled()) {
+      const choice = values.locator('button[aria-pressed="false"]');
+      if (await choice.count()) {
+        await choice.first().click();
+        continue;
+      }
+      const text = values.getByPlaceholder('Enter a value');
+      if (await text.count()) {
+        await text.first().fill('subject-1');
+        await text.first().blur();
+        continue;
+      }
+      break;
+    }
+    await next.click();
+    await expect(banner).toContainText('Phase 1');
+  }
+  await expect(page.locator('.seq-stage__banner')).toHaveCount(1);
+});
+
+test('the banner is not displaced while its entrance animation plays', async ({ page }) => {
+  await page.getByRole('button', { name: /Access lifecycle/ }).click();
+  await page.getByRole('button', { name: 'Next step' }).click();
+
+  // Sampled mid-animation: a keyframe carrying a centring translate drags a
+  // static block up and left by half its size for the whole animation.
+  const offsets: number[] = [];
+  for (let i = 0; i < 4; i += 1) {
+    offsets.push(
+      await page.evaluate(() => {
+        const floor = document.querySelector('.seq-stage__floor')!.getBoundingClientRect();
+        const banner = document.querySelector('.seq-stage__banner')!.getBoundingClientRect();
+        return banner.left - floor.left;
+      }),
+    );
+    await page.waitForTimeout(70);
+  }
+
+  for (const offset of offsets) expect(Math.abs(offset)).toBeLessThan(2);
 });
 
 test('the examples app puts the source above the diagram', async ({ page }) => {
@@ -539,4 +584,58 @@ test('a long step list scrolls instead of spilling over the skipped section', as
   }
 
   await page.screenshot({ path: 'e2e-results/steps.png', fullPage: true });
+});
+
+test('a newly required value takes focus and announces itself', async ({ page }) => {
+  await page.getByRole('button', { name: /Access lifecycle/ }).click();
+  await page.waitForTimeout(250);
+
+  const focused = await page.evaluate(() => {
+    const active = document.activeElement;
+    return {
+      insidePrompt: !!active?.closest('.seq-prompt'),
+      animation: getComputedStyle(document.querySelector('.seq-prompt')!).animationName,
+    };
+  });
+
+  expect(focused.insidePrompt).toBe(true);
+  expect(focused.animation).toBe('seq-attention');
+});
+
+test('the next button pulses when an answer unblocks the run', async ({ page }) => {
+  // The login example blocks on its very first step; the access one opens on a
+  // phase note, which is not waiting for anything.
+  await page.waitForTimeout(200);
+
+  await expect(page.locator('.seq-next')).toBeDisabled();
+  await page
+    .locator('[data-slot="card"]', { hasText: 'Values' })
+    .getByRole('button')
+    .first()
+    .click();
+
+  const pulse = await page.evaluate(
+    () => getComputedStyle(document.querySelector('.seq-next')!).animationName,
+  );
+  expect(pulse).toBe('seq-unblocked');
+  await expect(page.locator('.seq-next')).toBeEnabled();
+});
+
+test('attention cues collapse under prefers-reduced-motion', async ({ browser }) => {
+  const context = await browser.newContext({ reducedMotion: 'reduce' });
+  const page = await context.newPage();
+  await page.goto('/');
+  await page.waitForSelector('.archidea-sequence');
+  await page.getByRole('button', { name: /Access lifecycle/ }).click();
+  await page.waitForTimeout(200);
+
+  // The cue is still a state change — it just does not move.
+  const animation = await page.evaluate(
+    () => getComputedStyle(document.querySelector('.seq-prompt')!).animationName,
+  );
+  expect(animation).toBe('none');
+
+  // Focus is not motion, so it still happens.
+  expect(await page.evaluate(() => !!document.activeElement?.closest('.seq-prompt'))).toBe(true);
+  await context.close();
 });

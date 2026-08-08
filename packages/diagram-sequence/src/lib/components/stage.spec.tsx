@@ -429,3 +429,123 @@ describe('the step list', () => {
     expect(list.compareDocumentPosition(skipped) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 });
+
+describe('a phase banner', () => {
+  const PHASES = `sequenceDiagram
+    participant A
+    participant B
+    Note over A,B: Phase 1 - Intake
+    A->>B: one
+    B->>A: two
+    Note over A,B: Phase 2 - Review
+    A->>B: three
+    note over A: just A
+    A->>B: four`;
+
+  const banner = (container: HTMLElement) =>
+    container.querySelector('.seq-stage__banner')?.textContent ?? null;
+
+  const step = async (user: ReturnType<typeof userEvent.setup>, times: number) => {
+    for (let i = 0; i < times; i += 1) {
+      await user.click(screen.getByRole('button', { name: 'Next step' }));
+    }
+  };
+
+  it('stays up for every step of its phase, not just the step it lands on', async () => {
+    const user = userEvent.setup();
+    const { container } = render(<SequenceDiagramSurface text={PHASES} id="d" />);
+
+    expect(banner(container)).toBeNull();
+
+    await step(user, 1); // the phase note itself
+    expect(banner(container)).toContain('Phase 1');
+
+    await step(user, 1); // first message of the phase
+    expect(banner(container)).toContain('Phase 1');
+
+    await step(user, 1); // second message — still phase 1
+    expect(banner(container)).toContain('Phase 1');
+  });
+
+  it('is replaced by the next phase, not stacked with it', async () => {
+    const user = userEvent.setup();
+    const { container } = render(<SequenceDiagramSurface text={PHASES} id="d" />);
+
+    await step(user, 4); // through to the Phase 2 note
+    expect(banner(container)).toContain('Phase 2');
+    expect(banner(container)).not.toContain('Phase 1');
+    expect(container.querySelectorAll('.seq-stage__banner')).toHaveLength(1);
+  });
+
+  it('survives an ordinary note appearing mid-phase', async () => {
+    const user = userEvent.setup();
+    const { container } = render(<SequenceDiagramSurface text={PHASES} id="d" />);
+
+    await step(user, 6); // the `note over A` aside inside phase 2
+
+    expect(container.querySelector('.seq-stage__overlay')).not.toBeNull();
+    expect(banner(container)).toContain('Phase 2');
+  });
+
+  it('clears when the run is restarted', async () => {
+    const user = userEvent.setup();
+    const { container } = render(<SequenceDiagramSurface text={PHASES} id="d" />);
+
+    await step(user, 3);
+    expect(banner(container)).toContain('Phase 1');
+
+    await user.click(screen.getByRole('button', { name: 'Restart' }));
+    expect(banner(container)).toBeNull();
+  });
+});
+
+describe('attention when the run stops and starts again', () => {
+  const ASKS = 'sequenceDiagram\nA->>B: go as {{role : "admin" | "member"}}\nB-->>A: ok';
+
+  it('focuses the field the run is waiting on', () => {
+    render(<SequenceDiagramSurface text={ASKS} id="d" />);
+
+    // The run has stopped for this value, so the cursor belongs where the
+    // answer goes rather than wherever it happened to be.
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'admin' }));
+  });
+
+  it('focuses a free-text field the same way', () => {
+    render(<SequenceDiagramSurface text={'sequenceDiagram\nA->>B: id {{ref : string}}'} id="d" />);
+
+    expect(document.activeElement).toBe(screen.getByPlaceholderText('Enter a value'));
+  });
+
+  it('marks a newly required field so it can announce itself', () => {
+    const { container } = render(<SequenceDiagramSurface text={ASKS} id="d" />);
+
+    expect(container.querySelector('.seq-prompt')?.getAttribute('data-fresh')).toBe('true');
+  });
+
+  it('flags the next button when answering unblocks the run', async () => {
+    const user = userEvent.setup();
+    const { container } = render(<SequenceDiagramSurface text={ASKS} id="d" />);
+
+    const next = () => container.querySelector('.seq-next') as HTMLElement;
+    expect(next().dataset.unblocked).toBe('false');
+    expect(next()).toHaveProperty('disabled', true);
+
+    await user.click(screen.getByRole('button', { name: 'admin' }));
+
+    // Answering un-blocks the run somewhere else on screen; the button says so
+    // rather than just quietly stopping being grey.
+    expect(next()).toHaveProperty('disabled', false);
+    expect(next().dataset.unblocked).toBe('true');
+  });
+
+  it('does not flag the button on an ordinary step, only on becoming unblocked', async () => {
+    const user = userEvent.setup();
+    const { container } = render(
+      <SequenceDiagramSurface text={'sequenceDiagram\nA->>B: one\nB->>A: two'} id="d" />,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Next step' }));
+
+    expect((container.querySelector('.seq-next') as HTMLElement).dataset.unblocked).toBe('false');
+  });
+});

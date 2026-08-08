@@ -524,7 +524,24 @@
   border-radius: 8px;
 }
 .seq-stage__banner {
-  animation: seq-rise 0.35s var(--seq-easing);
+  /*
+   * Its own keyframes, not the label's `seq-rise`. That one carries
+   * `translate: -50% -50%` because the label is absolutely positioned and
+   * centres itself; on a static block it shifted the banner up and left by half
+   * its size for the whole animation.
+   */
+  animation: seq-banner-in 0.35s var(--seq-easing);
+}
+
+@keyframes seq-banner-in {
+  from {
+    opacity: 0;
+    translate: 0 -6px;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
 }
 /* In the classic view it is a full-width row rather than a boxed note. */
 .seq-note[data-banner='true'] {
@@ -829,4 +846,66 @@
 }
 .seq-steps::-webkit-scrollbar-track {
   background: transparent;
+}
+
+/*
+ * Attention cues.
+ *
+ * Two moments need pointing at: the run stopping to ask for a value, and the
+ * run becoming advanceable again once it has one. Both are state changes the
+ * viewer did not necessarily cause at the place they are looking, so motion
+ * carries the news — and, per the motion rule, nothing else animates.
+ */
+.seq-prompt[data-fresh='true'] {
+  animation: seq-attention 0.85s var(--seq-easing);
+}
+
+@keyframes seq-attention {
+  0% {
+    opacity: 0;
+    translate: 0 -6px;
+  }
+  35% {
+    opacity: 1;
+    translate: 0 0;
+  }
+  55%,
+  75% {
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--seq-accent) 34%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+.seq-prompt :is(input, button):focus-visible {
+  outline: 2px solid var(--seq-accent);
+  outline-offset: 2px;
+}
+
+.seq-next[data-unblocked='true'] {
+  animation: seq-unblocked 0.9s var(--seq-easing);
+}
+
+@keyframes seq-unblocked {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+    scale: 1;
+  }
+  25% {
+    box-shadow: 0 0 0 5px color-mix(in srgb, var(--seq-accent) 40%, transparent);
+    scale: 1.06;
+  }
+  60% {
+    box-shadow: 0 0 0 9px transparent;
+    scale: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .seq-prompt[data-fresh='true'],
+  .seq-next[data-unblocked='true'] {
+    animation: none;
+  }
 }

@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight, RotateCcw } from 'lucide-react';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
@@ -25,6 +26,7 @@ export interface ToolbarProps {
 export function SequenceToolbar({ controller, variant, onVariantChange }: ToolbarProps) {
   const { current, stepCount, canAdvance } = controller;
   const waiting = !canAdvance && current + 1 < stepCount;
+  const unblocked = useJustUnblocked(canAdvance);
 
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -32,7 +34,15 @@ export function SequenceToolbar({ controller, variant, onVariantChange }: Toolba
         <ChevronLeft data-icon="inline-start" />
         Back
       </Button>
-      <Button size="sm" onClick={controller.next} disabled={!canAdvance}>
+      <Button
+        size="sm"
+        onClick={controller.next}
+        disabled={!canAdvance}
+        /* Pulses when the run becomes advanceable again, so the viewer knows
+           their answer landed and where to look next. */
+        data-unblocked={unblocked}
+        className="seq-next"
+      >
         Next step
         <ChevronRight data-icon="inline-end" />
       </Button>
@@ -91,9 +101,22 @@ function PromptField({
 }) {
   const { name, declaredType } = prompt.declaration;
   const options = promptOptions(declaredType);
+  const fieldRef = useRef<HTMLDivElement>(null);
+
+  /*
+   * The run has stopped and is waiting on this value, so put the cursor where
+   * the answer goes. PromptField is keyed by variable name, so this fires once
+   * per newly required value rather than on every render.
+   */
+  useEffect(() => {
+    const focusable = fieldRef.current?.querySelector<HTMLElement>(
+      'input, button, select, textarea',
+    );
+    focusable?.focus({ preventScroll: true });
+  }, []);
 
   return (
-    <div className="grid gap-1.5">
+    <div className="seq-prompt grid gap-1.5" ref={fieldRef} data-fresh="true">
       <Label htmlFor={`seq-var-${name}`} className="text-xs">
         <span className="font-mono font-semibold">{name}</span>
         {prompt.reason === 'unknown-condition' ? (
@@ -356,4 +379,27 @@ export function StepList({ controller, emphasis, timeline }: StepListProps) {
       </CardContent>
     </Card>
   );
+}
+
+/**
+ * True for a moment after `canAdvance` flips from false to true.
+ *
+ * Answering a prompt un-blocks the run somewhere else on screen — the button
+ * simply stops being grey — so it needs to say so rather than change quietly.
+ */
+function useJustUnblocked(canAdvance: boolean): boolean {
+  const previous = useRef(canAdvance);
+  const [flash, setFlash] = useState(false);
+
+  useEffect(() => {
+    const wasBlocked = !previous.current && canAdvance;
+    previous.current = canAdvance;
+    if (!wasBlocked) return;
+
+    setFlash(true);
+    const timer = setTimeout(() => setFlash(false), 900);
+    return () => clearTimeout(timer);
+  }, [canAdvance]);
+
+  return flash;
 }

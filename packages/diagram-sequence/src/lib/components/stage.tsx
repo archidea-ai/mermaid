@@ -82,14 +82,35 @@ export function SequenceStage({ ast, timeline, cursor, bindings }: SequenceStage
   }, [step, anchors]);
 
   const note = step && step.kind === 'note' && step.node.type === 'note' ? step.node : null;
-  const banner = note && isPhaseBanner(note, ast) ? note : null;
+  const currentIsBanner = Boolean(note && isPhaseBanner(note, ast));
+
+  /**
+   * The phase heading in force right now — the most recent one at or before the
+   * cursor, not only one that lands exactly on it.
+   *
+   * A phase note marks a section, so it stays up for the whole section and is
+   * replaced by the next one. Showing it for a single step made the one label
+   * that says where you are flash past.
+   */
+  const banner = useMemo(() => {
+    for (let index = cursor; index >= 0; index -= 1) {
+      const candidate = timeline.steps[index];
+      if (candidate?.kind !== 'note' || candidate.node.type !== 'note') continue;
+      if (isPhaseBanner(candidate.node, ast)) {
+        return { note: candidate.node, stepId: candidate.id };
+      }
+    }
+    return null;
+  }, [cursor, timeline, ast]);
 
   return (
     <div className="seq-stage" role="group" aria-label="Sequence diagram">
       {/* A phase note is a section heading for the whole run, not an aside. */}
       {banner ? (
-        <p key={`banner-${step!.id}`} className="seq-stage__banner" role="heading" aria-level={3}>
-          <RichLabel text={banner.text} values={bindings} />
+        // Keyed on the banner's own step, so it re-animates when the phase
+        // changes rather than on every step within a phase.
+        <p key={banner.stepId} className="seq-stage__banner" role="heading" aria-level={3}>
+          <RichLabel text={banner.note.text} values={bindings} />
         </p>
       ) : null}
 
@@ -146,7 +167,7 @@ export function SequenceStage({ ast, timeline, cursor, bindings }: SequenceStage
         ) : null}
 
         {/* An ordinary note is an aside from the author; it takes the stage. */}
-        {note && !banner ? (
+        {note && !currentIsBanner ? (
           <div key={`note-${step!.id}`} className="seq-stage__overlay">
             <div className="seq-stage__scrim" aria-hidden="true" />
             <p className="seq-stage__note" role="note" aria-live="polite">
