@@ -703,7 +703,7 @@ test('a state diagram shows only where you are and the ways out', async ({ page 
   await expect(page.locator('.app__badge')).toContainText('state-react');
 
   // One current state, not the whole machine.
-  await expect(page.locator('.state-chip[data-state='sending']')).toHaveCount(1);
+  await expect(page.locator(".state-chip[data-state='sending']")).toHaveCount(1);
   await expect(page.locator(".state-chip[data-state='sending']")).toContainText('Draft');
 
   // One clickable option per way out, each joined by a drawn line.
@@ -778,7 +778,7 @@ test('an end is red, named, and offers nothing further', async ({ page }) => {
     await page.waitForTimeout(120);
   }
 
-  const now = page.locator('.state-chip[data-state='sending']');
+  const now = page.locator(".state-chip[data-state='sending']");
   await expect(now).toHaveAttribute('data-terminal', 'true');
   await expect(now).toContainText('End');
 
@@ -787,7 +787,7 @@ test('an end is red, named, and offers nothing further', async ({ page }) => {
   await expect(page.locator('.state-options')).toContainText('end of the run');
 
   const colour = await page.evaluate(() => {
-    const el = document.querySelector('.state-chip[data-state='sending']')!;
+    const el = document.querySelector(".state-chip[data-state='sending']")!;
     return getComputedStyle(el).borderTopColor;
   });
   // Red, and distinct from the accent used everywhere else.
@@ -822,7 +822,7 @@ test('a subgroup end offers the parent ways out; only the top-level end stops', 
   // Walk until we are standing on a subgroup end.
   let sawSubgroupEnd = false;
   for (let i = 0; i < 14; i += 1) {
-    const now = page.locator('.state-chip[data-state='sending']');
+    const now = page.locator(".state-chip[data-state='sending']");
     const text = (await now.textContent()) ?? '';
     if (text.startsWith('End of')) {
       sawSubgroupEnd = true;
