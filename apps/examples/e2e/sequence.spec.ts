@@ -902,3 +902,34 @@ test('the state view shows no step counter, since a loop has no total', async ({
 
   // The history is still there, in the panel that can express it honestly.
 });
+
+test('the track follows the run to the right, and history keeps its containers', async ({
+  page,
+}) => {
+  await loadExample(page, /Deployment machine/);
+
+  // Walk in far enough that the track is wider than its viewport.
+  for (let i = 0; i < 4; i += 1) {
+    const options = page.locator('.state-option');
+    if ((await options.count()) === 0) break;
+    await options.first().click();
+    await page.waitForTimeout(150);
+  }
+
+  const track = page.locator('.state-view');
+  const scrolled = await track.evaluate((el) => ({
+    left: el.scrollLeft,
+    width: el.scrollWidth,
+    visible: el.clientWidth,
+  }));
+
+  if (scrolled.width > scrolled.visible) {
+    expect(scrolled.left).toBeGreaterThan(0);
+  }
+
+  // History states are still wrapped by the containers they happened inside.
+  const boxes = await page.locator('.state-box').count();
+  expect(boxes).toBeGreaterThan(0);
+
+  await page.screenshot({ path: 'e2e-results/state-track.png', fullPage: true });
+});

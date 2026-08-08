@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { Fragment, useEffect, useMemo } from 'react';
 import { proxyRenderer } from '@archidea-ai/mermaid-core';
 import {
   computeArc,
@@ -11,7 +11,9 @@ import { useStateRun } from '../model/controller';
 import { displayName, isTerminal } from '../parser/ast';
 import type { DiagramSurfaceProps } from '@archidea-ai/mermaid-core';
 import { depthWithin, enclosingStates } from '../model/nesting';
-import type { StateDiagramAst } from '../parser/ast';
+import { buildTrack } from '../model/track';
+import type { StateDiagramAst, StateNode } from '../parser/ast';
+import type { TrackEntry, TrackRun } from '../model/track';
 import type { ReactNode } from 'react';
 import { useState } from 'react';
 
@@ -124,32 +126,8 @@ function StateRun({
     ];
   }, [run.timeline, run.current]);
 
-  /*
-   * Each element is placed at the nesting level that actually holds it. A state
-   * visited before entering a composite belongs outside its box; an option that
-   * leaves a composite belongs outside it too. Level 0 is outside everything.
-   */
-  const levelOf = (stateId: string) => depthWithin(ast, stateId, boxes);
-
-  /*
-   * The track grows rightwards, so the newest part is the part off screen.
-   * Scroll to the end whenever the cursor moves — including backwards, where
-   * the run shortens and the end is what you just returned to.
-   */
-  useEffect(() => {
-    const track = containerRef.current;
-    if (!track) return;
-
-    const reduced =
-      typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-    // jsdom implements neither scrollTo nor smooth behaviour.
-    if (typeof track.scrollTo === 'function') {
-      track.scrollTo({ left: track.scrollWidth, behavior: reduced ? 'auto' : 'smooth' });
-    } else {
-      track.scrollLeft = track.scrollWidth;
-    }
-  }, [run.current, run.at, containerRef]);
+  /* The walk, grouped into contiguous runs that share a container chain. */
+  const runs = useMemo(() => buildTrack(ast, trail, current), [ast, trail, current]);
 
   const lines = useMemo(() => {
     const from = current ? anchors.get(current) : undefined;
@@ -170,39 +148,42 @@ function StateRun({
     </span>
   );
 
-  const currentChip = (stateId: string) => (
-    <div
-      key={`now-${stateId}`}
-      ref={register(stateId)}
-      className="seq-stage__object state-chip"
-      data-kind={ast.stateById.get(stateId)?.kind === 'choice' ? 'actor' : 'participant'}
-      data-state="sending"
-      data-terminal={isTerminal(stateId)}
-    >
-      {chipBody(stateId)}
-    </div>
-  );
+  const chipKind = (stateId: string) =>
+    ast.stateById.get(stateId)?.kind === 'choice' ? 'actor' : 'participant';
 
-  /* A past state is a place you can go back to, so it is a control. */
-  const pastChip = (entry: { stateId: string; cursor: number }, index: number) => (
-    <button
-      key={`past-${index}-${entry.stateId}`}
-      type="button"
-      className="seq-stage__object state-chip"
-      data-kind={ast.stateById.get(entry.stateId)?.kind === 'choice' ? 'actor' : 'participant'}
-      data-state="resting"
-      data-terminal={isTerminal(entry.stateId)}
-      title={`Go back to ${nameOf(entry.stateId)}`}
-      onClick={() => run.goTo(entry.cursor)}
-    >
-      {chipBody(entry.stateId)}
-    </button>
-  );
+  const entryChip = (entry: TrackEntry, index: number) =>
+    entry.cursor === null ? (
+      <div
+        key={`now-${entry.stateId}`}
+        ref={register(entry.stateId)}
+        className="seq-stage__object state-chip"
+        data-kind={chipKind(entry.stateId)}
+        data-state="sending"
+        data-terminal={isTerminal(entry.stateId)}
+      >
+        {chipBody(entry.stateId)}
+      </div>
+    ) : (
+      /* A past state is somewhere you can return to, so it is a control. */
+      <button
+        key={`past-${index}-${entry.stateId}`}
+        type="button"
+        className="seq-stage__object state-chip"
+        data-kind={chipKind(entry.stateId)}
+        data-state="resting"
+        data-terminal={isTerminal(entry.stateId)}
+        title={`Go back to ${nameOf(entry.stateId)}`}
+        onClick={() => run.goTo(entry.cursor!)}
+      >
+        {chipBody(entry.stateId)}
+      </button>
+    );
 
-  const optionChip = (option: (typeof run.options)[number]) => {
+  const optionChip = (option: (typeof run.options)[number], containers: readonly StateNode[]) => {
     const target = ast.stateById.get(option.to);
     const ends = isTerminal(option.to);
-    const leaves = option.from !== current && levelOf(option.to) < boxes.length;
+    const leaves =
+      option.from !== current && depthWithin(ast, option.to, containers) < containers.length;
 
     return (
       <button
@@ -223,31 +204,39 @@ function StateRun({
     );
   };
 
-  /** Renders the track from the outside in, so the boxes nest around it. */
-  const renderLevel = (level: number): ReactNode => {
-    const past = trail
-      .map((entry, index) => ({ entry, index }))
-      .filter(({ entry }) => levelOf(entry.stateId) === level)
-      .map(({ entry, index }) => pastChip(entry, index));
-    const options = run.options.filter((option) => levelOf(option.to) === level).map(optionChip);
+  /**
+   * Renders one run, nesting its own boxes around its own entries.
+   *
+   * Only the last run carries the ways out, and each is placed at the level that
+   * still holds its target — so an escape is drawn outside the box it leaves.
+   */
+  const renderRun = (track: TrackRun, isLast: boolean, level = 0): ReactNode => {
+    const options = isLast
+      ? run.options.filter((option) => depthWithin(ast, option.to, track.containers) === level)
+      : [];
 
     const inner =
-      level === boxes.length ? (
-        current ? (
-          currentChip(current)
-        ) : null
+      level === track.containers.length ? (
+        track.entries.map(entryChip)
       ) : (
-        <section key={boxes[level]!.id} className="state-box" aria-label={boxes[level]!.label}>
-          <h4 className="state-box__title">{withBreaks(boxes[level]!.label)}</h4>
-          <div className="state-track">{renderLevel(level + 1)}</div>
+        <section
+          key={track.containers[level]!.id}
+          className="state-box"
+          aria-label={track.containers[level]!.label}
+        >
+          <h4 className="state-box__title">{withBreaks(track.containers[level]!.label)}</h4>
+          <div className="state-track">{renderRun(track, isLast, level + 1)}</div>
         </section>
       );
 
     return (
       <>
-        {past}
         {inner}
-        {options.length > 0 ? <div className="state-options">{options}</div> : null}
+        {options.length > 0 ? (
+          <div className="state-options">
+            {options.map((option) => optionChip(option, track.containers))}
+          </div>
+        ) : null}
       </>
     );
   };
@@ -281,7 +270,11 @@ function StateRun({
           </svg>
 
           {/* Grows rightwards: where we came from, where we are, where we can go. */}
-          <div className="state-track state-track--root">{renderLevel(0)}</div>
+          <div className="state-track state-track--root">
+            {runs.map((track, index) => (
+              <Fragment key={track.key}>{renderRun(track, index === runs.length - 1)}</Fragment>
+            ))}
+          </div>
 
           {run.options.length === 0 ? (
             <p className="seq-stage__idle">
@@ -292,7 +285,7 @@ function StateRun({
 
         {boxes.length > 0 ? (
           <p className="seq-stage__context">
-            {boxes.map((box) => (
+            {boxes.map((box: StateNode) => (
               <span key={box.id}>
                 <span className="seq-stage__kind">in</span> {box.label}
               </span>
