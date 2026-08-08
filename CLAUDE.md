@@ -54,6 +54,13 @@ time. The registry is the seam that makes that additive.
   `visible` — so content spills over whatever follows instead of scrolling. Use a
   plain `max-h-* overflow-y-auto` container unless you can give the root a fixed
   height.
+- **State: only the top-level `[*]` stops the flow.** A subgroup's end hands
+  back to the machine around it, so its options are the _parent's_ —
+  `choicePointOf()` decides which state's transitions are the ways out. It is
+  final only when that parent has nowhere to go either.
+- **State: `displayName()` is the one naming rule.** A terminal reads as the end
+  it is; applying it in some places and not others leaked the internal
+  `[*]@Parent` id into the UI.
 - **State: an end is not a state you can leave.** `isTerminal()` gates it — the
   same `[*]` token is start _and_ end, so looking up transitions from an end
   matched the ones leaving the start and offered the machine's opening moves.

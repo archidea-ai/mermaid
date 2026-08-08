@@ -241,3 +241,66 @@ describe('choosing where the run begins', () => {
     expect(entryOf(ast, 'Outer')).toBe('Inner');
   });
 });
+
+describe('a subgroup end is not the end of the flow', () => {
+  it('points a subgroup end at its parent as the choice point', async () => {
+    const { choicePointOf, isFinalEnd } = await import('./traverse');
+
+    // Standing on a subgroup's end, the ways out are the parent's.
+    expect(choicePointOf('[*]@Building')).toBe('Building');
+    expect(choicePointOf('Compiling')).toBe('Compiling');
+    // Only the top-level end finishes the flow.
+    expect(choicePointOf('[*]')).toBeNull();
+
+    expect(isFinalEnd('[*]')).toBe(true);
+    expect(isFinalEnd('[*]@Building')).toBe(false);
+    expect(isFinalEnd('Compiling')).toBe(false);
+  });
+
+  it('keeps walking past a subgroup end when the parent has ways out', () => {
+    const ast = parse(
+      'stateDiagram-v2\n[*] --> Outer\nstate Outer {\n[*] --> Inner\nInner --> [*]: finish\n}\nOuter --> Live: deploy\nOuter --> Failed: abort',
+    );
+    const timeline = traverse(ast, new Map(), createBindings());
+
+    // Two ways out of Outer, so the run stops there for the viewer to choose —
+    // at the subgroup's end, not at the end of everything.
+    expect(timeline.steps[timeline.steps.length - 1]!.to).toBe('[*]@Outer');
+    expect(timeline.done).toBe(false);
+    expect(timeline.pending!.from).toBe('Outer');
+  });
+});
+
+describe('when a subgroup end is the end of everything', () => {
+  it('is not final while the parent still has a way onward', () => {
+    const ast = parse(
+      'stateDiagram-v2\n[*] --> Outer\nstate Outer {\n[*] --> Inner\nInner --> [*]: finish\n}\nOuter --> Live: deploy',
+    );
+    expect(ast.transitions.some((t) => t.from === 'Outer')).toBe(true);
+  });
+
+  it('is final when the parent has none, so the run stops there', () => {
+    const ast = parse(
+      'stateDiagram-v2\n[*] --> Outer\nstate Outer {\n[*] --> Inner\nInner --> [*]: finish\n}',
+    );
+    const timeline = traverse(ast, new Map(), createBindings());
+
+    expect(ast.transitions.some((t) => t.from === 'Outer')).toBe(false);
+    expect(timeline.done).toBe(true);
+    expect(timeline.steps[timeline.steps.length - 1]!.to).toBe('[*]@Outer');
+  });
+});
+
+describe('what a state is called on screen', () => {
+  it('never shows the raw scoped-terminal token', async () => {
+    const { displayName } = await import('../parser/ast');
+    const label = (id: string) => ({ Building: 'Build stage', Inner: 'Inner state' })[id];
+
+    // One rule everywhere: applying it in some places and not others let the
+    // internal `[*]@Parent` id leak into the UI.
+    expect(displayName('[*]@Building', label)).toBe('End of Build stage');
+    expect(displayName('[*]', label)).toBe('End');
+    expect(displayName('Inner', label)).toBe('Inner state');
+    expect(displayName('Unknown', label)).toBe('Unknown');
+  });
+});

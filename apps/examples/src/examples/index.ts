@@ -208,10 +208,13 @@ export const examples: readonly DiagramExample[] = [
         Failed --> [*]
     }
 
+    Building --> Cancelled: abort
+
     Packaging --> Deploying: upload
     Deploying --> Live: health check ok
     Deploying --> RolledBack: health check failed
     Live --> [*]
-    RolledBack --> [*]`,
+    RolledBack --> [*]
+    Cancelled --> [*]`,
   },
 ];

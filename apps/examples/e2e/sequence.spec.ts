@@ -801,3 +801,52 @@ test('a substate end is named for the machine it ends', async ({ page }) => {
     if (label.startsWith('End')) expect(label).toMatch(/^End of /);
   }
 });
+
+test('a subgroup end offers the parent ways out; only the top-level end stops', async ({
+  page,
+}) => {
+  await page.getByRole('button', { name: /Deployment machine/ }).click();
+  await page.waitForTimeout(200);
+
+  // Walk until we are standing on a subgroup end.
+  let sawSubgroupEnd = false;
+  for (let i = 0; i < 14; i += 1) {
+    const now = page.locator('.state-view__now .seq-stage__object');
+    const text = (await now.textContent()) ?? '';
+    if (text.startsWith('End of')) {
+      sawSubgroupEnd = true;
+      // It reads as an end — it is one — but it does not stop the flow: the
+      // machine around it still has ways out, and those are offered.
+      await expect(now).toHaveAttribute('data-terminal', 'true');
+      expect(await page.locator('.state-option').count()).toBeGreaterThan(0);
+      await expect(page.locator('.state-view__next')).not.toContainText('end of the run');
+      break;
+    }
+    const options = page.locator('.state-option');
+    const count = await options.count();
+    if (count === 0) break;
+    // Take the failing branch: it is the one that runs into `Failed --> [*]`,
+    // which is Building's own end rather than the diagram's.
+    await options.nth(count - 1).click();
+    await page.waitForTimeout(120);
+  }
+
+  expect(sawSubgroupEnd, 'never reached a subgroup end').toBe(true);
+});
+
+test('the raw scoped-terminal token never reaches the screen', async ({ page }) => {
+  await page.getByRole('button', { name: /Deployment machine/ }).click();
+  await page.waitForTimeout(200);
+
+  for (let i = 0; i < 14; i += 1) {
+    const rendered = await page.locator('.archidea-sequence').innerText();
+    expect(rendered, 'internal terminal id leaked into the UI').not.toContain('[*]@');
+    expect(rendered).not.toMatch(/\[\*\](?!@)/);
+
+    const options = page.locator('.state-option');
+    const count = await options.count();
+    if (count === 0) break;
+    await options.nth(count - 1).click();
+    await page.waitForTimeout(120);
+  }
+});

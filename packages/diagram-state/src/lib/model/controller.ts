@@ -1,10 +1,9 @@
 import { useCallback, useMemo, useState } from 'react';
 import { createBindings } from '@archidea-ai/mermaid-scenario';
-import { entryOf, traverse } from './traverse';
+import { choicePointOf, entryOf, isFinalEnd, traverse } from './traverse';
 import type { VariableBindings, VariableValue } from '@archidea-ai/mermaid-scenario';
 import type { StateDiagramAst } from '../parser/ast';
 import type { StateChoice, StateStep, StateTimeline } from './traverse';
-import { isTerminal } from '../parser/ast';
 import type { StateTransition } from '../parser/ast';
 
 export interface StatePrompt {
@@ -87,14 +86,19 @@ export function useStateRun(
    * the cursor.
    */
   const at = clamped >= 0 ? timeline.steps[clamped]!.to : entryOf(ast, start);
+  /*
+   * The ways out of where the viewer stands. A subgroup's end hands back to the
+   * machine around it, so its options are the parent's — only the top-level
+   * `[*]` finishes the flow. Without the indirection the shared `[*]` token also
+   * matched the transitions leaving the *start*.
+   */
+  const choicePoint = choicePointOf(at);
   const outgoing = useMemo(
-    // Nothing leaves an end. Without this the shared `[*]` token matched the
-    // machine's *start* transitions, so finishing offered its opening moves.
     () =>
-      at === null || isTerminal(at)
+      choicePoint === null
         ? []
-        : ast.transitions.filter((transition) => transition.from === at),
-    [ast, at],
+        : ast.transitions.filter((transition) => transition.from === choicePoint),
+    [ast, choicePoint],
   );
 
   const goTo = useCallback(
@@ -114,7 +118,13 @@ export function useStateRun(
       // Standing where the last step landed, or at the entry before any move.
       at,
       options: outgoing,
-      atEnd: isTerminal(at),
+      /*
+       * The flow is over when standing on an end with nowhere to go. The
+       * top-level `[*]` always qualifies; a subgroup end qualifies only when the
+       * machine around it has no way onward either.
+       */
+      atEnd:
+        isFinalEnd(at) || (choicePoint !== null && at !== choicePoint && outgoing.length === 0),
       next: () => canAdvance && goTo(clamped + 1),
       prev: () => goTo(clamped - 1),
       reset: () => {
@@ -131,8 +141,10 @@ export function useStateRun(
        * cursor simply steps onto the transition it now contains.
        */
       take: (transitionId) => {
-        if (at === null) return;
-        setDecisions((previous) => new Map(previous).set(at, transitionId));
+        // Keyed on the choice point, not on where the viewer stands: choosing at
+        // a subgroup's end is a decision belonging to the parent.
+        if (choicePoint === null) return;
+        setDecisions((previous) => new Map(previous).set(choicePoint, transitionId));
         setCursor(clamped + 1);
       },
       bind: (name, value) => setValues((previous) => ({ ...previous, [name]: value })),
@@ -143,6 +155,6 @@ export function useStateRun(
           return next;
         }),
     }),
-    [timeline, clamped, bindings, prompts, canAdvance, goTo, at, outgoing],
+    [timeline, clamped, bindings, prompts, canAdvance, goTo, at, outgoing, choicePoint],
   );
 }

@@ -62,3 +62,14 @@ export interface StateDiagramAst {
   readonly direction: 'TB' | 'BT' | 'LR' | 'RL';
   readonly ignored: readonly { readonly text: string; readonly line: number }[];
 }
+
+/**
+ * What a state is called on screen.
+ *
+ * One rule, used everywhere: a terminal reads as the end it is, and everything
+ * else by its label. Applying it in some places and not others let the raw
+ * `[*]@Parent` token leak into the UI.
+ */
+export function displayName(stateId: string, labelOf: (id: string) => string | undefined): string {
+  return isTerminal(stateId) ? endLabel(stateId, labelOf) : (labelOf(stateId) ?? stateId);
+}

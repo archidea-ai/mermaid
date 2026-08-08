@@ -9,7 +9,7 @@ import {
 } from '@archidea-ai/mermaid-diagram-sequence';
 import { parse } from '../parser/parse';
 import { useStateRun } from '../model/controller';
-import { endLabel, isTerminal } from '../parser/ast';
+import { displayName, isTerminal } from '../parser/ast';
 import type { DiagramSurfaceProps } from '@archidea-ai/mermaid-core';
 import { enclosingStates } from '../model/nesting';
 import type { StateDiagramAst, StateNode } from '../parser/ast';
@@ -103,6 +103,9 @@ function StateRun({
 
   const current = run.at;
   const currentNode = current ? ast.stateById.get(current) : undefined;
+  // Any `[*]` is an end and reads as one; whether it *stops* the run is separate.
+  const currentIsEnd = isTerminal(current);
+  const nameOf = (id: string) => displayName(id, (key) => ast.stateById.get(key)?.label);
   const boxes = useMemo(() => enclosingStates(ast, current), [ast, current]);
 
   // One line per way out of here. Clicking a line is choosing that way.
@@ -158,12 +161,10 @@ function StateRun({
                     className="seq-stage__object"
                     data-kind={currentNode?.kind === 'choice' ? 'actor' : 'participant'}
                     data-state="sending"
-                    data-terminal={run.atEnd}
+                    data-terminal={currentIsEnd}
                   >
                     <span className="seq-stage__name">
-                      {run.atEnd
-                        ? endLabel(current, (id) => ast.stateById.get(id)?.label)
-                        : withBreaks(currentNode?.label ?? current)}
+                      {currentIsEnd ? nameOf(current) : withBreaks(currentNode?.label ?? current)}
                     </span>
                   </div>
                 ) : null}
@@ -185,9 +186,7 @@ function StateRun({
                         {option.label ? humaniseLabel(option.label.raw) : 'go'}
                       </span>
                       <span className="seq-stage__name">
-                        {ends
-                          ? endLabel(option.to, (id) => ast.stateById.get(id)?.label)
-                          : withBreaks(target?.label ?? option.to)}
+                        {ends ? nameOf(option.to) : withBreaks(target?.label ?? option.to)}
                       </span>
                     </button>
                   );
@@ -241,7 +240,7 @@ function StateRun({
                   {step.transition.label ? (
                     <RichLabel text={step.transition.label} values={run.bindings} />
                   ) : (
-                    `${step.from} \u2192 ${isTerminal(step.to) ? 'End' : step.to}`
+                    `${nameOf(step.from)} \u2192 ${nameOf(step.to)}`
                   )}
                 </button>
               ))}

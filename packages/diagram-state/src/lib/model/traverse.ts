@@ -1,5 +1,5 @@
 import { evaluateCondition } from '@archidea-ai/mermaid-scenario';
-import { TERMINAL, isTerminal } from '../parser/ast';
+import { TERMINAL, isTerminal, terminalOwner } from '../parser/ast';
 import type { VariableBindings, VariableEffect } from '@archidea-ai/mermaid-scenario';
 import type { StateDiagramAst, StateTransition } from '../parser/ast';
 
@@ -201,4 +201,22 @@ function resolve(
   if (unconditional.length === 1 && outgoing.length > 1) return unconditional[0]!;
 
   return null;
+}
+
+/**
+ * The state whose transitions are the ways out of where the viewer stands.
+ *
+ * Standing on a subgroup's end is not the end of anything but that subgroup —
+ * the run continues in the machine around it, so the options are the parent's.
+ * Only the top-level `[*]` finishes the flow, and it alone returns null.
+ */
+export function choicePointOf(at: string | null): string | null {
+  if (at === null) return null;
+  if (!isTerminal(at)) return at;
+  return terminalOwner(at);
+}
+
+/** True only for the end that actually finishes the run. */
+export function isFinalEnd(at: string | null): boolean {
+  return at !== null && isTerminal(at) && terminalOwner(at) === null;
 }
