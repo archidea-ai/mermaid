@@ -6,7 +6,9 @@ import { buildTimeline } from '../model/timeline';
 import { computeEmphasis } from '../layout/emphasis';
 import { computeGrid } from '../layout/grid';
 import { SequenceCanvas } from './canvas';
+import { SequenceSpotlight } from './spotlight';
 import { DecisionPanel, NotePanel, SequenceToolbar, StepList, VariablePanel } from './panels';
+import type { SequenceVariant } from './panels';
 import type { DiagramSurfaceProps } from '@archidea-ai/mermaid-core';
 import type { SequenceDiagramAst } from '../parser/ast';
 
@@ -46,15 +48,18 @@ function InteractiveSurface({
   ast,
   className,
   style,
+  initialVariant,
   onStepController,
 }: {
   ast: SequenceDiagramAst;
   className?: string;
   style?: DiagramSurfaceProps['style'];
+  initialVariant: SequenceVariant;
   onStepController?: DiagramSurfaceProps['onStepController'];
 }) {
   const controller = useSequenceRun(ast);
   const { timeline, current } = controller;
+  const [variant, setVariant] = useState<SequenceVariant>(initialVariant);
 
   useEffect(() => {
     onStepController?.(controller);
@@ -65,14 +70,18 @@ function InteractiveSurface({
 
   return (
     <div className={['archidea-sequence', className].filter(Boolean).join(' ')} style={style}>
-      <SequenceToolbar controller={controller} />
+      <SequenceToolbar controller={controller} variant={variant} onVariantChange={setVariant} />
       <div className="archidea-sequence__body">
-        <SequenceCanvas
-          grid={grid}
-          timeline={timeline}
-          emphasis={emphasis}
-          onSelectStep={controller.goTo}
-        />
+        {variant === 'modern' ? (
+          <SequenceSpotlight grid={grid} timeline={timeline} cursor={current} />
+        ) : (
+          <SequenceCanvas
+            grid={grid}
+            timeline={timeline}
+            emphasis={emphasis}
+            onSelectStep={controller.goTo}
+          />
+        )}
         <div>
           <VariablePanel controller={controller} />
           <DecisionPanel controller={controller} />
@@ -119,9 +128,16 @@ export function SequenceDiagramSurface(props: DiagramSurfaceProps) {
       ast={parsed.ast}
       className={props.className}
       style={props.style}
+      initialVariant={readVariant(props.config)}
       onStepController={onStepController}
     />
   );
+}
+
+/** Consumers pick the starting view through mermaid config: `sequence.variant`. */
+function readVariant(config: DiagramSurfaceProps['config']): SequenceVariant {
+  const sequence = (config as { sequence?: { variant?: unknown } } | undefined)?.sequence;
+  return sequence?.variant === 'modern' ? 'modern' : 'classic';
 }
 
 export { buildTimeline };

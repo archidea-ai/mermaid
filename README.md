@@ -87,6 +87,20 @@ ordinary diagrams keep working.
 `alt`, `opt`, `par`, `critical`, `loop` and `break` are all resolved rather than
 drawn in full, and skipped material is shown as skipped.
 
+### Two views
+
+| View                  | Shows                                                                                  | Good for                                    |
+| --------------------- | -------------------------------------------------------------------------------------- | ------------------------------------------- |
+| **Classic** (default) | The whole protocol laid out vertically, with lifelines, fragments and notes in place   | Reading the design, seeing structure        |
+| **Modern**            | Participants pinned across the top, and only the call happening right now between them | Walking someone through it a step at a time |
+
+Both share the same stepper, values and decisions — switching views mid-run keeps
+your place. Set the starting view with `sequence.variant`:
+
+```ts
+mermaid.initialize({ sequence: { variant: 'modern' } });
+```
+
 ## Theming
 
 Every colour resolves through a `--seq-*` custom property scoped to the renderer

@@ -72,12 +72,12 @@ test('a theme rewrites the renderer tokens and leaves the host page alone', asyn
   const surface = () =>
     page.locator('.archidea-sequence').evaluate((el) => getComputedStyle(el).backgroundColor);
 
-  const light = await surface();
-  await page.getByLabel('Diagram theme').selectOption('midnight');
+  const midnight = await surface();
+  await page.getByLabel('Diagram theme').selectOption('daylight');
   await page.waitForTimeout(200);
-  const dark = await surface();
+  const daylight = await surface();
 
-  expect(dark).not.toBe(light);
+  expect(daylight).not.toBe(midnight);
 
   // The host page keeps its own variables — the selector reaches our components only.
   const hostToken = await page
@@ -85,11 +85,11 @@ test('a theme rewrites the renderer tokens and leaves the host page alone', asyn
     .evaluate((el) => el.style.getPropertyValue('--seq-surface'));
   expect(hostToken).toBe('');
 
-  await page.screenshot({ path: 'e2e-results/midnight.png', fullPage: true });
+  await page.screenshot({ path: 'e2e-results/daylight.png', fullPage: true });
 });
 
 test('variable chips stay legible on every surface they appear on', async ({ page }) => {
-  await page.getByLabel('Diagram theme').selectOption('midnight');
+  // Midnight is the default; this is the theme chips were illegible in.
   await page.getByRole('button', { name: 'admin', exact: true }).click();
   await page.getByRole('button', { name: 'Next step' }).click();
 
@@ -112,8 +112,6 @@ test('form controls are normalised inside the renderer but not outside it', asyn
   // Tailwind preflight is deliberately not imported (it is a global reset), so
   // the renderer carries its own scoped normalisation. Without it the user
   // agent's button chrome shows through — light rows on a dark theme.
-  await page.getByLabel('Diagram theme').selectOption('midnight');
-
   const stepBackground = await page
     .locator('.archidea-sequence button[data-emphasis="rest"]')
     .first()
@@ -137,4 +135,99 @@ test('form controls are normalised inside the renderer but not outside it', asyn
     .getByLabel('Diagram theme')
     .evaluate((el) => getComputedStyle(el).backgroundColor);
   expect(hostSelect).not.toBe('rgba(0, 0, 0, 0)');
+});
+
+test('the modern view shows only the active call, with the rest receded', async ({ page }) => {
+  await page.getByRole('button', { name: 'admin', exact: true }).click();
+  await page.getByRole('button', { name: 'Next step' }).click();
+  await page.getByRole('button', { name: 'Modern view' }).click();
+
+  const spotlight = page.locator('.seq-spotlight');
+  await expect(spotlight).toBeVisible();
+
+  // Every participant stays pinned at the top; only one call is drawn.
+  await expect(spotlight.locator('.seq-participant')).toHaveCount(3);
+  await expect(spotlight.locator('.seq-message')).toHaveCount(1);
+  await expect(spotlight.locator('.seq-message')).toContainText('POST /login');
+
+  // Uninvolved participants recede rather than disappearing.
+  await expect(spotlight.locator('.seq-participant[data-dimmed="true"]')).toHaveCount(1);
+
+  // The active call still spans sender to receiver centre-to-centre.
+  const offsets = await page.evaluate(() => {
+    const centre = (el: Element) => {
+      const r = el.getBoundingClientRect();
+      return r.x + r.width / 2;
+    };
+    const anchors = [...document.querySelectorAll('.seq-spotlight .seq-participant')].map(centre);
+    const line = document
+      .querySelector('.seq-spotlight .seq-message__line')!
+      .getBoundingClientRect();
+    const nearest = (v: number) =>
+      anchors.reduce((best, c) => (Math.abs(c - v) < Math.abs(best - v) ? c : best));
+    return [l1(line.x), l1(line.x + line.width)];
+    function l1(v: number) {
+      return v - nearest(v);
+    }
+  });
+  for (const offset of offsets) expect(Math.abs(offset)).toBeLessThan(1.5);
+
+  await page.screenshot({ path: 'e2e-results/modern.png', fullPage: true });
+});
+
+test('the stepper and values survive switching between views', async ({ page }) => {
+  await page.getByRole('button', { name: 'admin', exact: true }).click();
+  await page.getByRole('button', { name: 'Next step' }).click();
+  await page.getByRole('button', { name: 'Modern view' }).click();
+  await expect(page.getByText('1 / 7')).toBeVisible();
+
+  await page.getByRole('button', { name: 'Classic view' }).click();
+  await expect(page.locator('.seq-grid')).toBeVisible();
+  await expect(page.getByText('1 / 7')).toBeVisible();
+  await expect(page.locator('.archidea-sequence')).toContainText('admin');
+});
+
+test('the app opens on the midnight theme', async ({ page }) => {
+  await expect(page.getByLabel('Diagram theme')).toHaveValue('midnight');
+});
+
+test('receded participants stay legible and the view toggle stays in view', async ({ page }) => {
+  await page.getByRole('button', { name: 'admin', exact: true }).click();
+  await page.getByRole('button', { name: 'Next step' }).click();
+  await page.getByRole('button', { name: 'Modern view' }).click();
+
+  // A participant dimmed out of visibility reads as absent from the system.
+  const dimmed = page.locator('.seq-spotlight .seq-participant[data-dimmed="true"]').first();
+  const opacity = await dimmed.evaluate((el) => Number(getComputedStyle(el).opacity));
+  expect(opacity).toBeGreaterThanOrEqual(0.55);
+  await expect(dimmed).toBeVisible();
+
+  // The toggle must sit inside the renderer, not overflow past its edge.
+  const overflow = await page.evaluate(() => {
+    const root = document.querySelector('.archidea-sequence')!.getBoundingClientRect();
+    const toggle = document
+      .querySelector('.archidea-sequence [aria-label="Diagram view"]')!
+      .getBoundingClientRect();
+    return toggle.right - root.right;
+  });
+  expect(overflow).toBeLessThanOrEqual(0);
+});
+
+test('every participant fits on screen in the modern view', async ({ page }) => {
+  await page.getByRole('button', { name: 'admin', exact: true }).click();
+  await page.getByRole('button', { name: 'Next step' }).click();
+  await page.getByRole('button', { name: 'Modern view' }).click();
+
+  // This view exists so the whole cast is visible at once; a participant pushed
+  // into a horizontal scroll defeats it.
+  const overflow = await page.evaluate(() => {
+    const stage = document.querySelector('.seq-spotlight')!.getBoundingClientRect();
+    return [...document.querySelectorAll('.seq-spotlight .seq-participant')].map((el) => {
+      const r = el.getBoundingClientRect();
+      return Math.max(stage.left - r.left, r.right - stage.right);
+    });
+  });
+
+  expect(overflow).toHaveLength(3);
+  for (const amount of overflow) expect(amount).toBeLessThanOrEqual(0);
 });

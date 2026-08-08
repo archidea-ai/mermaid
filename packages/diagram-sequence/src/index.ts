@@ -3,6 +3,7 @@ import './lib/theme.css';
 export { sequenceRenderer } from './lib/renderer';
 export { SequenceDiagramSurface } from './lib/components/surface';
 export { SequenceCanvas } from './lib/components/canvas';
+export { SequenceSpotlight } from './lib/components/spotlight';
 export {
   DecisionPanel,
   NotePanel,
@@ -10,6 +11,7 @@ export {
   StepList,
   VariablePanel,
 } from './lib/components/panels';
+export type { SequenceVariant } from './lib/components/panels';
 
 export { parse } from './lib/parser/parse';
 export { SequenceParseError } from './lib/parser/errors';

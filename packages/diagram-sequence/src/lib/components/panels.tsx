@@ -13,11 +13,16 @@ import type { Timeline } from '../model/timeline';
 import type { EmphasisMap } from '../layout/emphasis';
 import type { VariableType } from '../parser/ast';
 
+/** Classic lays out the whole protocol; modern shows only the active call. */
+export type SequenceVariant = 'classic' | 'modern';
+
 export interface ToolbarProps {
   controller: SequenceRunController;
+  variant: SequenceVariant;
+  onVariantChange: (variant: SequenceVariant) => void;
 }
 
-export function SequenceToolbar({ controller }: ToolbarProps) {
+export function SequenceToolbar({ controller, variant, onVariantChange }: ToolbarProps) {
   const { current, stepCount, canAdvance } = controller;
   const waiting = !canAdvance && current + 1 < stepCount;
 
@@ -48,6 +53,24 @@ export function SequenceToolbar({ controller }: ToolbarProps) {
           Waiting for a value
         </Badge>
       ) : null}
+
+      <ToggleGroup
+        className="ms-auto shrink-0"
+        variant="outline"
+        size="sm"
+        value={[variant]}
+        aria-label="Diagram view"
+        onValueChange={(value: string[]) => {
+          if (value[0]) onVariantChange(value[0] as SequenceVariant);
+        }}
+      >
+        <ToggleGroupItem value="classic" aria-label="Classic view">
+          Classic
+        </ToggleGroupItem>
+        <ToggleGroupItem value="modern" aria-label="Modern view">
+          Modern
+        </ToggleGroupItem>
+      </ToggleGroup>
     </div>
   );
 }

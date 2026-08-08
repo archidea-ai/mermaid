@@ -205,6 +205,7 @@
   display: grid;
   grid-template-rows: auto 1fr;
   gap: 12px;
+  padding: 12px;
   font-family: var(--seq-font);
   font-size: var(--seq-font-size);
   color: var(--seq-text);
@@ -488,4 +489,91 @@
   color: inherit;
   background: color-mix(in srgb, currentColor 16%, transparent);
   border-radius: 3px;
+}
+
+/* ---------------------------------------------------------------------------
+ * Modern ("spotlight") view.
+ *
+ * Participants pinned across the top, only the active call drawn between them.
+ * It reuses .seq-participant, .seq-message and .seq-note wholesale — the only
+ * additions here are the stage, the recede treatment, and the context line.
+ * ------------------------------------------------------------------------- */
+
+.seq-spotlight {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+  min-height: 11rem;
+  overflow: hidden;
+}
+
+.seq-spotlight__stage {
+  display: grid;
+  grid-template-rows: auto minmax(4.5rem, auto);
+  align-items: center;
+  gap: 0;
+  /* Deliberately no min-width: this view never scrolls sideways. */
+  width: 100%;
+}
+
+/*
+ * Everything not in the current step recedes rather than competing — but stays
+ * legible. A participant dimmed out of visibility reads as absent from the
+ * system, which is a different and wrong statement.
+ */
+.seq-spotlight .seq-participant {
+  transition:
+    opacity var(--seq-duration) var(--seq-easing),
+    background var(--seq-duration) var(--seq-easing);
+}
+.seq-spotlight .seq-participant[data-dimmed='true'] {
+  opacity: 0.62;
+}
+
+.seq-spotlight .seq-participant {
+  min-width: 0;
+  max-width: 100%;
+  padding-inline: 8px;
+}
+
+.seq-spotlight .seq-message {
+  align-self: center;
+  min-width: 0;
+}
+
+.seq-spotlight .seq-message__label {
+  font-size: 1.05em;
+}
+
+.seq-spotlight__idle,
+.seq-spotlight__event {
+  justify-self: center;
+  align-self: center;
+  color: var(--seq-text-muted);
+  text-align: center;
+}
+
+.seq-spotlight__event {
+  font-family: var(--seq-font-mono);
+  font-size: var(--seq-font-size-small);
+}
+
+.seq-spotlight__context {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  color: var(--seq-text-muted);
+  font-size: var(--seq-font-size-small);
+}
+
+.seq-spotlight__context > span {
+  padding: 2px 8px;
+  border: 1px dashed var(--seq-fragment-stroke);
+  border-radius: 999px;
+}
+
+.seq-spotlight__kind {
+  font-family: var(--seq-font-mono);
+  color: var(--seq-text);
 }

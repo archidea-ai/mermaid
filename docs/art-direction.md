@@ -54,6 +54,23 @@ Graph-shaped types (state, flowchart, class, C4) will keep HTML nodes and add a
 single absolutely positioned SVG overlay for diagonal edges — the React Flow
 model. SVG is the edge layer, never the whole canvas.
 
+## Two views, one emphasis model
+
+Sequence diagrams render in a **classic** view (the whole protocol) or a
+**modern** one (participants pinned at the top, only the active call drawn
+between them). They are two answers to different questions — "what is the
+protocol?" versus "what is happening now?" — not two visual languages.
+
+They therefore share columns, message markup, arrow geometry and every token.
+The modern view adds exactly one idea: elements outside the current step
+**recede**. Recede means reduced opacity that stays legible — a participant
+dimmed out of visibility reads as _absent from the system_, which is a different
+and wrong statement. The four emphasis levels are unchanged; there is no fifth.
+
+The modern view never scrolls sideways. Its whole purpose is that the entire
+cast is visible at once, so columns shrink to fit rather than pushing anyone off
+the edge.
+
 ## Colour
 
 **No component may hard-code a colour.** Every value resolves through a
