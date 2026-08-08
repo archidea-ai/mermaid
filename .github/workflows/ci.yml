@@ -18,9 +18,9 @@ jobs:
           # Nx affected needs history to diff against the base.
           fetch-depth: 0
 
+      # No `version` here: package.json's packageManager is the one source,
+      # and action-setup errors out when both are given.
       - uses: pnpm/action-setup@v4
-        with:
-          version: 11
 
       - uses: actions/setup-node@v5
         with:
