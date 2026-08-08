@@ -1,7 +1,9 @@
-import { Fragment, useEffect, useMemo } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { proxyRenderer } from '@archidea-ai/mermaid-core';
 import {
   RichLabel,
+  ToggleGroup,
+  ToggleGroupItem,
   computeArc,
   humaniseLabel,
   useAnchors,
@@ -13,10 +15,12 @@ import { displayName, isTerminal } from '../parser/ast';
 import type { DiagramSurfaceProps } from '@archidea-ai/mermaid-core';
 import { depthWithin, enclosingStates } from '../model/nesting';
 import { buildTrack } from '../model/track';
+import { defaultActive } from '../model/overview';
+import { StateOverview } from './overview';
+import { StateNote } from './note';
 import type { StateDiagramAst, StateNode } from '../parser/ast';
 import type { TrackEntry, TrackRun } from '../model/track';
 import type { ReactNode } from 'react';
-import { useState } from 'react';
 
 /**
  * The renderer's Component.
@@ -24,6 +28,9 @@ import { useState } from 'react';
  * Same shape as the sequence surface: parse, and fall back to the proxy if we
  * cannot — so this package never renders worse than upstream.
  */
+/** Two ways to read the same machine: one run through it, or the map around it. */
+export type StateView = 'journey' | 'overview';
+
 export function StateDiagramSurface(props: DiagramSurfaceProps) {
   const { text, onStepController, onViewportController, onError } = props;
 
@@ -101,6 +108,8 @@ function StateRun({
   start: string | null;
 }) {
   const run = useStateRun(ast, { start });
+  const [view, setView] = useState<StateView>('journey');
+  const [active, setActive] = useState<string | null>(() => defaultActive(ast));
   const { containerRef, register, anchors } = useAnchors<HTMLDivElement>();
 
   const current = run.at;
@@ -170,12 +179,16 @@ function StateRun({
     });
   }, [run.options, anchors, current]);
 
-  const chipBody = (stateId: string) => (
-    <span className="seq-stage__name">
-      {isTerminal(stateId)
-        ? nameOf(stateId)
-        : withBreaks(ast.stateById.get(stateId)?.label ?? stateId)}
-    </span>
+  const chipBody = (stateId: string, now = false) => (
+    <>
+      <span className="seq-stage__name">
+        {isTerminal(stateId)
+          ? nameOf(stateId)
+          : withBreaks(ast.stateById.get(stateId)?.label ?? stateId)}
+      </span>
+      {/* Only where the run stands: a note is about being here. */}
+      {now ? <StateNote ast={ast} stateId={stateId} values={run.bindings} /> : null}
+    </>
   );
 
   const chipKind = (stateId: string) =>
@@ -191,7 +204,7 @@ function StateRun({
         data-state="sending"
         data-terminal={isTerminal(entry.stateId)}
       >
-        {chipBody(entry.stateId)}
+        {chipBody(entry.stateId, true)}
       </div>
     ) : (
       /* A past state is somewhere you can return to, so it is a control. */
@@ -280,49 +293,80 @@ function StateRun({
   return (
     <div className={['archidea-sequence', className].filter(Boolean).join(' ')} style={style}>
       <div className="flex flex-wrap items-center gap-2">
-        <button className="seq-btn" onClick={run.prev} disabled={run.current < 0}>
-          Back
-        </button>
-        <button className="seq-btn" onClick={run.reset}>
-          Restart
-        </button>
-        {run.options.length > 0 ? (
+        {view === 'journey' ? (
+          <>
+            <button className="seq-btn" onClick={run.prev} disabled={run.current < 0}>
+              Back
+            </button>
+            <button className="seq-btn" onClick={run.reset}>
+              Restart
+            </button>
+          </>
+        ) : null}
+        {view === 'journey' && run.options.length > 0 ? (
           <span className="text-muted-foreground text-xs">Click a transition to take it</span>
         ) : null}
+        {view === 'overview' ? (
+          <span className="text-muted-foreground text-xs">Click a state to centre on it</span>
+        ) : null}
+
+        <ToggleGroup
+          className="ms-auto shrink-0"
+          variant="outline"
+          size="sm"
+          value={[view]}
+          aria-label="Diagram view"
+          onValueChange={(value: string[]) => {
+            if (value[0]) setView(value[0] as StateView);
+          }}
+        >
+          <ToggleGroupItem value="journey" aria-label="Interactive journey">
+            Interactive journey
+          </ToggleGroupItem>
+          <ToggleGroupItem value="overview" aria-label="Overview">
+            Overview
+          </ToggleGroupItem>
+        </ToggleGroup>
       </div>
 
       <div className="seq-stage">
-        <div className="state-view" ref={containerRef}>
-          <svg className="seq-stage__arcs state-view__lines" aria-hidden="true">
-            {lines.map(({ option, arc }) => (
-              <path
-                key={option.id}
-                className="state-line"
-                d={arc.path}
-                pathLength={100}
-                fill="none"
-              />
-            ))}
-          </svg>
-
-          {/* Grows rightwards: where we came from, where we are, where we can go. */}
-          <div className="state-track state-track--root">
-            {runs.map((track, index) => (
-              <Fragment key={track.key}>
-                {index > 0 ? link(track.entries[0]!, `enter-${track.key}`) : null}
-                {renderRun(track, index === runs.length - 1)}
-              </Fragment>
-            ))}
+        {view === 'overview' ? (
+          <div className="state-view">
+            <StateOverview ast={ast} active={active} onActivate={setActive} />
           </div>
+        ) : (
+          <div className="state-view" ref={containerRef}>
+            <svg className="seq-stage__arcs state-view__lines" aria-hidden="true">
+              {lines.map(({ option, arc }) => (
+                <path
+                  key={option.id}
+                  className="state-line"
+                  d={arc.path}
+                  pathLength={100}
+                  fill="none"
+                />
+              ))}
+            </svg>
 
-          {run.options.length === 0 ? (
-            <p className="seq-stage__idle">
-              {currentIsEnd ? 'This is the end of the run.' : 'Nothing leaves this state.'}
-            </p>
-          ) : null}
-        </div>
+            {/* Grows rightwards: where we came from, where we are, where we can go. */}
+            <div className="state-track state-track--root">
+              {runs.map((track, index) => (
+                <Fragment key={track.key}>
+                  {index > 0 ? link(track.entries[0]!, `enter-${track.key}`) : null}
+                  {renderRun(track, index === runs.length - 1)}
+                </Fragment>
+              ))}
+            </div>
 
-        {boxes.length > 0 ? (
+            {run.options.length === 0 ? (
+              <p className="seq-stage__idle">
+                {currentIsEnd ? 'This is the end of the run.' : 'Nothing leaves this state.'}
+              </p>
+            ) : null}
+          </div>
+        )}
+
+        {view === 'journey' && boxes.length > 0 ? (
           <p className="seq-stage__context">
             {boxes.map((box: StateNode) => (
               <span key={box.id}>

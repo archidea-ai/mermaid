@@ -15,6 +15,12 @@ export interface StateStep {
   readonly involved: readonly string[];
   readonly effects: readonly VariableEffect[];
   readonly reads: readonly { name: string; declaredType: unknown; assigns: boolean }[];
+  /**
+   * True when this step is a composite's completion transition — the lone
+   * unlabelled way out, taken because its machine finished. Finishing a
+   * submachine and carrying on is one move, so the viewer never stops here.
+   */
+  readonly completion: boolean;
 }
 
 export interface StateChoice {
@@ -84,6 +90,7 @@ export function traverse(
 
     // A composite's internal terminal hands control back to the composite.
     const climbed = ascend(ast, current);
+    const atContainerEnd = climbed !== null;
     if (climbed) {
       current = climbed;
       visited.add(current);
@@ -103,6 +110,13 @@ export function traverse(
     visits.set(current, visit + 1);
     const key = decisionKey(current, visit);
 
+    /*
+     * Finishing a submachine is not the same as being anywhere else. Its
+     * completion transition — the lone unlabelled way out — is what the diagram
+     * says happens next, so the run takes it without asking.
+     */
+    const completion = atContainerEnd && outgoing.length === 1 && outgoing[0]!.label === null;
+
     const chosen = resolve(key, outgoing, decisions, bindings, forced);
 
     if (!chosen) {
@@ -119,6 +133,17 @@ export function traverse(
      */
     const decided = decisions.has(key);
     if (!decided) {
+      /*
+       * Anything other than a completion waits. A labelled transition on the
+       * composite is a trigger, and firing one unasked because it happened to
+       * be the only option left silently aborted runs that had merely finished.
+       */
+      if (atContainerEnd && !completion && chosen.condition === null) {
+        pending = { from: current, options: outgoing, forced: Boolean(forced) };
+        nextKey = key;
+        break;
+      }
+
       if (autoTaken.has(chosen.id)) {
         pending = { from: current, options: outgoing, forced: Boolean(forced) };
         nextKey = key;
@@ -142,6 +167,7 @@ export function traverse(
       involved: [chosen.from, landing],
       effects: chosen.label?.effects ?? [],
       reads: (chosen.label?.reads ?? []).filter((read) => !read.assigns),
+      completion,
     };
     steps.push(step);
 

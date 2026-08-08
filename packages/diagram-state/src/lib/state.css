@@ -285,3 +285,119 @@ button.state-chip:focus-visible {
   background: var(--seq-surface);
   white-space: nowrap;
 }
+
+/* ---------------------------------------------------------------------------
+ * Overview: the machine around one state, rather than one run through it.
+ * ------------------------------------------------------------------------- */
+
+.state-overview {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  /* Wide enough for a transition's own words to sit between two columns. */
+  gap: 7rem;
+  min-width: max-content;
+  padding-block: 4px;
+}
+
+.state-overview__column {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 12px;
+  align-content: start;
+}
+
+.state-overview__heading {
+  font-size: var(--seq-font-size-small);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--seq-text-muted);
+}
+.state-overview__column[data-role='active'] .state-overview__heading {
+  color: var(--seq-accent);
+}
+
+.state-overview__states {
+  display: grid;
+  gap: 10px;
+  justify-items: start;
+}
+
+/* A transition's own words, sitting on the line it belongs to. */
+.state-overview__edge-label {
+  position: absolute;
+  z-index: 3;
+  transform: translate(-50%, -50%);
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: var(--seq-font-size-small);
+  color: var(--seq-text-muted);
+  background: var(--seq-surface);
+  pointer-events: none;
+  max-width: 6.5rem;
+  text-align: center;
+  line-height: 1.3;
+}
+
+/* A note is the author's aside about standing here, so it sits under the name. */
+.state-chip__note {
+  display: block;
+  max-width: 16rem;
+  margin-top: 5px;
+  padding-top: 5px;
+  border-top: 1px solid color-mix(in srgb, currentColor 22%, transparent);
+  font-size: var(--seq-font-size-small);
+  font-weight: 400;
+  line-height: 1.35;
+  opacity: 0.82;
+  white-space: normal;
+}
+
+/* ---------------------------------------------------------------------------
+ * Tracing a route: pointing at a state lights the way back to the active one.
+ * ------------------------------------------------------------------------- */
+
+/* While tracing, the lines are the subject, so they come to the front. */
+.state-overview[data-tracing='true'] .state-view__lines {
+  z-index: 3;
+}
+
+.state-overview[data-tracing='true'] .state-chip,
+.state-overview[data-tracing='true'] .state-line,
+.state-overview[data-tracing='true'] .state-overview__edge-label {
+  opacity: 0.35;
+}
+
+.state-overview .state-chip[data-lit='true'],
+.state-overview .state-line[data-lit='true'],
+.state-overview .state-overview__edge-label[data-lit='true'] {
+  opacity: 1;
+}
+
+.state-overview .state-chip[data-lit='true'] {
+  position: relative;
+  z-index: 4;
+  color: var(--seq-participant-current-text, var(--seq-text-strong));
+  background: var(--seq-participant-current-fill);
+  border-color: var(--seq-accent);
+}
+
+.state-overview .state-line[data-lit='true'] {
+  stroke: var(--seq-accent);
+  stroke-width: 2.5;
+}
+
+.state-overview .state-overview__edge-label[data-lit='true'] {
+  z-index: 5;
+  color: var(--seq-text-strong);
+  border: 1px solid var(--seq-accent);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .state-overview .state-chip,
+  .state-overview .state-line,
+  .state-overview .state-overview__edge-label {
+    transition: opacity var(--seq-duration) var(--seq-easing);
+  }
+}

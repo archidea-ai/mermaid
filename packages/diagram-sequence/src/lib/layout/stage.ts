@@ -1,6 +1,9 @@
 export interface StagePoint {
   readonly x: number;
   readonly y: number;
+  /** The measured element's own size, for callers that need its edges. */
+  readonly width?: number;
+  readonly height?: number;
 }
 
 export interface StageArc {

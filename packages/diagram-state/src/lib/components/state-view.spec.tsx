@@ -124,3 +124,78 @@ describe('connections between history states', () => {
     expect(links[0]!.textContent).toBe('');
   });
 });
+
+describe('a note on the state you are in', () => {
+  const NOTED = 'stateDiagram-v2\n[*] --> A\nA --> B: one\nnote right of A: mind the gap';
+
+  it('shows it under the name, and only while the run is there', async () => {
+    const user = userEvent.setup();
+    const { container } = render(<StateDiagramSurface text={NOTED} id="d" />);
+
+    expect(container.querySelector('.state-chip__note')?.textContent).toBe('mind the gap');
+
+    // Stepping on turns A into history, and the aside was about being in A.
+    await user.click(document.querySelector('.state-option') as HTMLElement);
+    expect(container.querySelector('.state-chip__note')).toBeNull();
+  });
+});
+
+describe('finishing a composite', () => {
+  const COMPLETES = [
+    'stateDiagram-v2',
+    '[*] --> Queued',
+    'Queued --> Work: pick up',
+    'state Work {',
+    '[*] --> Doing',
+    'Doing --> [*]: finish',
+    '}',
+    'Work --> Done',
+    'Done --> [*]',
+  ].join('\n');
+
+  const click = async (user: ReturnType<typeof userEvent.setup>, name: string) =>
+    user.click(screen.getByRole('button', { name: new RegExp(name) }));
+
+  it('carries the run out of the container without stopping on its end', async () => {
+    const user = userEvent.setup();
+    const { container } = render(<StateDiagramSurface text={COMPLETES} id="d" />);
+
+    await click(user, 'pick up');
+    expect(current(container)).toBe('Doing');
+
+    // `Work --> Done` is unlabelled and the only way out, so finishing Work is
+    // the whole move — the container's end is passed through, not stood on.
+    await click(user, 'finish');
+    expect(current(container)).toBe('Done');
+    expect(past(container)).toEqual(['Queued', 'Doing', 'End of Work']);
+  });
+
+  it('still offers a labelled escape at a container end rather than firing it', async () => {
+    const user = userEvent.setup();
+    const { container } = render(
+      <StateDiagramSurface text={`${COMPLETES}\nWork --> Cancelled: abort`} id="d" />,
+    );
+
+    await click(user, 'pick up');
+    await click(user, 'finish');
+
+    // Two ways out now, so finishing Work decides nothing on its own.
+    expect(current(container)).toBe('End of Work');
+    // Both leave Work, and both say so.
+    expect([...container.querySelectorAll('.state-option')].map((el) => el.textContent)).toEqual([
+      'leaves WorkDone',
+      'abortleaves WorkCancelled',
+    ]);
+  });
+
+  it('steps back over the completion, not into the middle of it', async () => {
+    const user = userEvent.setup();
+    const { container } = render(<StateDiagramSurface text={COMPLETES} id="d" />);
+
+    await click(user, 'pick up');
+    await click(user, 'finish');
+    await user.click(screen.getByRole('button', { name: 'Back' }));
+
+    expect(current(container)).toBe('Doing');
+  });
+});

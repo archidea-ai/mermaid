@@ -164,7 +164,7 @@ export const examples: readonly DiagramExample[] = [
     id: 'order-state',
     title: 'Order state machine — pick the next transition',
     description:
-      'A state diagram. You stand in a state and choose which transition to take; a labelled condition takes itself once the value is known. Unreached states stay dimmed.',
+      'A state diagram. You stand in a state and choose which transition to take; a labelled condition takes itself once the value is known. A state with a note shows it underneath while you are there.',
     source: `stateDiagram-v2
     direction LR
 
@@ -181,7 +181,10 @@ export const examples: readonly DiagramExample[] = [
 
     Approved --> Fulfilled: ship
     Fulfilled --> [*]
-    Rejected --> [*]`,
+    Rejected --> [*]
+
+    note right of Screening: Automatic — the risk score decides, no one clicks.
+    note right of Review: A human reads the file here. Expect it to sit for a day.`,
   },
   {
     id: 'deploy-state',

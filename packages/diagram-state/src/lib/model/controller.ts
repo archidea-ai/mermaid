@@ -55,7 +55,19 @@ export function useStateRun(
     () => traverse(ast, decisions, seed, start),
     [ast, decisions, seed, start],
   );
-  const clamped = Math.min(cursor, timeline.steps.length - 1);
+  /*
+   * A completion step is not a place to stand. Finishing a composite and
+   * carrying on into the machine around it is one move, so the cursor runs
+   * through it rather than resting on the container's end.
+   */
+  const raw = Math.min(cursor, timeline.steps.length - 1);
+  let clamped = raw;
+  while (timeline.steps[clamped + 1]?.completion) clamped += 1;
+
+  // And going back has to clear the same run, or Back lands where the cursor
+  // refuses to stay and is immediately carried forward again.
+  let previous = raw - 1;
+  while (previous >= 0 && timeline.steps[previous]!.completion) previous -= 1;
 
   const bindings = useMemo(() => {
     let result = seed;
@@ -120,7 +132,7 @@ export function useStateRun(
       atEnd:
         isFinalEnd(at) || (choicePoint !== null && at !== choicePoint && outgoing.length === 0),
       next: () => canAdvance && goTo(clamped + 1),
-      prev: () => goTo(clamped - 1),
+      prev: () => goTo(previous),
       reset: () => {
         setCursor(-1);
         setDecisions(new Map());
@@ -156,6 +168,6 @@ export function useStateRun(
           return next;
         }),
     }),
-    [timeline, clamped, bindings, prompts, canAdvance, goTo, at, outgoing, choicePoint],
+    [timeline, clamped, previous, bindings, prompts, canAdvance, goTo, at, outgoing, choicePoint],
   );
 }

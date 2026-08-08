@@ -43,6 +43,8 @@ export function useAnchors<C extends HTMLElement>() {
       next.set(id, {
         x: box.x - origin.x + container.scrollLeft + box.width / 2,
         y: box.y - origin.y + container.scrollTop + box.height / 2,
+        width: box.width,
+        height: box.height,
       });
     }
 
@@ -66,7 +68,12 @@ function sameAnchors(a: AnchorMap, b: AnchorMap): boolean {
   if (a.size !== b.size) return false;
   for (const [id, point] of b) {
     const previous = a.get(id);
-    if (!previous || Math.abs(previous.x - point.x) > 0.5 || Math.abs(previous.y - point.y) > 0.5) {
+    if (
+      !previous ||
+      Math.abs(previous.x - point.x) > 0.5 ||
+      Math.abs(previous.y - point.y) > 0.5 ||
+      Math.abs((previous.width ?? 0) - (point.width ?? 0)) > 0.5
+    ) {
       return false;
     }
   }

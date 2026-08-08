@@ -754,9 +754,21 @@ test('a compound state is drawn as a box, and nested ones as boxes inside boxes'
   await expect(page.locator('.state-box__title').first()).toContainText('Building');
 
   // Step into Testing, nested inside Building — two boxes, outermost first.
+  // History keeps its own boxes, so read the chain around where the run is.
   await page.locator('.state-option').first().click();
   await page.waitForTimeout(200);
-  const titles = await page.locator('.state-box__title').allTextContents();
+  const titles = await page.evaluate(() => {
+    const now = document.querySelector(".state-chip[data-state='sending']")!;
+    const chain: string[] = [];
+    for (
+      let el = now.closest('.state-box');
+      el;
+      el = el.parentElement?.closest('.state-box') ?? null
+    ) {
+      chain.unshift(el.querySelector('.state-box__title')!.textContent!);
+    }
+    return chain;
+  });
   expect(titles).toEqual(['Building', 'Testing']);
 
   // And they really are nested, not siblings.
@@ -784,7 +796,7 @@ test('an end is red, named, and offers nothing further', async ({ page }) => {
 
   // `[*]` is both start and end; an end must not offer the start's transitions.
   await expect(page.locator('.state-option')).toHaveCount(0);
-  await expect(page.locator('.state-options')).toContainText('end of the run');
+  await expect(page.locator('.seq-stage__idle')).toContainText('end of the run');
 
   const colour = await page.evaluate(() => {
     const el = document.querySelector(".state-chip[data-state='sending']")!;
@@ -885,8 +897,13 @@ test('a transition on an enclosing state can be taken from inside it', async ({ 
   await escape.click();
   await page.waitForTimeout(200);
   await expect(page.locator(".state-chip[data-state='sending']")).toContainText('Cancelled');
-  // Leaving the composite drops its box.
-  await expect(page.locator('.state-box')).toHaveCount(0);
+  // Cancelled is outside Building, so it is drawn outside the box — but the box
+  // stays, holding the states the run walked through on its way here.
+  const inside = await page.evaluate(
+    () => !!document.querySelector(".state-chip[data-state='sending']")!.closest('.state-box'),
+  );
+  expect(inside).toBe(false);
+  await expect(page.locator('.state-box__title')).toContainText('Building');
 
   await page.screenshot({ path: 'e2e-results/state-escape.png', fullPage: true });
 });

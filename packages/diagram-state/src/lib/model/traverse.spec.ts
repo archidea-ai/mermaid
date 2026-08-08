@@ -196,15 +196,39 @@ describe('ends are a special state', () => {
     expect(timeline.done).toBe(true);
   });
 
-  it('continues from the parent when the parent does have somewhere to go', () => {
+  it('offers the parent transition at a substate end rather than firing it', () => {
     const ast = parse(
       'stateDiagram-v2\n[*] --> Outer\nstate Outer {\n[*] --> Inner\nInner --> [*]: finish\n}\nOuter --> Live: deploy',
     );
-    // `Outer --> Live` is reachable from Inner too, so the viewer picks.
     const finish = ast.transitions.find((t) => t.label?.raw === 'finish')!;
     const timeline = traverse(ast, new Map([['Inner#0', finish.id]]), createBindings());
 
-    expect(timeline.steps.some((s) => s.transition.label?.raw === 'deploy')).toBe(true);
+    // `deploy` is a trigger, not a completion: reaching Outer's end does not
+    // fire it, so the run stops and offers it.
+    expect(timeline.at).toBe('[*]@Outer');
+    expect(timeline.pending?.options.map((option) => option.label?.raw)).toEqual(['deploy']);
+
+    const deploy = timeline.pending!.options[0]!;
+    const taken = traverse(
+      ast,
+      new Map([
+        ['Inner#0', finish.id],
+        [timeline.nextKey!, deploy.id],
+      ]),
+      createBindings(),
+    );
+
+    expect(taken.steps[taken.steps.length - 1]!.to).toBe('Live');
+  });
+
+  it('takes a completion transition on its own — it is what finishing means', () => {
+    const ast = parse(
+      'stateDiagram-v2\n[*] --> Outer\nstate Outer {\n[*] --> Inner\nInner --> [*]: finish\n}\nOuter --> Live',
+    );
+    const finish = ast.transitions.find((t) => t.label?.raw === 'finish')!;
+    const timeline = traverse(ast, new Map([['Inner#0', finish.id]]), createBindings());
+
+    // Unlabelled and alone: the diagram says this is simply what happens next.
     expect(timeline.steps[timeline.steps.length - 1]!.to).toBe('Live');
   });
 });
