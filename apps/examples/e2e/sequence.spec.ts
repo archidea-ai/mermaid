@@ -489,3 +489,54 @@ test('the examples app puts the source above the diagram', async ({ page }) => {
   // And the diagram gets the full width rather than sharing a column.
   expect(positions.diagramWidth).toBeGreaterThan(700);
 });
+
+test('a long step list scrolls instead of spilling over the skipped section', async ({ page }) => {
+  await page.getByRole('button', { name: /Access lifecycle/ }).click();
+  await page.waitForTimeout(200);
+
+  // Answer the prompts so the timeline runs long enough to overflow, and a
+  // skipped region exists below the list.
+  const values = page.locator('[data-slot="card"]', { hasText: 'Values' });
+  for (let guard = 0; guard < 12; guard += 1) {
+    const choice = values.locator('button[aria-pressed="false"]');
+    if (await choice.count()) {
+      await choice.first().click();
+      continue;
+    }
+    const text = values.getByPlaceholder('Enter a value');
+    if (await text.count()) {
+      await text.first().fill('subject-1');
+      await text.first().blur();
+      continue;
+    }
+    break;
+  }
+  await page.waitForTimeout(200);
+
+  const geometry = await page.evaluate(() => {
+    const list = document.querySelector('.seq-steps') as HTMLElement;
+    const skipped = [...document.querySelectorAll('*')].find(
+      (el) => el.children.length === 0 && el.textContent?.trim() === 'Skipped',
+    );
+    const listBox = list.getBoundingClientRect();
+    return {
+      scrolls: list.scrollHeight > list.clientHeight,
+      overflowY: getComputedStyle(list).overflowY,
+      listBottom: listBox.bottom,
+      skippedTop: skipped ? skipped.getBoundingClientRect().top : null,
+      // Content must be clipped to the box, not painted past it.
+      contentOverhang: listBox.height - list.clientHeight,
+    };
+  });
+
+  expect(geometry.overflowY).toBe('auto');
+  expect(geometry.scrolls).toBe(true);
+  expect(geometry.contentOverhang).toBeLessThanOrEqual(2);
+
+  // The skipped heading starts below the list, never underneath it.
+  if (geometry.skippedTop !== null) {
+    expect(geometry.skippedTop).toBeGreaterThanOrEqual(geometry.listBottom - 1);
+  }
+
+  await page.screenshot({ path: 'e2e-results/steps.png', fullPage: true });
+});

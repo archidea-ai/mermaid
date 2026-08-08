@@ -49,6 +49,11 @@ time. The registry is the seam that makes that additive.
   `collectDeclaredTypes(ast)` gathers every annotation so a prompt raised by a
   fragment condition (which usually just reads `{{name}}`) gets the same input
   as one raised by the message that declared it.
+- **base-ui's ScrollArea needs a definite height.** Its viewport is `height:100%`,
+  which resolves to `auto` against a `max-h`-only parent whose overflow is
+  `visible` — so content spills over whatever follows instead of scrolling. Use a
+  plain `max-h-* overflow-y-auto` container unless you can give the root a fixed
+  height.
 - **Branch on `step.kind`, never `step.node.type`.** The `+`/`-` activation
   shorthand emits a message step _and_ a lifecycle step that share one message
   node, so keying off the node renders the same message twice.

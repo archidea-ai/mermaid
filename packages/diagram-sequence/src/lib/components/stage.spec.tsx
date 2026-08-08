@@ -401,3 +401,31 @@ describe('participants shown in their declared groups', () => {
     expect(groups[0]!.querySelector('.seq-stage__group-title')).toBeNull();
   });
 });
+
+describe('the step list', () => {
+  // 30 steps, well past the panel's height.
+  const LONG = `sequenceDiagram\n${Array.from({ length: 30 }, (_, i) => `A->>B: step ${i + 1}`).join('\n')}\nopt {{extra : boolean}}\nA->>B: optional\nend`;
+
+  it('scrolls rather than spilling over what follows it', () => {
+    const { container } = render(<SequenceDiagramSurface text={LONG} id="d" />);
+    const list = container.querySelector('.seq-steps') as HTMLElement;
+
+    expect(list).not.toBeNull();
+    // A container with a max height and no overflow rule spills visibly, which
+    // is what pushed the step list over the SKIPPED section.
+    expect(list.className).toContain('overflow-y-auto');
+    expect(list.className).toContain('max-h-64');
+  });
+
+  it('keeps the skipped section as a sibling below the scroll container', async () => {
+    const user = userEvent.setup();
+    const { container } = render(<SequenceDiagramSurface text={LONG} id="d" />);
+
+    await user.click(screen.getByRole('button', { name: 'No' }));
+
+    const list = container.querySelector('.seq-steps')!;
+    const skipped = screen.getByText('Skipped');
+    expect(list.contains(skipped)).toBe(false);
+    expect(list.compareDocumentPosition(skipped) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+});

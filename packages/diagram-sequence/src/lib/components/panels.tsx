@@ -4,7 +4,6 @@ import { Button } from '../ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
-import { ScrollArea } from '../ui/scroll-area';
 import { Separator } from '../ui/separator';
 import { ToggleGroup, ToggleGroupItem } from '../ui/toggle-group';
 import { RichLabel, humaniseLabel } from './rich-label';
@@ -301,36 +300,40 @@ export function StepList({ controller, emphasis, timeline }: StepListProps) {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <ScrollArea className="max-h-64">
-          <div className="grid gap-0.5">
-            {timeline.steps.map((step, index) => (
-              <button
-                key={step.id}
-                type="button"
-                data-emphasis={emphasis.step(step.id)}
-                onClick={() => controller.goTo(index)}
-                className="text-muted-foreground hover:bg-muted data-[emphasis=current]:bg-primary data-[emphasis=current]:text-primary-foreground data-[emphasis=spent]:text-foreground cursor-pointer px-1.5 py-0.5 text-left text-xs"
-              >
-                {step.ordinal !== null ? `${step.ordinal}. ` : ''}
-                {/*
+        {/*
+          A plain scroll container, not the ScrollArea primitive. Its root sets
+          no definite height and no overflow, so its viewport's height:100%
+          resolved against an auto parent — the list grew past max-h and spilled
+          over the section below instead of scrolling.
+        */}
+        <div className="seq-steps grid max-h-64 gap-0.5 overflow-y-auto">
+          {timeline.steps.map((step, index) => (
+            <button
+              key={step.id}
+              type="button"
+              data-emphasis={emphasis.step(step.id)}
+              onClick={() => controller.goTo(index)}
+              className="text-muted-foreground hover:bg-muted data-[emphasis=current]:bg-primary data-[emphasis=current]:text-primary-foreground data-[emphasis=spent]:text-foreground cursor-pointer px-1.5 py-0.5 text-left text-xs"
+            >
+              {step.ordinal !== null ? `${step.ordinal}. ` : ''}
+              {/*
                   Keyed on step.kind, never node.type. The +/- activation
                   shorthand emits a message step and a lifecycle step that share
                   one message node, so branching on the node rendered the same
                   message twice.
                 */}
-                {step.kind === 'message' && step.node.type === 'message' ? (
-                  step.node.text.segments.length > 0 ? (
-                    <RichLabel text={step.node.text} />
-                  ) : (
-                    `${step.node.from} → ${step.node.to}`
-                  )
+              {step.kind === 'message' && step.node.type === 'message' ? (
+                step.node.text.segments.length > 0 ? (
+                  <RichLabel text={step.node.text} />
                 ) : (
-                  `${step.kind} · ${step.involved.join(', ')}`
-                )}
-              </button>
-            ))}
-          </div>
-        </ScrollArea>
+                  `${step.node.from} → ${step.node.to}`
+                )
+              ) : (
+                `${step.kind} · ${step.involved.join(', ')}`
+              )}
+            </button>
+          ))}
+        </div>
 
         {timeline.skipped.length > 0 ? (
           <>

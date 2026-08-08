@@ -813,3 +813,20 @@
     animation: none;
   }
 }
+
+/* The step list scrolls natively; keep its scrollbar in the token palette. */
+.seq-steps {
+  scrollbar-width: thin;
+  scrollbar-color: var(--seq-border) transparent;
+  overscroll-behavior: contain;
+}
+.seq-steps::-webkit-scrollbar {
+  width: 8px;
+}
+.seq-steps::-webkit-scrollbar-thumb {
+  background: var(--seq-border);
+  border-radius: 999px;
+}
+.seq-steps::-webkit-scrollbar-track {
+  background: transparent;
+}
