@@ -4,6 +4,7 @@ import { entryOf, traverse } from './traverse';
 import type { VariableBindings, VariableValue } from '@archidea-ai/mermaid-scenario';
 import type { StateDiagramAst } from '../parser/ast';
 import type { StateChoice, StateStep, StateTimeline } from './traverse';
+import { isTerminal } from '../parser/ast';
 import type { StateTransition } from '../parser/ast';
 
 export interface StatePrompt {
@@ -30,17 +31,31 @@ export interface StateRunController {
   take(transitionId: string): void;
   /** Transitions leaving the state the run is standing in. */
   readonly options: readonly StateTransition[];
+  /** True when the run is standing on an end. */
+  readonly atEnd: boolean;
   bind(name: string, value: VariableValue): void;
   unbind(name: string): void;
 }
 
-export function useStateRun(ast: StateDiagramAst): StateRunController {
+export interface StateRunOptions {
+  /** Where to begin. Falls back to `[*]`, then the first state declared. */
+  readonly start?: string | null;
+}
+
+export function useStateRun(
+  ast: StateDiagramAst,
+  options: StateRunOptions = {},
+): StateRunController {
   const [cursor, setCursor] = useState(-1);
   const [decisions, setDecisions] = useState<ReadonlyMap<string, string>>(new Map());
   const [values, setValues] = useState<Readonly<Record<string, VariableValue>>>({});
 
   const seed = useMemo(() => createBindings(values), [values]);
-  const timeline = useMemo(() => traverse(ast, decisions, seed), [ast, decisions, seed]);
+  const { start } = options;
+  const timeline = useMemo(
+    () => traverse(ast, decisions, seed, start),
+    [ast, decisions, seed, start],
+  );
   const clamped = Math.min(cursor, timeline.steps.length - 1);
 
   const bindings = useMemo(() => {
@@ -71,9 +86,14 @@ export function useStateRun(ast: StateDiagramAst): StateRunController {
    * using it before the first step showed a state several transitions ahead of
    * the cursor.
    */
-  const at = clamped >= 0 ? timeline.steps[clamped]!.to : entryOf(ast);
-  const options = useMemo(
-    () => (at === null ? [] : ast.transitions.filter((transition) => transition.from === at)),
+  const at = clamped >= 0 ? timeline.steps[clamped]!.to : entryOf(ast, start);
+  const outgoing = useMemo(
+    // Nothing leaves an end. Without this the shared `[*]` token matched the
+    // machine's *start* transitions, so finishing offered its opening moves.
+    () =>
+      at === null || isTerminal(at)
+        ? []
+        : ast.transitions.filter((transition) => transition.from === at),
     [ast, at],
   );
 
@@ -93,7 +113,8 @@ export function useStateRun(ast: StateDiagramAst): StateRunController {
       canAdvance,
       // Standing where the last step landed, or at the entry before any move.
       at,
-      options,
+      options: outgoing,
+      atEnd: isTerminal(at),
       next: () => canAdvance && goTo(clamped + 1),
       prev: () => goTo(clamped - 1),
       reset: () => {
@@ -122,6 +143,6 @@ export function useStateRun(ast: StateDiagramAst): StateRunController {
           return next;
         }),
     }),
-    [timeline, clamped, bindings, prompts, canAdvance, goTo, at, options],
+    [timeline, clamped, bindings, prompts, canAdvance, goTo, at, outgoing],
   );
 }

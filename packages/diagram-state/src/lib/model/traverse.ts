@@ -1,5 +1,5 @@
 import { evaluateCondition } from '@archidea-ai/mermaid-scenario';
-import { TERMINAL } from '../parser/ast';
+import { TERMINAL, isTerminal } from '../parser/ast';
 import type { VariableBindings, VariableEffect } from '@archidea-ai/mermaid-scenario';
 import type { StateDiagramAst, StateTransition } from '../parser/ast';
 
@@ -46,11 +46,12 @@ export function traverse(
   ast: StateDiagramAst,
   decisions: StateDecisions = new Map(),
   bindings: VariableBindings,
+  start?: string | null,
 ): StateTimeline {
   const steps: StateStep[] = [];
   const visited = new Set<string>();
 
-  let current = entryOf(ast);
+  let current = entryOf(ast, start);
   let pending: StateChoice | null = null;
   let done = false;
 
@@ -114,7 +115,7 @@ export function traverse(
 
   return {
     steps,
-    at: steps.length > 0 ? steps[steps.length - 1]!.to : entryOf(ast),
+    at: steps.length > 0 ? steps[steps.length - 1]!.to : entryOf(ast, start),
     pending,
     done,
     unreached: ast.states
@@ -123,10 +124,22 @@ export function traverse(
   };
 }
 
-/** `[*] --> X` names the entry; otherwise the first state declared. */
-export function entryOf(ast: StateDiagramAst): string | null {
+/**
+ * Where the run begins.
+ *
+ * The consumer decides first — a diagram is often worth walking from partway in,
+ * and only they know which state that is. Failing that, `[*] --> X` names the
+ * entry, and failing that the first state declared. An unknown id falls through
+ * rather than starting the run nowhere.
+ */
+export function entryOf(ast: StateDiagramAst, preferred?: string | null): string | null {
+  if (preferred && ast.stateById.has(preferred) && !isTerminal(preferred)) {
+    return descend(ast, preferred);
+  }
+
   const start = ast.transitions.find((transition) => transition.from === TERMINAL);
   if (start) return descend(ast, start.to);
+
   const first = ast.states.find((state) => state.kind !== 'terminal');
   return first ? descend(ast, first.id) : null;
 }

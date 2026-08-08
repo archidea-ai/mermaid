@@ -9,7 +9,7 @@ import {
 } from '@archidea-ai/mermaid-diagram-sequence';
 import { parse } from '../parser/parse';
 import { useStateRun } from '../model/controller';
-import { TERMINAL } from '../parser/ast';
+import { endLabel, isTerminal } from '../parser/ast';
 import type { DiagramSurfaceProps } from '@archidea-ai/mermaid-core';
 import { enclosingStates } from '../model/nesting';
 import type { StateDiagramAst, StateNode } from '../parser/ast';
@@ -44,7 +44,14 @@ export function StateDiagramSurface(props: DiagramSurfaceProps) {
   }, [parsed.error, onStepController, onError]);
 
   if (!parsed.ast) return <ProxyFallback {...props} />;
-  return <StateRun ast={parsed.ast} className={props.className} style={props.style} />;
+  return (
+    <StateRun
+      ast={parsed.ast}
+      className={props.className}
+      style={props.style}
+      start={readStart(props.config)}
+    />
+  );
 }
 
 function ProxyFallback({ text, id, config, className, style, onError }: DiagramSurfaceProps) {
@@ -74,16 +81,24 @@ function ProxyFallback({ text, id, config, className, style, onError }: DiagramS
   );
 }
 
+/** Consumers choose the starting state through mermaid config: `state.start`. */
+function readStart(config: DiagramSurfaceProps['config']): string | null {
+  const state = (config as { state?: { start?: unknown } } | undefined)?.state;
+  return typeof state?.start === 'string' ? state.start : null;
+}
+
 function StateRun({
   ast,
   className,
   style,
+  start,
 }: {
   ast: StateDiagramAst;
   className?: string;
   style?: DiagramSurfaceProps['style'];
+  start: string | null;
 }) {
-  const run = useStateRun(ast);
+  const run = useStateRun(ast, { start });
   const { containerRef, register, anchors } = useAnchors<HTMLDivElement>();
 
   const current = run.at;
@@ -137,14 +152,19 @@ function StateRun({
               </svg>
 
               <div className="state-view__now">
-                {currentNode ? (
+                {current ? (
                   <div
-                    ref={register(currentNode.id)}
+                    ref={register(current)}
                     className="seq-stage__object"
-                    data-kind={currentNode.kind === 'choice' ? 'actor' : 'participant'}
+                    data-kind={currentNode?.kind === 'choice' ? 'actor' : 'participant'}
                     data-state="sending"
+                    data-terminal={run.atEnd}
                   >
-                    <span className="seq-stage__name">{withBreaks(currentNode.label)}</span>
+                    <span className="seq-stage__name">
+                      {run.atEnd
+                        ? endLabel(current, (id) => ast.stateById.get(id)?.label)
+                        : withBreaks(currentNode?.label ?? current)}
+                    </span>
                   </div>
                 ) : null}
               </div>
@@ -152,25 +172,31 @@ function StateRun({
               <div className="state-view__next">
                 {run.options.map((option) => {
                   const target = ast.stateById.get(option.to);
+                  const ends = isTerminal(option.to);
                   return (
                     <button
                       key={option.id}
                       ref={register(`option-${option.id}`)}
                       className="state-option"
+                      data-terminal={ends}
                       onClick={() => run.take(option.id)}
                     >
                       <span className="state-option__label">
                         {option.label ? humaniseLabel(option.label.raw) : 'go'}
                       </span>
                       <span className="seq-stage__name">
-                        {withBreaks(option.to === TERMINAL ? 'end' : (target?.label ?? option.to))}
+                        {ends
+                          ? endLabel(option.to, (id) => ast.stateById.get(id)?.label)
+                          : withBreaks(target?.label ?? option.to)}
                       </span>
                     </button>
                   );
                 })}
 
                 {run.options.length === 0 ? (
-                  <p className="seq-stage__idle">This state is final — nothing leaves it.</p>
+                  <p className="seq-stage__idle">
+                    {run.atEnd ? 'This is the end of the run.' : 'Nothing leaves this state.'}
+                  </p>
                 ) : null}
               </div>
             </div>
@@ -215,7 +241,7 @@ function StateRun({
                   {step.transition.label ? (
                     <RichLabel text={step.transition.label} values={run.bindings} />
                   ) : (
-                    `${step.from} \u2192 ${step.to === TERMINAL ? 'end' : step.to}`
+                    `${step.from} \u2192 ${isTerminal(step.to) ? 'End' : step.to}`
                   )}
                 </button>
               ))}

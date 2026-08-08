@@ -151,3 +151,93 @@ describe('composite states', () => {
     expect(timeline.done).toBe(true);
   });
 });
+
+describe('ends are a special state', () => {
+  const WITH_END = 'stateDiagram-v2\n[*] --> Live\nLive --> [*]';
+
+  it('names the machine end and a substate end differently', async () => {
+    const { endLabel, isTerminal, terminalOwner } = await import('../parser/ast');
+    const label = (id: string) => ({ Testing: 'Testing phase' })[id];
+
+    expect(isTerminal('[*]')).toBe(true);
+    expect(isTerminal('[*]@Testing')).toBe(true);
+    expect(isTerminal('Live')).toBe(false);
+
+    expect(terminalOwner('[*]')).toBeNull();
+    expect(terminalOwner('[*]@Testing')).toBe('Testing');
+
+    // A substate has its own end, and it is not the machine's.
+    expect(endLabel('[*]', label)).toBe('End');
+    expect(endLabel('[*]@Testing', label)).toBe('End of Testing phase');
+  });
+
+  it("offers nothing out of an end, rather than the start's transitions", () => {
+    const ast = parse(WITH_END);
+    const timeline = traverse(ast, new Map(), createBindings());
+
+    // `[*]` is both start and end, so a naive lookup from the end matched the
+    // transitions leaving the start and offered the machine's opening moves.
+    expect(timeline.steps[timeline.steps.length - 1]!.to).toBe('[*]');
+    expect(ast.transitions.filter((t) => t.from === '[*]')).toHaveLength(1);
+    expect(timeline.done).toBe(true);
+  });
+
+  it('ends the run at a substate end when the parent has nowhere to go', () => {
+    const ast = parse(
+      'stateDiagram-v2\n[*] --> Outer\nstate Outer {\n[*] --> Inner\nInner --> [*]: finish\n}',
+    );
+    const timeline = traverse(ast, new Map(), createBindings());
+
+    // Outer has no outgoing transitions, so finishing its machine finishes the run.
+    expect(timeline.steps[timeline.steps.length - 1]!.to).toBe('[*]@Outer');
+    expect(timeline.done).toBe(true);
+  });
+
+  it('continues from the parent when the parent does have somewhere to go', () => {
+    const ast = parse(
+      'stateDiagram-v2\n[*] --> Outer\nstate Outer {\n[*] --> Inner\nInner --> [*]: finish\n}\nOuter --> Live: deploy',
+    );
+    const timeline = traverse(ast, new Map(), createBindings());
+
+    expect(timeline.steps.some((s) => s.transition.label?.raw === 'deploy')).toBe(true);
+    expect(timeline.steps[timeline.steps.length - 1]!.to).toBe('Live');
+  });
+});
+
+describe('choosing where the run begins', () => {
+  const MACHINE = `stateDiagram-v2
+    [*] --> Draft
+    Draft --> Review: submit
+    Review --> Live: approve
+    Live --> [*]`;
+
+  it('honours the state the consumer asked for', () => {
+    const ast = parse(MACHINE);
+    expect(entryOf(ast, 'Review')).toBe('Review');
+    expect(traverse(ast, new Map(), createBindings(), 'Review').steps[0]!.from).toBe('Review');
+  });
+
+  it('falls back to [*] when nothing was asked for', () => {
+    expect(entryOf(parse(MACHINE))).toBe('Draft');
+    expect(entryOf(parse(MACHINE), null)).toBe('Draft');
+  });
+
+  it('falls back to the first state when there is no [*]', () => {
+    expect(entryOf(parse('stateDiagram-v2\nAlpha --> Beta: go'))).toBe('Alpha');
+  });
+
+  it('ignores a state that does not exist rather than starting nowhere', () => {
+    expect(entryOf(parse(MACHINE), 'Nonexistent')).toBe('Draft');
+  });
+
+  it('will not start on an end, which is not a state you can be in', () => {
+    expect(entryOf(parse(MACHINE), '[*]')).toBe('Draft');
+  });
+
+  it('descends when the chosen state is a composite', () => {
+    const ast = parse(
+      'stateDiagram-v2\n[*] --> A\nstate Outer {\n[*] --> Inner\nInner --> Done: go\n}',
+    );
+    expect(entryOf(ast, 'Outer')).toBe('Inner');
+  });
+});

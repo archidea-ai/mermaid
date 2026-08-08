@@ -754,3 +754,50 @@ test('a compound state is drawn as a box, and nested ones as boxes inside boxes'
 
   await page.screenshot({ path: 'e2e-results/state-nested.png', fullPage: true });
 });
+
+test('an end is red, named, and offers nothing further', async ({ page }) => {
+  await page.getByRole('button', { name: /Order state machine/ }).click();
+  await page.waitForTimeout(200);
+
+  // Walk to an end.
+  for (let i = 0; i < 12; i += 1) {
+    const options = page.locator('.state-option');
+    if ((await options.count()) === 0) break;
+    await options.first().click();
+    await page.waitForTimeout(120);
+  }
+
+  const now = page.locator('.state-view__now .seq-stage__object');
+  await expect(now).toHaveAttribute('data-terminal', 'true');
+  await expect(now).toContainText('End');
+
+  // `[*]` is both start and end; an end must not offer the start's transitions.
+  await expect(page.locator('.state-option')).toHaveCount(0);
+  await expect(page.locator('.state-view__next')).toContainText('end of the run');
+
+  const colour = await page.evaluate(() => {
+    const el = document.querySelector('.state-view__now .seq-stage__object')!;
+    return getComputedStyle(el).borderTopColor;
+  });
+  // Red, and distinct from the accent used everywhere else.
+  expect(colour).not.toBe('rgb(129, 140, 248)');
+
+  await page.screenshot({ path: 'e2e-results/state-end.png', fullPage: true });
+});
+
+test('a substate end is named for the machine it ends', async ({ page }) => {
+  await page.getByRole('button', { name: /Deployment machine/ }).click();
+  await page.waitForTimeout(200);
+
+  // Into Building, into Testing, then take the failing branch to Testing's end.
+  await page.locator('.state-option').first().click();
+  await page.waitForTimeout(150);
+  await page.locator('.state-option').first().click();
+  await page.waitForTimeout(150);
+
+  const labels = await page.locator('.state-option .seq-stage__name').allTextContents();
+  // Every option is a real state here; ends carry the machine they finish.
+  for (const label of labels) {
+    if (label.startsWith('End')) expect(label).toMatch(/^End of /);
+  }
+});

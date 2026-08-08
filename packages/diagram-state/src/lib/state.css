@@ -169,3 +169,19 @@
     transition: none;
   }
 }
+
+/* An end is not a state you can leave, and it should not look like one. */
+.seq-stage__object[data-terminal='true'],
+.state-option[data-terminal='true'] {
+  color: var(--seq-end);
+  background: var(--seq-end-fill);
+  border-color: var(--seq-end);
+}
+.state-option[data-terminal='true']:hover,
+.state-option[data-terminal='true']:focus-visible {
+  border-color: var(--seq-end);
+  background: color-mix(in srgb, var(--seq-end) 22%, var(--seq-end-fill));
+}
+.state-option[data-terminal='true'] .state-option__label {
+  color: color-mix(in srgb, var(--seq-end) 80%, var(--seq-text-muted));
+}

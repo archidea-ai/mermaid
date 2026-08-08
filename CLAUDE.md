@@ -54,6 +54,11 @@ time. The registry is the seam that makes that additive.
   `visible` — so content spills over whatever follows instead of scrolling. Use a
   plain `max-h-* overflow-y-auto` container unless you can give the root a fixed
   height.
+- **State: an end is not a state you can leave.** `isTerminal()` gates it — the
+  same `[*]` token is start _and_ end, so looking up transitions from an end
+  matched the ones leaving the start and offered the machine's opening moves.
+- **State: the consumer picks the start** via `state.start`, falling back to
+  `[*]` and then the first state declared.
 - **State: `[*]` is scoped to its composite.** Every composite declares its own
   start and end with the same token, so the parser rewrites them to `[*]@Parent`.
   Treating them as one node made the machine's entry ambiguous.

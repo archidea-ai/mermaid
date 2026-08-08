@@ -105,6 +105,9 @@
   --seq-accent: #4f46e5;
   --seq-accent-contrast: #ffffff;
   --seq-skipped: #aeb5c2;
+  /* Ends are their own thing, not a variant of the accent. */
+  --seq-end: #c2410c;
+  --seq-end-fill: #fee7dc;
 
   --seq-radius: 8px;
   --seq-font: ui-sans-serif, system-ui, -apple-system, sans-serif;
@@ -163,6 +166,8 @@
     --seq-note-text: #e8dfb8;
 
     --seq-accent: #818cf8;
+    --seq-end: #f87171;
+    --seq-end-fill: #3a1d1d;
   }
 }
 
