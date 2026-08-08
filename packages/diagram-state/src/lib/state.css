@@ -213,3 +213,20 @@
   gap: 10px;
   justify-items: start;
 }
+
+/* A past state is a control: it invites going back to it. */
+button.state-chip {
+  cursor: pointer;
+  transition:
+    opacity var(--seq-duration) var(--seq-easing),
+    border-color var(--seq-duration) var(--seq-easing);
+}
+button.state-chip:hover,
+button.state-chip:focus-visible {
+  opacity: 1;
+  border-color: var(--seq-accent);
+}
+button.state-chip:focus-visible {
+  outline: 2px solid var(--seq-accent);
+  outline-offset: 2px;
+}

@@ -107,11 +107,21 @@ function StateRun({
   // Containers around where we stand, outermost first.
   const boxes = useMemo(() => enclosingStates(ast, current), [ast, current]);
 
-  /** Everywhere the run has been, oldest first, ending at the current state. */
+  /**
+   * Everywhere the run has been, oldest first, stopping before the current
+   * state. Each entry carries the cursor that puts the run back there, so
+   * clicking a past state rewinds to it.
+   */
   const trail = useMemo(() => {
     const walked = run.timeline.steps.slice(0, run.current + 1);
     if (walked.length === 0) return [];
-    return [walked[0]!.from, ...walked.slice(0, -1).map((step) => step.to)];
+
+    // trail[0] is where the run started, which is cursor -1; trail[i] is where
+    // step i-1 landed.
+    return [
+      { stateId: walked[0]!.from, cursor: -1 },
+      ...walked.slice(0, -1).map((step, index) => ({ stateId: step.to, cursor: index })),
+    ];
   }, [run.timeline, run.current]);
 
   /*
@@ -132,21 +142,41 @@ function StateRun({
     });
   }, [run.options, anchors, current]);
 
-  const stateChip = (stateId: string, kind: 'past' | 'now') => (
+  const chipBody = (stateId: string) => (
+    <span className="seq-stage__name">
+      {isTerminal(stateId)
+        ? nameOf(stateId)
+        : withBreaks(ast.stateById.get(stateId)?.label ?? stateId)}
+    </span>
+  );
+
+  const currentChip = (stateId: string) => (
     <div
-      key={`${kind}-${stateId}`}
-      ref={kind === 'now' ? register(stateId) : undefined}
+      key={`now-${stateId}`}
+      ref={register(stateId)}
       className="seq-stage__object state-chip"
       data-kind={ast.stateById.get(stateId)?.kind === 'choice' ? 'actor' : 'participant'}
-      data-state={kind === 'now' ? 'sending' : 'resting'}
+      data-state="sending"
       data-terminal={isTerminal(stateId)}
     >
-      <span className="seq-stage__name">
-        {isTerminal(stateId)
-          ? nameOf(stateId)
-          : withBreaks(ast.stateById.get(stateId)?.label ?? stateId)}
-      </span>
+      {chipBody(stateId)}
     </div>
+  );
+
+  /* A past state is a place you can go back to, so it is a control. */
+  const pastChip = (entry: { stateId: string; cursor: number }, index: number) => (
+    <button
+      key={`past-${index}-${entry.stateId}`}
+      type="button"
+      className="seq-stage__object state-chip"
+      data-kind={ast.stateById.get(entry.stateId)?.kind === 'choice' ? 'actor' : 'participant'}
+      data-state="resting"
+      data-terminal={isTerminal(entry.stateId)}
+      title={`Go back to ${nameOf(entry.stateId)}`}
+      onClick={() => run.goTo(entry.cursor)}
+    >
+      {chipBody(entry.stateId)}
+    </button>
   );
 
   const optionChip = (option: (typeof run.options)[number]) => {
@@ -176,14 +206,15 @@ function StateRun({
   /** Renders the track from the outside in, so the boxes nest around it. */
   const renderLevel = (level: number): ReactNode => {
     const past = trail
-      .filter((stateId) => levelOf(stateId) === level)
-      .map((id) => stateChip(id, 'past'));
+      .map((entry, index) => ({ entry, index }))
+      .filter(({ entry }) => levelOf(entry.stateId) === level)
+      .map(({ entry, index }) => pastChip(entry, index));
     const options = run.options.filter((option) => levelOf(option.to) === level).map(optionChip);
 
     const inner =
       level === boxes.length ? (
         current ? (
-          stateChip(current, 'now')
+          currentChip(current)
         ) : null
       ) : (
         <section key={boxes[level]!.id} className="state-box" aria-label={boxes[level]!.label}>
