@@ -20,6 +20,9 @@ vi.mock('mermaid', () => ({
   },
 }));
 
+/** Tests about the classic layout must ask for it: modern is now the default. */
+const CLASSIC = { sequence: { variant: 'classic' } };
+
 const LOGIN = `sequenceDiagram
     actor User
     participant API
@@ -62,7 +65,11 @@ describe('sequenceRenderer', () => {
 describe('<SequenceDiagramSurface />', () => {
   it('renders the diagram as HTML on a grid, with no SVG at all', () => {
     const { container } = render(
-      <SequenceDiagramSurface text={'sequenceDiagram\nA->>B: hello\nnote over A,B: hi'} id="d" />,
+      <SequenceDiagramSurface
+        text={'sequenceDiagram\nA->>B: hello\nnote over A,B: hi'}
+        id="d"
+        config={CLASSIC}
+      />,
     );
 
     // The toolbar's lucide icons are legitimately SVG; the diagram itself is not.
@@ -110,7 +117,13 @@ describe('<SequenceDiagramSurface />', () => {
 
   it('renders participants and steps through messages, highlighting as it goes', async () => {
     const user = userEvent.setup();
-    render(<SequenceDiagramSurface text={'sequenceDiagram\nA->>B: first\nB->>A: second'} id="d" />);
+    render(
+      <SequenceDiagramSurface
+        text={'sequenceDiagram\nA->>B: first\nB->>A: second'}
+        id="d"
+        config={CLASSIC}
+      />,
+    );
 
     expect(screen.getByText('A')).toBeDefined();
     // The label appears on the canvas arrow and again in the sidebar step list.
@@ -155,7 +168,8 @@ describe('<SequenceDiagramSurface />', () => {
     await user.click(screen.getByRole('button', { name: 'Next step' }));
     await user.click(screen.getByRole('button', { name: 'Next step' }));
 
-    await waitFor(() => expect(screen.getByText('u-1')).toBeDefined());
+    // The modern view also renders the value inline, so scope to the sidebar.
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Clear userId' })).toBeDefined());
   });
 
   it('asks the viewer to choose when branch labels are prose', async () => {

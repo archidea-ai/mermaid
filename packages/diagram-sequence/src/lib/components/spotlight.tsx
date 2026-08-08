@@ -3,6 +3,7 @@ import type { ArrowKind } from '../parser/tokenize';
 import type { SequenceGrid } from '../layout/grid';
 import type { Timeline } from '../model/timeline';
 import type { RichText } from '../parser/ast';
+import type { VariableBindings } from '../model/bindings';
 import type { CSSProperties } from 'react';
 
 const DOTTED: readonly ArrowKind[] = ['-->', '-->>', '--x', '--)', '<<-->>'];
@@ -18,6 +19,8 @@ export interface SequenceSpotlightProps {
   grid: SequenceGrid;
   timeline: Timeline;
   cursor: number;
+  /** Bound values, so references render as what they actually are. */
+  bindings: VariableBindings;
 }
 
 /**
@@ -33,7 +36,7 @@ export interface SequenceSpotlightProps {
  * canvas, so arrow geometry, heads and theming are shared rather than
  * reimplemented.
  */
-export function SequenceSpotlight({ grid, timeline, cursor }: SequenceSpotlightProps) {
+export function SequenceSpotlight({ grid, timeline, cursor, bindings }: SequenceSpotlightProps) {
   const step = cursor >= 0 ? timeline.steps[cursor] : undefined;
   const involved = new Set(step?.involved ?? []);
 
@@ -82,7 +85,7 @@ export function SequenceSpotlight({ grid, timeline, cursor }: SequenceSpotlightP
           >
             <span className="seq-message__label">
               {step.ordinal !== null ? <b>{step.ordinal}. </b> : null}
-              <RichLabel text={(step.node as { text: RichText }).text} />
+              <RichLabel text={(step.node as { text: RichText }).text} values={bindings} />
             </span>
             <span className="seq-message__line" aria-hidden="true" />
           </div>
@@ -94,7 +97,7 @@ export function SequenceSpotlight({ grid, timeline, cursor }: SequenceSpotlightP
             data-emphasis="current"
             style={{ gridColumn: `${note.columnStart} / ${note.columnEnd + 1}`, gridRow: 2 }}
           >
-            <RichLabel text={(step.node as { text: RichText }).text} />
+            <RichLabel text={(step.node as { text: RichText }).text} values={bindings} />
           </div>
         ) : null}
 

@@ -61,9 +61,21 @@ Sequence diagrams render in a **classic** view (the whole protocol) or a
 between them). They are two answers to different questions — "what is the
 protocol?" versus "what is happening now?" — not two visual languages.
 
-They therefore share columns, message markup, arrow geometry and every token.
-The modern view adds exactly one idea: elements outside the current step
-**recede**. Recede means reduced opacity that stays legible — a participant
+They therefore share columns, message markup and every token. The modern view
+adds three ideas:
+
+- Elements outside the current step **recede**.
+- A reference renders as its **bound value**, not its name — `admin`, not `role`.
+  Modern describes one run; classic describes the protocol. The name stays
+  available on hover rather than being lost.
+- The call **connects** to the boxes: the line carries a leg at each end rising
+  to the participant it touches, and the head points _up into_ the receiver. A
+  call arrives somewhere, and the arrow should say so. Modern uses one head
+  shape for every arrow kind — solid versus dotted still separates sync from
+  async, but four near-identical 10px triangles cost more than they explain to
+  this view's audience.
+
+Recede Recede means reduced opacity that stays legible — a participant
 dimmed out of visibility reads as _absent from the system_, which is a different
 and wrong statement. The four emphasis levels are unchanged; there is no fifth.
 

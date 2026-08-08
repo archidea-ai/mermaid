@@ -73,7 +73,12 @@ function InteractiveSurface({
       <SequenceToolbar controller={controller} variant={variant} onVariantChange={setVariant} />
       <div className="archidea-sequence__body">
         {variant === 'modern' ? (
-          <SequenceSpotlight grid={grid} timeline={timeline} cursor={current} />
+          <SequenceSpotlight
+            grid={grid}
+            timeline={timeline}
+            cursor={current}
+            bindings={controller.bindings}
+          />
         ) : (
           <SequenceCanvas
             grid={grid}
@@ -134,10 +139,14 @@ export function SequenceDiagramSurface(props: DiagramSurfaceProps) {
   );
 }
 
-/** Consumers pick the starting view through mermaid config: `sequence.variant`. */
+/**
+ * Consumers pick the starting view through mermaid config: `sequence.variant`.
+ * Modern is the default — it is the view built for being walked through a system,
+ * which is what this renderer exists for.
+ */
 function readVariant(config: DiagramSurfaceProps['config']): SequenceVariant {
   const sequence = (config as { sequence?: { variant?: unknown } } | undefined)?.sequence;
-  return sequence?.variant === 'modern' ? 'modern' : 'classic';
+  return sequence?.variant === 'classic' ? 'classic' : 'modern';
 }
 
 export { buildTimeline };

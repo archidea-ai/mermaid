@@ -509,7 +509,7 @@
 
 .seq-spotlight__stage {
   display: grid;
-  grid-template-rows: auto minmax(4.5rem, auto);
+  grid-template-rows: auto minmax(5.25rem, auto);
   align-items: center;
   gap: 0;
   /* Deliberately no min-width: this view never scrolls sideways. */
@@ -537,11 +537,90 @@
 }
 
 .seq-spotlight .seq-message {
-  align-self: center;
+  align-self: start;
   min-width: 0;
+  padding-top: 0;
+}
+
+/*
+ * The call attaches to the boxes rather than floating below them: the line
+ * carries a leg at each end that rises to the participant it touches, so the
+ * connection is drawn rather than implied by alignment.
+ */
+.seq-spotlight .seq-message__line {
+  /*
+   * Drawn first, so the connector meets the participant boxes directly and the
+   * label reads beneath it. With the label between the two, the line floated
+   * ~47px clear of the boxes and the connection was implied rather than shown.
+   */
+  order: -1;
+  height: 20px;
+  margin-top: 0;
+  border-top: 0;
+  border-bottom: 1.75px solid var(--seq-message-current);
+  border-left: 1.75px solid var(--seq-message-current);
+  border-right: 1.75px solid var(--seq-message-current);
+  border-radius: 8px 8px 0 0;
+}
+.seq-spotlight .seq-message[data-dotted='true'] .seq-message__line {
+  border-bottom-style: dashed;
+}
+
+/*
+ * The head points up into the receiving participant, not sideways along the
+ * connector — the call arrives at a box, and that is what the arrow should say.
+ *
+ * The modern view uses one head shape for every arrow kind. Solid/dotted still
+ * distinguishes synchronous from asynchronous, but open-vs-cross-vs-async head
+ * nuance is detail this view's audience does not read, and four near-identical
+ * triangles at 10px cost more than they explain.
+ */
+.seq-spotlight .seq-message__line::after {
+  top: 0;
+  bottom: auto;
+  left: auto;
+  right: -6px;
+  width: 0;
+  height: 0;
+  background: none;
+  transform: translateY(-100%);
+  border: 6px solid transparent;
+  border-top-width: 0;
+  border-bottom-color: var(--seq-message-current);
+}
+.seq-spotlight .seq-message[data-direction='backward'] .seq-message__line::after {
+  right: auto;
+  left: -6px;
+  border-right-width: 6px;
+  border-left-width: 6px;
+  border-bottom-color: var(--seq-message-current);
+}
+/* A bidirectional call arrives at both ends. */
+.seq-spotlight .seq-message[data-bidirectional='true'] .seq-message__line::before {
+  top: 0;
+  bottom: auto;
+  left: -6px;
+  right: auto;
+  transform: translateY(-100%);
+  border: 6px solid transparent;
+  border-top-width: 0;
+  border-bottom-color: var(--seq-message-current);
+}
+.seq-spotlight .seq-message[data-bidirectional='false'] .seq-message__line::before {
+  content: none;
+}
+
+/* A self call needs no second leg — it leaves and returns to one participant. */
+.seq-spotlight .seq-message[data-self='true'] .seq-message__line {
+  width: 46%;
+  margin-inline-start: 27%;
+  border-radius: 8px;
+  border-top: 1.75px solid var(--seq-message-current);
 }
 
 .seq-spotlight .seq-message__label {
+  order: 1;
+  margin-top: 6px;
   font-size: 1.05em;
 }
 

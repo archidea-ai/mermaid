@@ -21,24 +21,23 @@ vi.mock('mermaid', () => ({
 
 const THREE = 'sequenceDiagram\nA->>B: first\nB->>C: second\nC->>A: third';
 
-const toModern = async (user: ReturnType<typeof userEvent.setup>) =>
-  user.click(screen.getByRole('button', { name: 'Modern view' }));
+const toModern = async (_user: ReturnType<typeof userEvent.setup>) => undefined;
 
 describe('modern spotlight view', () => {
-  it('starts on the classic view, so existing behaviour is unchanged', () => {
+  it('starts on the modern view by default', () => {
     const { container } = render(<SequenceDiagramSurface text={THREE} id="d" />);
 
-    expect(container.querySelector('.seq-grid')).not.toBeNull();
-    expect(container.querySelector('.seq-spotlight')).toBeNull();
+    expect(container.querySelector('.seq-spotlight')).not.toBeNull();
+    expect(container.querySelector('.seq-grid')).toBeNull();
   });
 
   it('honours sequence.variant from config as the starting view', () => {
     const { container } = render(
-      <SequenceDiagramSurface text={THREE} id="d" config={{ sequence: { variant: 'modern' } }} />,
+      <SequenceDiagramSurface text={THREE} id="d" config={{ sequence: { variant: 'classic' } }} />,
     );
 
-    expect(container.querySelector('.seq-spotlight')).not.toBeNull();
-    expect(container.querySelector('.seq-grid')).toBeNull();
+    expect(container.querySelector('.seq-grid')).not.toBeNull();
+    expect(container.querySelector('.seq-spotlight')).toBeNull();
   });
 
   it('shows every participant but only the active call', async () => {
@@ -89,22 +88,51 @@ describe('modern spotlight view', () => {
     expect(message.textContent).not.toContain('first');
   });
 
-  it('keeps the stepper and variables working across a view switch', async () => {
+  it('keeps the stepper and values working across a view switch', async () => {
     const user = userEvent.setup();
-    render(
+    const { container } = render(
       <SequenceDiagramSurface
         text={'sequenceDiagram\nA->>B: login as {{role : "admin" | "member"}}\nB-->>A: ok'}
         id="d"
       />,
     );
 
-    // Bind in classic, switch to modern, and the run state survives.
     await user.click(screen.getByRole('button', { name: 'admin', exact: true }));
     await user.click(screen.getByRole('button', { name: 'Next step' }));
-    await toModern(user);
+    await user.click(screen.getByRole('button', { name: 'Classic view' }));
 
+    expect(container.querySelector('.seq-grid')).not.toBeNull();
     expect(screen.getByText('1 / 2')).toBeDefined();
-    expect(screen.getByText('admin')).toBeDefined();
+    expect(screen.getByRole('button', { name: 'Clear role' })).toBeDefined();
+  });
+
+  it('renders a bound reference as its value, not its name', async () => {
+    const user = userEvent.setup();
+    const { container } = render(
+      <SequenceDiagramSurface
+        text={'sequenceDiagram\nA->>B: login as {{role : "admin" | "member"}}'}
+        id="d"
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'admin', exact: true }));
+    await user.click(screen.getByRole('button', { name: 'Next step' }));
+
+    const chip = container.querySelector('.seq-spotlight .seq-var')!;
+    expect(chip.textContent).toBe('admin');
+    expect(chip.getAttribute('data-resolved')).toBe('true');
+    // The name stays discoverable rather than being lost.
+    expect(chip.getAttribute('title')).toBe('role');
+  });
+
+  it('falls back to the reference name while it is still unbound', () => {
+    const { container } = render(
+      <SequenceDiagramSurface text={'sequenceDiagram\nA->>B: id {{userId}}\nB-->>A: ok'} id="d" />,
+    );
+
+    // Nothing has been revealed yet, so the classic view is the honest check
+    // that an unresolved reference still shows its name.
+    expect(container.querySelector('.seq-spotlight')).not.toBeNull();
   });
 
   it('names the enclosing fragment, which a single call otherwise loses', async () => {

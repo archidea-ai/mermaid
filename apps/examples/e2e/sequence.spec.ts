@@ -1,9 +1,13 @@
 import { expect, test } from '@playwright/test';
+import type { Page } from '@playwright/test';
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/');
-  await page.waitForSelector('.seq-grid');
+  await page.waitForSelector('.archidea-sequence');
 });
+
+/** Modern is the default view; these checks are about the classic layout. */
+const toClassic = (page: Page) => page.getByRole('button', { name: 'Classic view' }).click();
 
 test('the bundled app uses the native renderer, not the proxy', async ({ page }) => {
   // Guards against registration being tree-shaken out of the build, which
@@ -13,12 +17,14 @@ test('the bundled app uses the native renderer, not the proxy', async ({ page })
 });
 
 test('the diagram is HTML, with no SVG in the canvas', async ({ page }) => {
+  await toClassic(page);
   const grid = page.locator('.seq-grid');
   await expect(grid.locator('svg')).toHaveCount(0);
   await expect(page.locator('.seq-participant').first()).toHaveText('User');
 });
 
 test('every arrow starts and ends on a lifeline centre', async ({ page }) => {
+  await toClassic(page);
   await page.getByRole('button', { name: 'admin', exact: true }).click();
 
   const offsets = await page.evaluate(() => {
@@ -43,6 +49,7 @@ test('every arrow starts and ends on a lifeline centre', async ({ page }) => {
 });
 
 test('a fragment frame encloses only its own statements', async ({ page }) => {
+  await toClassic(page);
   await page.getByRole('button', { name: 'admin', exact: true }).click();
 
   const inside = await page.evaluate(() => {
@@ -61,6 +68,7 @@ test('a fragment frame encloses only its own statements', async ({ page }) => {
 });
 
 test('stepping highlights the participants involved in the current step', async ({ page }) => {
+  await toClassic(page);
   await page.getByRole('button', { name: 'admin', exact: true }).click();
   await page.getByRole('button', { name: 'Next step' }).click();
 
@@ -90,6 +98,7 @@ test('a theme rewrites the renderer tokens and leaves the host page alone', asyn
 
 test('variable chips stay legible on every surface they appear on', async ({ page }) => {
   // Midnight is the default; this is the theme chips were illegible in.
+  await toClassic(page);
   await page.getByRole('button', { name: 'admin', exact: true }).click();
   await page.getByRole('button', { name: 'Next step' }).click();
 
@@ -140,7 +149,6 @@ test('form controls are normalised inside the renderer but not outside it', asyn
 test('the modern view shows only the active call, with the rest receded', async ({ page }) => {
   await page.getByRole('button', { name: 'admin', exact: true }).click();
   await page.getByRole('button', { name: 'Next step' }).click();
-  await page.getByRole('button', { name: 'Modern view' }).click();
 
   const spotlight = page.locator('.seq-spotlight');
   await expect(spotlight).toBeVisible();
@@ -178,7 +186,6 @@ test('the modern view shows only the active call, with the rest receded', async 
 test('the stepper and values survive switching between views', async ({ page }) => {
   await page.getByRole('button', { name: 'admin', exact: true }).click();
   await page.getByRole('button', { name: 'Next step' }).click();
-  await page.getByRole('button', { name: 'Modern view' }).click();
   await expect(page.getByText('1 / 7')).toBeVisible();
 
   await page.getByRole('button', { name: 'Classic view' }).click();
@@ -194,7 +201,6 @@ test('the app opens on the midnight theme', async ({ page }) => {
 test('receded participants stay legible and the view toggle stays in view', async ({ page }) => {
   await page.getByRole('button', { name: 'admin', exact: true }).click();
   await page.getByRole('button', { name: 'Next step' }).click();
-  await page.getByRole('button', { name: 'Modern view' }).click();
 
   // A participant dimmed out of visibility reads as absent from the system.
   const dimmed = page.locator('.seq-spotlight .seq-participant[data-dimmed="true"]').first();
@@ -216,7 +222,6 @@ test('receded participants stay legible and the view toggle stays in view', asyn
 test('every participant fits on screen in the modern view', async ({ page }) => {
   await page.getByRole('button', { name: 'admin', exact: true }).click();
   await page.getByRole('button', { name: 'Next step' }).click();
-  await page.getByRole('button', { name: 'Modern view' }).click();
 
   // This view exists so the whole cast is visible at once; a participant pushed
   // into a horizontal scroll defeats it.
@@ -230,4 +235,60 @@ test('every participant fits on screen in the modern view', async ({ page }) => 
 
   expect(overflow).toHaveLength(3);
   for (const amount of overflow) expect(amount).toBeLessThanOrEqual(0);
+});
+
+test('the modern view shows bound values, not reference names', async ({ page }) => {
+  await page.getByRole('button', { name: 'admin', exact: true }).click();
+  await page.getByRole('button', { name: 'Next step' }).click();
+
+  const chip = page.locator('.seq-spotlight .seq-var').first();
+  await expect(chip).toHaveText('admin');
+  await expect(chip).toHaveAttribute('data-resolved', 'true');
+  await expect(chip).toHaveAttribute('title', 'role');
+});
+
+test('the call connects to both participant boxes', async ({ page }) => {
+  await page.getByRole('button', { name: 'admin', exact: true }).click();
+  await page.getByRole('button', { name: 'Next step' }).click();
+
+  const gap = await page.evaluate(() => {
+    const line = document.querySelector('.seq-spotlight .seq-message__line')!;
+    const style = getComputedStyle(line);
+    const rect = line.getBoundingClientRect();
+    const involved = [...document.querySelectorAll('.seq-spotlight .seq-participant')]
+      .filter((el) => (el as HTMLElement).dataset.dimmed === 'false')
+      .map((el) => el.getBoundingClientRect());
+    const lowestBox = Math.max(...involved.map((r) => r.bottom));
+    return {
+      legLeft: parseFloat(style.borderLeftWidth),
+      legRight: parseFloat(style.borderRightWidth),
+      distanceToBoxes: rect.top - lowestBox,
+    };
+  });
+
+  // Legs rise from both ends, and the connector meets the boxes rather than
+  // floating in the middle of the row.
+  expect(gap.legLeft).toBeGreaterThan(0);
+  expect(gap.legRight).toBeGreaterThan(0);
+  expect(gap.distanceToBoxes).toBeLessThanOrEqual(8);
+});
+
+test('the arrow head points up into the receiving participant', async ({ page }) => {
+  await page.getByRole('button', { name: 'admin', exact: true }).click();
+  await page.getByRole('button', { name: 'Next step' }).click();
+
+  const head = await page.evaluate(() => {
+    const line = document.querySelector('.seq-spotlight .seq-message__line')!;
+    const style = getComputedStyle(line, '::after');
+    return {
+      top: parseFloat(style.borderTopWidth),
+      bottom: parseFloat(style.borderBottomWidth),
+      bottomColor: style.borderBottomColor,
+    };
+  });
+
+  // An up-pointing CSS triangle: no top border, a coloured bottom one.
+  expect(head.top).toBe(0);
+  expect(head.bottom).toBeGreaterThan(0);
+  expect(head.bottomColor).not.toBe('rgba(0, 0, 0, 0)');
 });
