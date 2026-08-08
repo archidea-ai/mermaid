@@ -98,7 +98,10 @@ function groupBySubgraph(
       key,
       existing
         ? { ...existing, nodes: [...existing.nodes, node] }
-        : { subgraph: node.subgraph ? (subgraphById.get(node.subgraph) ?? null) : null, nodes: [node] },
+        : {
+            subgraph: node.subgraph ? (subgraphById.get(node.subgraph) ?? null) : null,
+            nodes: [node],
+          },
     );
   }
 

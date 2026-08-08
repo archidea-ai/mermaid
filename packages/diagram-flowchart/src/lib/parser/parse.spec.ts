@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { FlowchartParseError, parse } from './parse';
 
 const wire = (source: string) =>
-  parse(source).edges.map((edge) => `${edge.from}->${edge.to}${edge.label ? `:${edge.label.raw}` : ''}`);
+  parse(source).edges.map(
+    (edge) => `${edge.from}->${edge.to}${edge.label ? `:${edge.label.raw}` : ''}`,
+  );
 
 describe('flowchart parser', () => {
   it('reads the header and its direction', () => {
@@ -35,7 +37,9 @@ describe('flowchart parser', () => {
   });
 
   it('keeps the line style an author chose', () => {
-    const styles = parse('flowchart LR\nA --> B\nB -.-> C\nC ==> D').edges.map((edge) => edge.style);
+    const styles = parse('flowchart LR\nA --> B\nB -.-> C\nC ==> D').edges.map(
+      (edge) => edge.style,
+    );
     expect(styles).toEqual(['solid', 'dotted', 'thick']);
   });
 
