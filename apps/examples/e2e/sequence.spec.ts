@@ -879,3 +879,16 @@ test('a transition on an enclosing state can be taken from inside it', async ({ 
 
   await page.screenshot({ path: 'e2e-results/state-escape.png', fullPage: true });
 });
+
+test('the state view shows no step counter, since a loop has no total', async ({ page }) => {
+  await page.getByRole('button', { name: /Order state machine/ }).click();
+  await page.waitForTimeout(200);
+
+  const toolbar = await page.locator('.archidea-sequence').innerText();
+  // A denominator would be invented, and one that changes as you choose reads
+  // as progress going backwards.
+  expect(toolbar).not.toMatch(/\d+\s*\/\s*\d+/);
+
+  // The history is still there, in the panel that can express it honestly.
+  await expect(page.locator('.archidea-sequence')).toContainText('Path taken');
+});

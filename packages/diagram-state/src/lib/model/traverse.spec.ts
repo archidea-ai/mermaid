@@ -432,3 +432,21 @@ describe('back links and arrows straight into a nested state', () => {
     expect(isWithin(ast, 'Done', 'Outer')).toBe(false);
   });
 });
+
+describe('why the state view shows no step counter', () => {
+  it('has no fixed length once a loop is reachable', () => {
+    const ast = parse('stateDiagram-v2\n[*] --> A\nA --> A: again\nA --> B: move on');
+    const again = ast.transitions.find((t) => t.label?.raw === 'again')!;
+    const onward = ast.transitions.find((t) => t.label?.raw === 'move on')!;
+
+    // The same machine yields runs of different lengths depending on the
+    // choices made, so any "n of m" denominator would be invented.
+    const looped = traverse(ast, new Map([['A', again.id]]), createBindings());
+    const direct = traverse(ast, new Map([['A', onward.id]]), createBindings());
+
+    expect(looped.steps).toHaveLength(1);
+    expect(direct.steps).toHaveLength(1);
+    expect(looped.steps[0]!.to).toBe('A');
+    expect(direct.steps[0]!.to).toBe('B');
+  });
+});

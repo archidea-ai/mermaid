@@ -131,9 +131,12 @@ function StateRun({
         <button className="seq-btn" onClick={run.reset}>
           Restart
         </button>
-        <span className="text-muted-foreground text-xs tabular-nums">
-          {run.current + 1} / {run.stepCount}
-        </span>
+        {/*
+          No "n of m" counter. A machine with a loop has no fixed length, so a
+          total is either wrong or invented — and a denominator that changes as
+          you choose reads as progress that went backwards. The path taken says
+          where you have been; the options say where you can go.
+        */}
         {run.options.length > 0 ? (
           <span className="text-muted-foreground text-xs">Click a transition to take it</span>
         ) : null}
