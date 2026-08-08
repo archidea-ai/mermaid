@@ -1,5 +1,12 @@
 import { useMemo, useState } from 'react';
 import { SequenceDiagram } from '@archidea-ai/mermaid/react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@archidea-ai/mermaid-diagram-sequence';
 import { examples } from './examples';
 import { themes } from './themes';
 import { RendererBadge } from './components/RendererBadge';
@@ -29,21 +36,32 @@ export function App() {
       </header>
 
       <div className="app__layout">
-        <nav className="app__card app__nav" aria-label="Examples">
-          {examples.map((entry) => (
-            <button
-              key={entry.id}
-              type="button"
-              aria-current={entry.id === example.id}
-              onClick={() => setExampleId(entry.id)}
-            >
-              {entry.title}
-            </button>
-          ))}
-        </nav>
-
         <main>
           <div className="app__row">
+            <div className="app-chrome app__row" style={{ margin: 0, gap: 8 }}>
+              <span className="app__label" id="load-example-label">
+                Load example
+              </span>
+              <Select
+                value={example.id}
+                onValueChange={(value: string | null) => value && setExampleId(value)}
+              >
+                <SelectTrigger aria-labelledby="load-example-label" className="min-w-64">
+                  {/* Loading is an action, not a setting: the trigger always
+                      reads "Load example" rather than naming what is already
+                      on screen, which the heading and source below it say. */}
+                  <SelectValue>Load example</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {examples.map((entry) => (
+                    <SelectItem key={entry.id} value={entry.id}>
+                      {entry.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
             <ThemeSelector value={theme} onChange={setTheme} />
             <RendererBadge source={source} />
           </div>

@@ -187,9 +187,13 @@ function StateRun({
                       data-terminal={ends}
                       onClick={() => run.take(option.id)}
                     >
-                      <span className="state-option__label">
-                        {option.label ? humaniseLabel(option.label.raw) : 'go'}
-                      </span>
+                      {/* No label means the transition has no condition to
+                          state; inventing "go" said nothing. */}
+                      {option.label ? (
+                        <span className="state-option__label">
+                          {humaniseLabel(option.label.raw)}
+                        </span>
+                      ) : null}
                       {/*
                         Only flag a transition that actually takes you out of the
                         box you are in. One drawn on an enclosing state but

@@ -26,6 +26,9 @@ export { sequenceRenderer } from './lib/renderer';
 export { SequenceDiagramSurface } from './lib/components/surface';
 export { SequenceCanvas } from './lib/components/canvas';
 export { SequenceStage } from './lib/components/stage';
+
+// shadcn primitives, so an app shell can use the same chrome as the renderer.
+export { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './lib/ui/select';
 export { RichLabel, humaniseLabel, withBreaks } from './lib/components/rich-label';
 export { computeArc } from './lib/layout/stage';
 export type { StageArc, StagePoint } from './lib/layout/stage';

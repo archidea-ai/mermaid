@@ -6,6 +6,15 @@ test.beforeEach(async ({ page }) => {
   await page.waitForSelector('.archidea-sequence');
 });
 
+/** Examples are chosen from a dropdown rather than a sidebar list. */
+const loadExample = async (page: Page, title: RegExp) => {
+  // A shadcn Select, not a native one: open it and pick, and wait for the popup
+  // which mounts in a portal.
+  await page.getByRole('combobox', { name: 'Load example' }).click();
+  await page.getByRole('option', { name: title }).click();
+  await page.waitForTimeout(150);
+};
+
 /** Modern is the default view; these checks are about the classic layout. */
 const toClassic = (page: Page) => page.getByRole('button', { name: 'Classic view' }).click();
 
@@ -81,7 +90,8 @@ test('a theme rewrites the renderer tokens and leaves the host page alone', asyn
     page.locator('.archidea-sequence').evaluate((el) => getComputedStyle(el).backgroundColor);
 
   const midnight = await surface();
-  await page.getByLabel('Diagram theme').selectOption('daylight');
+  await page.getByRole('combobox', { name: 'Diagram theme' }).click();
+  await page.getByRole('option', { name: 'Daylight' }).click();
   await page.waitForTimeout(200);
   const daylight = await surface();
 
@@ -140,10 +150,12 @@ test('form controls are normalised inside the renderer but not outside it', asyn
   expect(toggleBorder).not.toBe('0px');
 
   // The host page's own controls are untouched by our reset.
-  const hostSelect = await page
-    .getByLabel('Diagram theme')
-    .evaluate((el) => getComputedStyle(el).backgroundColor);
-  expect(hostSelect).not.toBe('rgba(0, 0, 0, 0)');
+  // The app's own control keeps its chrome. The shadcn trigger is deliberately
+  // bg-transparent, so its border is what shows the reset did not reach it.
+  const hostBorder = await page
+    .getByRole('combobox', { name: 'Diagram theme' })
+    .evaluate((el) => parseFloat(getComputedStyle(el).borderTopWidth));
+  expect(hostBorder).toBeGreaterThan(0);
 });
 
 test('the stepper and values survive switching between views', async ({ page }) => {
@@ -158,7 +170,7 @@ test('the stepper and values survive switching between views', async ({ page }) 
 });
 
 test('the app opens on the midnight theme', async ({ page }) => {
-  await expect(page.getByLabel('Diagram theme')).toHaveValue('midnight');
+  await expect(page.getByRole('combobox', { name: 'Diagram theme' })).toContainText('Midnight');
 });
 
 test('the modern view shows bound values, not reference names', async ({ page }) => {
@@ -282,7 +294,7 @@ test('the arc and label are fully visible once the entrance settles', async ({ p
 
 test('a note takes the stage as a centred overlay', async ({ page }) => {
   // Third example carries a standalone note.
-  await page.getByRole('button', { name: 'Notes, activations and lifecycle' }).click();
+  await loadExample(page, /Notes, activations/);
 
   const next = page.getByRole('button', { name: 'Next step' });
   for (let i = 0; i < 6; i += 1) {
@@ -315,7 +327,7 @@ test('a note takes the stage as a centred overlay', async ({ page }) => {
 
 test('the activation shorthand does not render its message twice', async ({ page }) => {
   // Checkout uses `Client->>+Orders` and `Orders-->>-Client: 201 Created`.
-  await page.getByRole('button', { name: 'Checkout — parallel work and retries' }).click();
+  await loadExample(page, /Checkout/);
   await page.waitForTimeout(150);
 
   const labels = await page.locator('.archidea-sequence button[data-emphasis]').allTextContents();
@@ -328,7 +340,7 @@ test('the activation shorthand does not render its message twice', async ({ page
 });
 
 test('a boolean offers both answers as buttons, each reachable in one click', async ({ page }) => {
-  await page.getByRole('button', { name: 'Checkout — parallel work and retries' }).click();
+  await loadExample(page, /Checkout/);
   await page.getByRole('button', { name: '99' }).count(); // settle
   await page.waitForTimeout(150);
 
@@ -357,7 +369,7 @@ test('a boolean offers both answers as buttons, each reachable in one click', as
 });
 
 test('the complex example parses natively and walks end to end', async ({ page }) => {
-  await page.getByRole('button', { name: /Access lifecycle/ }).click();
+  await loadExample(page, /Access lifecycle/);
   await page.waitForTimeout(200);
 
   // Native renderer, not a proxy fallback — the whole point of a hard example.
@@ -419,7 +431,7 @@ test('the complex example parses natively and walks end to end', async ({ page }
 });
 
 test('the complex example renders its groups in the classic view', async ({ page }) => {
-  await page.getByRole('button', { name: /Access lifecycle/ }).click();
+  await loadExample(page, /Access lifecycle/);
   await toClassic(page);
   await page.waitForTimeout(200);
 
@@ -432,7 +444,7 @@ test('the complex example renders its groups in the classic view', async ({ page
 });
 
 test('participants are shown in the groups their author declared', async ({ page }) => {
-  await page.getByRole('button', { name: /Access lifecycle/ }).click();
+  await loadExample(page, /Access lifecycle/);
   await page.waitForTimeout(250);
 
   const groups = page.locator('.seq-stage__group');
@@ -461,7 +473,7 @@ test('participants are shown in the groups their author declared', async ({ page
 });
 
 test('a phase note renders as a full-width banner, not a sticky note', async ({ page }) => {
-  await page.getByRole('button', { name: /Access lifecycle/ }).click();
+  await loadExample(page, /Access lifecycle/);
   await page.getByRole('button', { name: 'Next step' }).click();
 
   const banner = page.locator('.seq-stage__banner');
@@ -503,7 +515,7 @@ test('a phase note renders as a full-width banner, not a sticky note', async ({ 
 });
 
 test('the banner is not displaced while its entrance animation plays', async ({ page }) => {
-  await page.getByRole('button', { name: /Access lifecycle/ }).click();
+  await loadExample(page, /Access lifecycle/);
   await page.getByRole('button', { name: 'Next step' }).click();
 
   // Sampled mid-animation: a keyframe carrying a centring translate drags a
@@ -536,7 +548,7 @@ test('the examples app puts the source above the diagram', async ({ page }) => {
 });
 
 test('a long step list scrolls instead of spilling over the skipped section', async ({ page }) => {
-  await page.getByRole('button', { name: /Access lifecycle/ }).click();
+  await loadExample(page, /Access lifecycle/);
   await page.waitForTimeout(200);
 
   // Answer the prompts so the timeline runs long enough to overflow, and a
@@ -587,7 +599,7 @@ test('a long step list scrolls instead of spilling over the skipped section', as
 });
 
 test('a newly required value takes focus and announces itself', async ({ page }) => {
-  await page.getByRole('button', { name: /Access lifecycle/ }).click();
+  await loadExample(page, /Access lifecycle/);
   await page.waitForTimeout(250);
 
   const focused = await page.evaluate(() => {
@@ -626,7 +638,7 @@ test('attention cues collapse under prefers-reduced-motion', async ({ browser })
   const page = await context.newPage();
   await page.goto('/');
   await page.waitForSelector('.archidea-sequence');
-  await page.getByRole('button', { name: /Access lifecycle/ }).click();
+  await loadExample(page, /Access lifecycle/);
   await page.waitForTimeout(200);
 
   // The cue is still a state change — it just does not move.
@@ -641,7 +653,7 @@ test('attention cues collapse under prefers-reduced-motion', async ({ browser })
 });
 
 test('a branch decision is highlighted and takes focus', async ({ page }) => {
-  await page.getByRole('button', { name: /Access lifecycle/ }).click();
+  await loadExample(page, /Access lifecycle/);
   await page.waitForTimeout(200);
 
   // Answer values until only the prose-labelled branch is left outstanding.
@@ -685,7 +697,7 @@ test('a branch decision is highlighted and takes focus', async ({ page }) => {
 });
 
 test('a state diagram shows only where you are and the ways out', async ({ page }) => {
-  await page.getByRole('button', { name: /Order state machine/ }).click();
+  await loadExample(page, /Order state machine/);
   await page.waitForTimeout(250);
 
   await expect(page.locator('.app__badge')).toContainText('state-react');
@@ -705,7 +717,7 @@ test('a state diagram shows only where you are and the ways out', async ({ page 
 });
 
 test('clicking a line at a choice takes that branch', async ({ page }) => {
-  await page.getByRole('button', { name: /Order state machine/ }).click();
+  await loadExample(page, /Order state machine/);
   await page.waitForTimeout(200);
 
   // Walk to the <<choice>>, which offers both risk branches.
@@ -729,7 +741,7 @@ test('clicking a line at a choice takes that branch', async ({ page }) => {
 test('a compound state is drawn as a box, and nested ones as boxes inside boxes', async ({
   page,
 }) => {
-  await page.getByRole('button', { name: /Deployment machine/ }).click();
+  await loadExample(page, /Deployment machine/);
   await page.waitForTimeout(250);
 
   // Top level: no enclosing box.
@@ -756,7 +768,7 @@ test('a compound state is drawn as a box, and nested ones as boxes inside boxes'
 });
 
 test('an end is red, named, and offers nothing further', async ({ page }) => {
-  await page.getByRole('button', { name: /Order state machine/ }).click();
+  await loadExample(page, /Order state machine/);
   await page.waitForTimeout(200);
 
   // Walk to an end.
@@ -786,7 +798,7 @@ test('an end is red, named, and offers nothing further', async ({ page }) => {
 });
 
 test('a substate end is named for the machine it ends', async ({ page }) => {
-  await page.getByRole('button', { name: /Deployment machine/ }).click();
+  await loadExample(page, /Deployment machine/);
   await page.waitForTimeout(200);
 
   // Into Building, into Testing, then take the failing branch to Testing's end.
@@ -805,7 +817,7 @@ test('a substate end is named for the machine it ends', async ({ page }) => {
 test('a subgroup end offers the parent ways out; only the top-level end stops', async ({
   page,
 }) => {
-  await page.getByRole('button', { name: /Deployment machine/ }).click();
+  await loadExample(page, /Deployment machine/);
   await page.waitForTimeout(200);
 
   // Walk until we are standing on a subgroup end.
@@ -838,7 +850,7 @@ test('a subgroup end offers the parent ways out; only the top-level end stops', 
 });
 
 test('the raw scoped-terminal token never reaches the screen', async ({ page }) => {
-  await page.getByRole('button', { name: /Deployment machine/ }).click();
+  await loadExample(page, /Deployment machine/);
   await page.waitForTimeout(200);
 
   for (let i = 0; i < 14; i += 1) {
@@ -855,7 +867,7 @@ test('the raw scoped-terminal token never reaches the screen', async ({ page }) 
 });
 
 test('a transition on an enclosing state can be taken from inside it', async ({ page }) => {
-  await page.getByRole('button', { name: /Deployment machine/ }).click();
+  await loadExample(page, /Deployment machine/);
   await page.waitForTimeout(250);
 
   // Step into Building.
@@ -881,7 +893,7 @@ test('a transition on an enclosing state can be taken from inside it', async ({ 
 });
 
 test('the state view shows no step counter, since a loop has no total', async ({ page }) => {
-  await page.getByRole('button', { name: /Order state machine/ }).click();
+  await loadExample(page, /Order state machine/);
   await page.waitForTimeout(200);
 
   const toolbar = await page.locator('.archidea-sequence').innerText();

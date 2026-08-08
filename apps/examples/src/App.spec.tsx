@@ -22,11 +22,47 @@ vi.mock('mermaid', () => ({
 }));
 
 describe('examples app', () => {
-  it('lists every registered example', () => {
+  it('loads the first example by default', () => {
     render(<App />);
-    for (const example of examples) {
-      expect(screen.getByRole('button', { name: example.title })).toBeDefined();
-    }
+
+    expect((screen.getByLabelText('Diagram source') as HTMLTextAreaElement).value).toBe(
+      examples[0]!.source,
+    );
+  });
+
+  it('keeps the loader empty — it is an action, not a setting', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    const loader = screen.getByRole('combobox', { name: 'Load example' });
+    expect(loader.textContent).toContain('Load example');
+
+    const checkout = examples.find((entry) => entry.id === 'checkout-parallel')!;
+    await user.click(loader);
+    await user.click(await screen.findByRole('option', { name: checkout.title }));
+
+    // Still reads as the action, never as the example now on screen.
+    expect(screen.getByRole('combobox', { name: 'Load example' }).textContent).toContain(
+      'Load example',
+    );
+  });
+
+  it('keeps the theme dropdown showing the theme in force', () => {
+    render(<App />);
+
+    expect(screen.getByRole('combobox', { name: 'Diagram theme' }).textContent).toContain(
+      'Midnight',
+    );
+  });
+
+  it('offers every registered example once opened', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(screen.getByRole('combobox', { name: 'Load example' }));
+    const options = (await screen.findAllByRole('option')).map((option) => option.textContent);
+
+    expect(options).toEqual(examples.map((example) => example.title));
   });
 
   it('shows the selected example source and renders it natively', async () => {
@@ -54,7 +90,8 @@ describe('examples app', () => {
     await waitFor(() => expect(root()).not.toBeNull());
 
     const midnight = themes.find((theme) => theme.id === 'midnight')!;
-    await user.selectOptions(screen.getByLabelText('Diagram theme'), 'midnight');
+    await user.click(screen.getByRole('combobox', { name: 'Diagram theme' }));
+    await user.click(await screen.findByRole('option', { name: midnight.label }));
 
     await waitFor(() =>
       expect(root().style.getPropertyValue('--seq-surface')).toBe(midnight.tokens['--seq-surface']),
@@ -70,7 +107,8 @@ describe('examples app', () => {
     render(<App />);
 
     const checkout = examples.find((entry) => entry.id === 'checkout-parallel')!;
-    await user.click(screen.getByRole('button', { name: checkout.title }));
+    await user.click(screen.getByRole('combobox', { name: 'Load example' }));
+    await user.click(await screen.findByRole('option', { name: checkout.title }));
 
     expect((screen.getByLabelText('Diagram source') as HTMLTextAreaElement).value).toContain(
       'par charge the card',
