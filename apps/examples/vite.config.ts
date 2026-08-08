@@ -22,6 +22,11 @@ export default defineConfig({
         '../../packages/diagram-sequence/src/lib/theme.css',
       ),
       '@archidea-ai/mermaid-diagram-sequence': from('../../packages/diagram-sequence/src/index.ts'),
+      '@archidea-ai/mermaid-diagram-state/state.css': from(
+        '../../packages/diagram-state/src/lib/state.css',
+      ),
+      '@archidea-ai/mermaid-diagram-state': from('../../packages/diagram-state/src/index.ts'),
+      '@archidea-ai/mermaid-scenario': from('../../packages/scenario/src/index.ts'),
       '@archidea-ai/mermaid-react': from('../../packages/react/src/index.ts'),
       '@archidea-ai/mermaid-core': from('../../packages/core/src/index.ts'),
     },

@@ -78,3 +78,17 @@ describe('evaluateCondition', () => {
     expect(conditionVariables(condition).sort()).toEqual(['a', 'b', 'c']);
   });
 });
+
+describe('an assignment is not a condition', () => {
+  it('rejects a label that only assigns', () => {
+    // Reading `{{token = "t-1"}}` as a condition made it a truthiness test on an
+    // unbound variable, stopping the run to ask about a value it was setting.
+    expect(parseCondition('{{token = "t-1"}}')).toBeNull();
+    expect(parseCondition('issued {{token = "t-1"}}')).toBeNull();
+  });
+
+  it('still accepts a comparison, which only looks similar', () => {
+    expect(parseCondition('{{token}} == "t-1"')).not.toBeNull();
+    expect(parseCondition('{{n}} >= 5')).not.toBeNull();
+  });
+});

@@ -1,0 +1,147 @@
+import { evaluateCondition } from '@archidea-ai/mermaid-scenario';
+import { TERMINAL } from '../parser/ast';
+import type { VariableBindings, VariableEffect } from '@archidea-ai/mermaid-scenario';
+import type { StateDiagramAst, StateTransition } from '../parser/ast';
+
+export interface StateStep {
+  readonly id: string;
+  readonly index: number;
+  readonly transition: StateTransition;
+  readonly from: string;
+  readonly to: string;
+  /** Elements to highlight while this step is current. */
+  readonly involved: readonly string[];
+  readonly effects: readonly VariableEffect[];
+  readonly reads: readonly { name: string; declaredType: unknown; assigns: boolean }[];
+}
+
+export interface StateChoice {
+  readonly from: string;
+  readonly options: readonly StateTransition[];
+  /** A <<choice>> node is a decision by definition, even with one way out. */
+  readonly forced: boolean;
+}
+
+export interface StateTimeline {
+  readonly steps: readonly StateStep[];
+  /** Where the run currently stands. */
+  readonly at: string | null;
+  readonly pending: StateChoice | null;
+  readonly done: boolean;
+  /** States never reached under the current decisions. */
+  readonly unreached: readonly string[];
+}
+
+export type StateDecisions = ReadonlyMap<string, string>;
+
+/**
+ * Walks the machine from its entry state, taking the transition the viewer
+ * picked at each fork.
+ *
+ * The run is a pure projection of (ast, decisions, bindings), exactly as the
+ * sequence timeline is — so choosing differently re-derives it rather than
+ * patching state, and a chain of choices is replayable as a scenario.
+ */
+export function traverse(
+  ast: StateDiagramAst,
+  decisions: StateDecisions = new Map(),
+  bindings: VariableBindings,
+): StateTimeline {
+  const steps: StateStep[] = [];
+  const visited = new Set<string>();
+
+  let current = entryOf(ast);
+  let pending: StateChoice | null = null;
+  let done = false;
+
+  // Bounded: a loop in the machine is legitimate, so stop at a generous depth
+  // rather than trusting the diagram to terminate.
+  for (let guard = 0; guard < 500 && current !== null; guard += 1) {
+    visited.add(current);
+
+    const outgoing = ast.transitions.filter((transition) => transition.from === current);
+    if (outgoing.length === 0) {
+      done = true;
+      break;
+    }
+
+    const node = ast.stateById.get(current);
+    const forced = node?.kind === 'choice';
+    const chosen = resolve(current, outgoing, decisions, bindings, forced);
+
+    if (!chosen) {
+      pending = { from: current, options: outgoing, forced: Boolean(forced) };
+      break;
+    }
+
+    const step: StateStep = {
+      id: `${chosen.id}#${steps.length}`,
+      index: steps.length,
+      transition: chosen,
+      from: chosen.from,
+      to: chosen.to,
+      involved: [chosen.from, chosen.to],
+      effects: chosen.label?.effects ?? [],
+      reads: (chosen.label?.reads ?? []).filter((read) => !read.assigns),
+    };
+    steps.push(step);
+
+    for (const effect of step.effects) bindings = bindings.with(effect.name, effect.value);
+
+    if (chosen.to === TERMINAL) {
+      visited.add(TERMINAL);
+      done = true;
+      break;
+    }
+    current = chosen.to;
+  }
+
+  return {
+    steps,
+    at: steps.length > 0 ? steps[steps.length - 1]!.to : entryOf(ast),
+    pending,
+    done,
+    unreached: ast.states
+      .filter((state) => state.kind !== 'terminal' && !visited.has(state.id))
+      .map((state) => state.id),
+  };
+}
+
+/** `[*] --> X` names the entry; otherwise the first state declared. */
+export function entryOf(ast: StateDiagramAst): string | null {
+  const start = ast.transitions.find((transition) => transition.from === TERMINAL);
+  if (start) return start.to;
+  return ast.states.find((state) => state.kind !== 'terminal')?.id ?? null;
+}
+
+function resolve(
+  from: string,
+  outgoing: readonly StateTransition[],
+  decisions: StateDecisions,
+  bindings: VariableBindings,
+  forced: boolean,
+): StateTransition | null {
+  const decided = decisions.get(from);
+  if (decided) {
+    const match = outgoing.find((transition) => transition.id === decided);
+    if (match) return match;
+  }
+
+  // A condition that evaluates true takes the transition with no prompt. An
+  // `unknown` never falls through — it asks, as everywhere else in the model.
+  let sawUnknown = false;
+  for (const transition of outgoing) {
+    if (!transition.condition) continue;
+    const verdict = evaluateCondition(transition.condition, bindings);
+    if (verdict === true) return transition;
+    if (verdict === 'unknown') sawUnknown = true;
+  }
+  if (sawUnknown) return null;
+
+  const unconditional = outgoing.filter((transition) => !transition.condition);
+  if (forced) return null;
+  if (outgoing.length === 1 && unconditional.length === 1) return unconditional[0]!;
+  if (unconditional.length === 1 && outgoing.length > 1) return unconditional[0]!;
+
+  return null;
+}

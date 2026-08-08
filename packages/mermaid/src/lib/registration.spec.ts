@@ -33,3 +33,23 @@ describe('default registration', () => {
     expect(defaultRegistry.resolve('gantt').id).toBe('proxy');
   });
 });
+
+describe('state diagram registration', () => {
+  it('resolves state diagrams to the native renderer', async () => {
+    await import('../index');
+    const { defaultRegistry } = await import('@archidea-ai/mermaid-core');
+
+    for (const type of ['stateDiagram', 'stateDiagram-v2']) {
+      expect(defaultRegistry.resolve(type).id).toBe('state-react');
+      expect(defaultRegistry.resolve(type).capabilities.step).toBe(true);
+    }
+  });
+
+  it('keeps sequence and state on their own renderers', async () => {
+    await import('../index');
+    const { defaultRegistry } = await import('@archidea-ai/mermaid-core');
+
+    expect(defaultRegistry.resolve('sequence').id).toBe('sequence-react');
+    expect(defaultRegistry.resolve('gantt').id).toBe('proxy');
+  });
+});

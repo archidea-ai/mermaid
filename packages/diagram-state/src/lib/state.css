@@ -1,0 +1,50 @@
+/* Chrome shared with the sequence renderer, expressed in the same tokens. */
+.archidea-sequence__panel {
+  border: 1px solid var(--seq-border);
+  border-radius: var(--seq-radius);
+  background: var(--seq-surface-raised);
+  padding: 10px 12px;
+  margin-bottom: 10px;
+}
+.archidea-sequence__panel h3 {
+  margin: 0 0 8px;
+  font-size: var(--seq-font-size-small);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--seq-text-muted);
+}
+.seq-btn {
+  font: inherit;
+  padding: 6px 12px;
+  border-radius: calc(var(--seq-radius) - 2px);
+  border: 1px solid var(--seq-border);
+  background: var(--seq-surface-raised);
+  color: var(--seq-text-strong);
+  cursor: pointer;
+}
+.seq-btn[data-primary='true'] {
+  background: var(--seq-accent);
+  border-color: var(--seq-accent);
+  color: var(--seq-accent-contrast);
+}
+.seq-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.seq-step {
+  font: inherit;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  color: var(--seq-text-muted);
+  padding: 3px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.seq-step[data-emphasis='current'] {
+  background: var(--seq-accent);
+  color: var(--seq-accent-contrast);
+}
+.seq-step[data-emphasis='spent'] {
+  color: var(--seq-text);
+}

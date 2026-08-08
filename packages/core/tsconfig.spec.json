@@ -1,5 +1,18 @@
 {
   "extends": "../../tsconfig.base.json",
-  "compilerOptions": { "types": ["vitest/globals", "node"] },
+  "compilerOptions": {
+    "types": ["vitest/globals", "node"],
+    "baseUrl": ".",
+    "paths": {
+      "@archidea-ai/mermaid-core": ["../../packages/core/src/index.ts"],
+      "@archidea-ai/mermaid-react": ["../../packages/react/src/index.ts"],
+      "@archidea-ai/mermaid-diagram-sequence": ["../../packages/diagram-sequence/src/index.ts"],
+      "@archidea-ai/mermaid": ["../../packages/mermaid/src/index.ts"],
+      "@archidea-ai/mermaid/react": ["../../packages/mermaid/src/react.ts"],
+      "@archidea-ai/mermaid/registry": ["../../packages/mermaid/src/registry.ts"],
+      "@archidea-ai/mermaid-scenario": ["../../packages/scenario/src/index.ts"],
+      "@archidea-ai/mermaid-diagram-state": ["../../packages/diagram-state/src/index.ts"]
+    }
+  },
   "include": ["src/**/*.ts"]
 }

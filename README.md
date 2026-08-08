@@ -11,6 +11,12 @@ nothing renders worse than it does today.
 
 **[Live examples →](https://archidea-ai.github.io/mermaid/)**
 
+| Diagram type      | Renderer         | Interaction                                             |
+| ----------------- | ---------------- | ------------------------------------------------------- |
+| `sequenceDiagram` | `sequence-react` | Step through; classic lanes or the modern grouped stage |
+| `stateDiagram-v2` | `state-react`    | Stand in a state, choose the next transition            |
+| everything else   | `proxy`          | Rendered by upstream mermaid, unchanged                 |
+
 ## Install
 
 ```bash

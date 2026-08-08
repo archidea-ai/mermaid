@@ -1,4 +1,4 @@
-import { parseLiteral, parseVariableToken } from './variables';
+import { parseLiteral, parseRichText, parseVariableToken } from './variables';
 import type { VariableDeclaration, VariableType } from './types';
 
 export type Operand =
@@ -38,6 +38,11 @@ export interface ConditionLookup {
  */
 export function parseCondition(label: string): Condition | null {
   if (!label.includes('{{')) return null;
+
+  // A label that assigns is doing something, not asking something. `{{t = "x"}}`
+  // read as a condition became a truthiness test on an unbound variable, so the
+  // run stopped to ask about a value it was in the middle of setting.
+  if (parseRichText(label).effects.length > 0) return null;
 
   try {
     const tokens = lex(label);

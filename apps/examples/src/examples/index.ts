@@ -160,4 +160,27 @@ export const examples: readonly DiagramExample[] = [
         Portal->>Audit: recordRenewal(entitlementRef)
     end`,
   },
+  {
+    id: 'order-state',
+    title: 'Order state machine — pick the next transition',
+    description:
+      'A state diagram. You stand in a state and choose which transition to take; a labelled condition takes itself once the value is known. Unreached states stay dimmed.',
+    source: `stateDiagram-v2
+    direction LR
+
+    [*] --> Draft
+    Draft --> Submitted: submit
+    Submitted --> Screening: {{channel = "online"}}
+
+    state Screening <<choice>>
+    Screening --> Approved: {{risk}} == "low"
+    Screening --> Review: {{risk}} == "high"
+
+    Review --> Approved: accept
+    Review --> Rejected: decline
+
+    Approved --> Fulfilled: ship
+    Fulfilled --> [*]
+    Rejected --> [*]`,
+  },
 ];

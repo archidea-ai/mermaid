@@ -683,3 +683,30 @@ test('a branch decision is highlighted and takes focus', async ({ page }) => {
 
   await page.screenshot({ path: 'e2e-results/decision.png', fullPage: true });
 });
+
+test('a state diagram renders natively and is walked by choosing transitions', async ({ page }) => {
+  await page.getByRole('button', { name: /Order state machine/ }).click();
+  await page.waitForTimeout(250);
+
+  await expect(page.locator('.app__badge')).toContainText('state-react');
+  // Every non-terminal state is on screen.
+  await expect(page.locator('.seq-stage__object')).toHaveCount(7);
+
+  // The <<choice>> asks even though its conditions are the only way out.
+  const decision = page.locator('.seq-decision');
+  await expect(decision).toBeVisible();
+  await expect(page.getByText('Choose a transition')).toBeVisible();
+
+  await decision.getByRole('button').first().click();
+  await page.waitForTimeout(150);
+
+  // Choosing extends the run.
+  const counter = await page
+    .locator('.archidea-sequence span')
+    .filter({ hasText: /^\d+ \/ \d+$/ })
+    .first()
+    .textContent();
+  expect(Number(counter!.split('/')[1]!.trim())).toBeGreaterThan(1);
+
+  await page.screenshot({ path: 'e2e-results/state.png', fullPage: true });
+});
