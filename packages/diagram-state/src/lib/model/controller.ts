@@ -135,10 +135,17 @@ export function useStateRun(
        * cursor simply steps onto the transition it now contains.
        */
       take: (transitionId) => {
-        // Keyed on the choice point, not on where the viewer stands: choosing at
-        // a subgroup's end is a decision belonging to the parent.
-        if (choicePoint === null) return;
-        setDecisions((previous) => new Map(previous).set(choicePoint, transitionId));
+        /*
+         * Keyed by arrival, so choosing the same move on a later visit is a
+         * separate decision — and rewinding then choosing differently replaces
+         * the choice for *that* arrival rather than every visit to the state.
+         *
+         * The key for the position after the cursor is whatever the walk already
+         * used there; only past the end of the walk is it a new one.
+         */
+        const key = timeline.steps[clamped + 1]?.fromKey ?? timeline.nextKey;
+        if (key === null) return;
+        setDecisions((previous) => new Map(previous).set(key, transitionId));
         setCursor(clamped + 1);
       },
       bind: (name, value) => setValues((previous) => ({ ...previous, [name]: value })),

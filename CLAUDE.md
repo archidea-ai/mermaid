@@ -58,10 +58,12 @@ time. The registry is the seam that makes that additive.
   `outgoingFrom()` walks the parent chain, innermost first, so an escape drawn on
   a composite is reachable from deep inside it. It is tagged "leaves X" only when
   it genuinely exits the box you are in — `isWithin()` decides.
-- **State: a decision is taken once per state.** Decisions are keyed on the state
-  they were made in, which keeps the run a pure projection — but on a back link
-  that meant the same choice fired every time the run returned, forever. Taking
-  the same transition from the same state twice hands control back instead.
+- **State: decisions are keyed by _arrival_, not by state** — `Idle#0`, `Idle#1`.
+  Keying by state made "take retry at Idle" one fact about the whole run, so it
+  fired again on every return (an infinite loop), guarding against that blocked
+  repeating a move deliberately, and a rewind-then-choose-differently silently
+  kept the old choice. Auto-advance separately refuses to repeat a transition,
+  so an unambiguous self-loop cannot carry the run round unasked.
 - **State: only the top-level `[*]` stops the flow.** A subgroup's end hands
   back to the machine around it, so its options are the _parent's_ —
   `choicePointOf()` decides which state's transitions are the ways out. It is

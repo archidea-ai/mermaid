@@ -6,6 +6,8 @@ import type { StateDiagramAst, StateTransition } from '../parser/ast';
 export interface StateStep {
   readonly id: string;
   readonly index: number;
+  /** The decision key this step departed from. See StateDecisions. */
+  readonly fromKey: string;
   readonly transition: StateTransition;
   readonly from: string;
   readonly to: string;
@@ -24,6 +26,8 @@ export interface StateChoice {
 
 export interface StateTimeline {
   readonly steps: readonly StateStep[];
+  /** The decision key at the point the walk stopped, if it can go further. */
+  readonly nextKey: string | null;
   /** Where the run currently stands. */
   readonly at: string | null;
   readonly pending: StateChoice | null;
@@ -32,7 +36,21 @@ export interface StateTimeline {
   readonly unreached: readonly string[];
 }
 
+/**
+ * Decisions keyed by *arrival*, not by state: `Idle#0` is the first visit to
+ * Idle, `Idle#1` the second.
+ *
+ * Keying by state alone made "take retry at Idle" one fact about the whole run,
+ * so it fired again every time the walk returned — an infinite loop. Guarding
+ * against that in turn stopped the viewer deliberately repeating a move, and
+ * made a rewind-then-choose-differently silently keep the old choice. A
+ * positional key is the thing that was actually meant: this arrival, this way.
+ */
 export type StateDecisions = ReadonlyMap<string, string>;
+
+export function decisionKey(stateId: string, visit: number): string {
+  return `${stateId}#${visit}`;
+}
 
 /**
  * Walks the machine from its entry state, taking the transition the viewer
@@ -50,12 +68,13 @@ export function traverse(
 ): StateTimeline {
   const steps: StateStep[] = [];
   const visited = new Set<string>();
-  // (state, transition) pairs already taken, so a remembered decision on a back
-  // link advances the run once and then asks again instead of spinning.
-  const taken = new Set<string>();
+  const visits = new Map<string, number>();
+  // Transitions the walk took on its own, so it never auto-repeats one.
+  const autoTaken = new Set<string>();
 
   let current = entryOf(ast, start);
   let pending: StateChoice | null = null;
+  let nextKey: string | null = null;
   let done = false;
 
   // Bounded: a loop in the machine is legitimate, so stop at a generous depth
@@ -78,25 +97,35 @@ export function traverse(
 
     const node = ast.stateById.get(current);
     const forced = node?.kind === 'choice';
-    const chosen = resolve(current, outgoing, decisions, bindings, forced);
+
+    // Each arrival gets its own key, so a loop asks again rather than replaying.
+    const visit = visits.get(current) ?? 0;
+    visits.set(current, visit + 1);
+    const key = decisionKey(current, visit);
+
+    const chosen = resolve(key, outgoing, decisions, bindings, forced);
 
     if (!chosen) {
       pending = { from: current, options: outgoing, forced: Boolean(forced) };
+      nextKey = key;
       break;
     }
 
     /*
-     * A decision is keyed on the state it was made in, which is what keeps the
-     * run a pure projection — but on a back link that means "retry at Idle"
-     * would fire every time the run returns to Idle, forever. Taking the same
-     * transition from the same state a second time hands control back instead.
+     * Advancing on its own is a convenience for the unambiguous case, so it must
+     * not carry the run round a loop unasked — a lone `A --> A` would otherwise
+     * spin until the guard caught it. An explicit choice is always honoured,
+     * however often it repeats: that is the viewer's call each time.
      */
-    const trace = `${current}|${chosen.id}`;
-    if (taken.has(trace)) {
-      pending = { from: current, options: outgoing, forced: Boolean(forced) };
-      break;
+    const decided = decisions.has(key);
+    if (!decided) {
+      if (autoTaken.has(chosen.id)) {
+        pending = { from: current, options: outgoing, forced: Boolean(forced) };
+        nextKey = key;
+        break;
+      }
+      autoTaken.add(chosen.id);
     }
-    taken.add(trace);
 
     // The step lands where the run actually ends up: entering a composite means
     // entering its machine, so the cursor belongs on the inner state, not on the
@@ -106,6 +135,7 @@ export function traverse(
     const step: StateStep = {
       id: `${chosen.id}#${steps.length}`,
       index: steps.length,
+      fromKey: key,
       transition: chosen,
       from: chosen.from,
       to: landing,
@@ -131,6 +161,7 @@ export function traverse(
 
   return {
     steps,
+    nextKey,
     at: steps.length > 0 ? steps[steps.length - 1]!.to : entryOf(ast, start),
     pending,
     done,
@@ -188,13 +219,13 @@ export function ascend(ast: StateDiagramAst, terminalId: string): string | null 
 }
 
 function resolve(
-  from: string,
+  key: string,
   outgoing: readonly StateTransition[],
   decisions: StateDecisions,
   bindings: VariableBindings,
   forced: boolean,
 ): StateTransition | null {
-  const decided = decisions.get(from);
+  const decided = decisions.get(key);
   if (decided) {
     const match = outgoing.find((transition) => transition.id === decided);
     if (match) return match;

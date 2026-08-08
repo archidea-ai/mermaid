@@ -35,7 +35,7 @@ describe('traverse', () => {
   it('takes the transition the viewer chose', () => {
     const ast = parse('stateDiagram-v2\n[*] --> Idle\nIdle --> A: one\nIdle --> B: two');
     const second = ast.transitions[2]!;
-    const timeline = traverse(ast, new Map([['Idle', second.id]]), createBindings());
+    const timeline = traverse(ast, new Map([['Idle#0', second.id]]), createBindings());
 
     expect(timeline.steps.map((s) => s.to)).toEqual(['B']);
   });
@@ -74,7 +74,7 @@ describe('traverse', () => {
   it('reports states never reached under the current decisions', () => {
     const ast = parse('stateDiagram-v2\n[*] --> Idle\nIdle --> A: one\nIdle --> B: two');
     const first = ast.transitions[1]!;
-    const timeline = traverse(ast, new Map([['Idle', first.id]]), createBindings());
+    const timeline = traverse(ast, new Map([['Idle#0', first.id]]), createBindings());
 
     expect(timeline.unreached).toEqual(['B']);
   });
@@ -202,7 +202,7 @@ describe('ends are a special state', () => {
     );
     // `Outer --> Live` is reachable from Inner too, so the viewer picks.
     const finish = ast.transitions.find((t) => t.label?.raw === 'finish')!;
-    const timeline = traverse(ast, new Map([['Inner', finish.id]]), createBindings());
+    const timeline = traverse(ast, new Map([['Inner#0', finish.id]]), createBindings());
 
     expect(timeline.steps.some((s) => s.transition.label?.raw === 'deploy')).toBe(true);
     expect(timeline.steps[timeline.steps.length - 1]!.to).toBe('Live');
@@ -267,7 +267,7 @@ describe('a subgroup end is not the end of the flow', () => {
       'stateDiagram-v2\n[*] --> Outer\nstate Outer {\n[*] --> Inner\nInner --> [*]: finish\n}\nOuter --> Live: deploy\nOuter --> Failed: abort',
     );
     const finish = ast.transitions.find((t) => t.label?.raw === 'finish')!;
-    const timeline = traverse(ast, new Map([['Inner', finish.id]]), createBindings());
+    const timeline = traverse(ast, new Map([['Inner#0', finish.id]]), createBindings());
 
     // Two ways out of Outer, so the run stops there for the viewer to choose —
     // at the subgroup's end, not at the end of everything.
@@ -356,8 +356,8 @@ describe('transitions on enclosing states', () => {
     const timeline = traverse(
       ast,
       new Map([
-        ['Compiling', compiled.id],
-        ['Unit', abort.id],
+        ['Compiling#0', compiled.id],
+        ['Unit#0', abort.id],
       ]),
       createBindings(),
     );
@@ -399,7 +399,7 @@ describe('back links and arrows straight into a nested state', () => {
   it('takes a self transition without stalling or looping', () => {
     const ast = parse(TRICKY);
     const retry = ast.transitions.find((t) => t.label?.raw === 'retry')!;
-    const timeline = traverse(ast, new Map([['Idle', retry.id]]), createBindings());
+    const timeline = traverse(ast, new Map([['Idle#0', retry.id]]), createBindings());
 
     expect(timeline.steps[0]).toMatchObject({ from: 'Idle', to: 'Idle' });
     // The decision fires once and then hands back, rather than looping forever
@@ -411,7 +411,7 @@ describe('back links and arrows straight into a nested state', () => {
   it('lands exactly where an arrow into a nested state points, not on the composite', () => {
     const ast = parse(TRICKY);
     const jump = ast.transitions.find((t) => t.label?.raw === 'jump straight in')!;
-    const timeline = traverse(ast, new Map([['Idle', jump.id]]), createBindings());
+    const timeline = traverse(ast, new Map([['Idle#0', jump.id]]), createBindings());
 
     // The target is a concrete inner state, so there is nothing to descend into.
     expect(timeline.steps[0]!.to).toBe('Bottom');
@@ -441,8 +441,8 @@ describe('why the state view shows no step counter', () => {
 
     // The same machine yields runs of different lengths depending on the
     // choices made, so any "n of m" denominator would be invented.
-    const looped = traverse(ast, new Map([['A', again.id]]), createBindings());
-    const direct = traverse(ast, new Map([['A', onward.id]]), createBindings());
+    const looped = traverse(ast, new Map([['A#0', again.id]]), createBindings());
+    const direct = traverse(ast, new Map([['A#0', onward.id]]), createBindings());
 
     expect(looped.steps).toHaveLength(1);
     expect(direct.steps).toHaveLength(1);
@@ -482,5 +482,54 @@ describe('completion transitions out of a composite', () => {
     const ast = parse('stateDiagram-v2\n[*] --> A\nA --> B');
 
     expect(outgoingFrom(ast, 'A')).toHaveLength(1);
+  });
+});
+
+describe('choosing the same move again later in the run', () => {
+  const LOOP = 'stateDiagram-v2\n[*] --> A\nA --> A: again\nA --> B: move on';
+
+  it('lets the viewer repeat a transition on a later visit', () => {
+    const ast = parse(LOOP);
+    const again = ast.transitions.find((t) => t.label?.raw === 'again')!;
+
+    // Two separate arrivals, two separate decisions — keying by state alone
+    // made the second one impossible to express.
+    const timeline = traverse(
+      ast,
+      new Map([
+        ['A#0', again.id],
+        ['A#1', again.id],
+      ]),
+      createBindings(),
+    );
+
+    expect(timeline.steps.map((step) => step.to)).toEqual(['A', 'A']);
+    expect(timeline.pending!.from).toBe('A');
+  });
+
+  it('replaces only the arrival being changed when the run is rewound', () => {
+    const ast = parse(LOOP);
+    const again = ast.transitions.find((t) => t.label?.raw === 'again')!;
+    const onward = ast.transitions.find((t) => t.label?.raw === 'move on')!;
+
+    const timeline = traverse(
+      ast,
+      new Map([
+        ['A#0', again.id],
+        ['A#1', onward.id],
+      ]),
+      createBindings(),
+    );
+
+    expect(timeline.steps.map((step) => step.to)).toEqual(['A', 'B']);
+  });
+
+  it('records the key each step departed from, so a rewind can reuse it', () => {
+    const ast = parse(LOOP);
+    const again = ast.transitions.find((t) => t.label?.raw === 'again')!;
+    const timeline = traverse(ast, new Map([['A#0', again.id]]), createBindings());
+
+    expect(timeline.steps[0]!.fromKey).toBe('A#0');
+    expect(timeline.nextKey).toBe('A#1');
   });
 });
