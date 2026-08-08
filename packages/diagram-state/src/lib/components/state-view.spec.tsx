@@ -70,3 +70,37 @@ describe('clicking a history state', () => {
     expect(past(container)).toEqual(['A']);
   });
 });
+
+describe('following the track as it grows', () => {
+  it('scrolls to the right end whenever the run moves', async () => {
+    const user = userEvent.setup();
+    const { container } = render(<StateDiagramSurface text={LINE} id="d" />);
+
+    const track = container.querySelector('.state-view') as HTMLElement;
+    // jsdom has no layout, so stand in for a track wider than its viewport.
+    Object.defineProperty(track, 'scrollWidth', { value: 2000, configurable: true });
+    const scrolled: number[] = [];
+    track.scrollTo = ((options: ScrollToOptions) =>
+      scrolled.push(options.left ?? 0)) as HTMLElement['scrollTo'];
+
+    await user.click(screen.getAllByRole('button', { name: /one/ })[0]!);
+    expect(scrolled.at(-1)).toBe(2000);
+
+    // Going back shortens the run, and its end is what you returned to.
+    await user.click(screen.getByTitle('Go back to A'));
+    expect(scrolled.at(-1)).toBe(2000);
+  });
+
+  it('does not throw where scrollTo is unavailable', async () => {
+    const user = userEvent.setup();
+    const { container } = render(<StateDiagramSurface text={LINE} id="d" />);
+    const track = container.querySelector('.state-view') as HTMLElement;
+
+    // @ts-expect-error deliberately removing the API to prove the fallback runs.
+    track.scrollTo = undefined;
+
+    await expect(
+      user.click(screen.getAllByRole('button', { name: /one/ })[0]!),
+    ).resolves.not.toThrow();
+  });
+});

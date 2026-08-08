@@ -131,6 +131,26 @@ function StateRun({
    */
   const levelOf = (stateId: string) => depthWithin(ast, stateId, boxes);
 
+  /*
+   * The track grows rightwards, so the newest part is the part off screen.
+   * Scroll to the end whenever the cursor moves — including backwards, where
+   * the run shortens and the end is what you just returned to.
+   */
+  useEffect(() => {
+    const track = containerRef.current;
+    if (!track) return;
+
+    const reduced =
+      typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    // jsdom implements neither scrollTo nor smooth behaviour.
+    if (typeof track.scrollTo === 'function') {
+      track.scrollTo({ left: track.scrollWidth, behavior: reduced ? 'auto' : 'smooth' });
+    } else {
+      track.scrollLeft = track.scrollWidth;
+    }
+  }, [run.current, run.at, containerRef]);
+
   const lines = useMemo(() => {
     const from = current ? anchors.get(current) : undefined;
     if (!from) return [];
