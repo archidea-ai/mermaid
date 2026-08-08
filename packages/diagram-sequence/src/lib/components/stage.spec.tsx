@@ -233,3 +233,65 @@ describe('notes on the stage', () => {
     expect(container.querySelector('.seq-stage__overlay')).toBeNull();
   });
 });
+
+describe('a boolean variable', () => {
+  const OPTIONAL = 'sequenceDiagram\nA->>B: go\nopt {{sendSms : boolean}}\nA->>B: sms\nend';
+
+  it('prompts with buttons, the same affordance a literal union gets', () => {
+    render(<SequenceDiagramSurface text={OPTIONAL} id="d" />);
+
+    expect(screen.getByRole('button', { name: 'No' })).toBeDefined();
+    expect(screen.getByRole('button', { name: 'Yes' })).toBeDefined();
+    expect(screen.queryByPlaceholderText('Enter a value')).toBeNull();
+    expect(screen.queryByRole('switch')).toBeNull();
+  });
+
+  it('starts with neither answer selected, because unanswered is not false', () => {
+    render(<SequenceDiagramSurface text={OPTIONAL} id="d" />);
+
+    for (const name of ['No', 'Yes']) {
+      expect(screen.getByRole('button', { name }).getAttribute('aria-pressed')).not.toBe('true');
+    }
+  });
+
+  it('binds true from one click and includes the optional branch', async () => {
+    const user = userEvent.setup();
+    render(<SequenceDiagramSurface text={OPTIONAL} id="d" />);
+
+    await user.click(screen.getByRole('button', { name: 'Yes' }));
+
+    expect(screen.getByRole('button', { name: 'Clear sendSms' })).toBeDefined();
+    expect(screen.getByText('0 / 2')).toBeDefined();
+  });
+
+  it('binds false from one click, which a switch could not offer', async () => {
+    const user = userEvent.setup();
+    render(<SequenceDiagramSurface text={OPTIONAL} id="d" />);
+
+    await user.click(screen.getByRole('button', { name: 'No' }));
+
+    // false is a real answer: the opt resolves and its statement is skipped.
+    expect(screen.getByRole('button', { name: 'Clear sendSms' })).toBeDefined();
+    expect(screen.getByText('0 / 1')).toBeDefined();
+  });
+
+  it('carries the declared type through a condition, not just through message text', () => {
+    // `opt {{sendSms : boolean}}` annotates the type inside a fragment label.
+    // The condition lexer used to read the whole body as the variable name.
+    render(<SequenceDiagramSurface text={OPTIONAL} id="d" />);
+
+    expect(screen.getByText('sendSms')).toBeDefined();
+    expect(screen.queryByText(/sendSms : boolean/)).toBeNull();
+  });
+});
+
+describe('displayed fragment labels', () => {
+  it('strips type annotations that mean something only to the parser', async () => {
+    const { humaniseLabel } = await import('./rich-label');
+
+    expect(humaniseLabel('{{sendSms : boolean}}')).toBe('sendSms');
+    expect(humaniseLabel('{{role}} == "admin"')).toBe('role == "admin"');
+    expect(humaniseLabel('{{userId = "u-1"}}')).toBe('userId');
+    expect(humaniseLabel('every hour')).toBe('every hour');
+  });
+});

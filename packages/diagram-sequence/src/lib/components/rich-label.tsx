@@ -39,3 +39,15 @@ export function RichLabel({ text, values }: RichLabelProps) {
     </>
   );
 }
+
+/**
+ * A fragment label is a raw condition, so it carries whatever the author wrote —
+ * including type annotations that are meaningful to the parser and noise to a
+ * reader. `{{sendSms : boolean}}` displays as `sendSms`.
+ */
+export function humaniseLabel(label: string): string {
+  return label.replace(/\{\{([^}]*)\}\}/g, (_match, body: string) => {
+    const [name] = body.split(/[:=]/);
+    return (name ?? body).trim();
+  });
+}

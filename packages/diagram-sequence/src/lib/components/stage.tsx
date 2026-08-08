@@ -1,4 +1,4 @@
-import { RichLabel } from './rich-label';
+import { RichLabel, humaniseLabel } from './rich-label';
 import { computeArc, computeStage } from '../layout/stage';
 import { useStageSize } from '../layout/use-stage-size';
 import { useMemo } from 'react';
@@ -128,7 +128,7 @@ export function SequenceStage({ ast, timeline, cursor, bindings }: SequenceStage
           {step.path.map((entry) => (
             <span key={`${entry.branchId}-${entry.iteration ?? 'x'}`}>
               <span className="seq-stage__kind">{entry.kind}</span>
-              {entry.label ? ` ${entry.label}` : ''}
+              {entry.label ? ` ${humaniseLabel(entry.label)}` : ''}
               {entry.iteration !== null ? ` · pass ${entry.iteration + 1}` : ''}
             </span>
           ))}

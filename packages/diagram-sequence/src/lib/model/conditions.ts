@@ -1,7 +1,12 @@
-import { parseLiteral } from '../parser/variables';
+import { parseLiteral, parseVariableToken } from '../parser/variables';
+import type { VariableDeclaration, VariableType } from '../parser/ast';
 
 export type Operand =
-  | { readonly kind: 'variable'; readonly name: string }
+  | {
+      readonly kind: 'variable';
+      readonly name: string;
+      readonly declaredType: VariableType | null;
+    }
   | { readonly kind: 'literal'; readonly value: string | number | boolean };
 
 export type ComparisonOperator = '==' | '!=' | '>' | '>=' | '<' | '<=';
@@ -77,9 +82,26 @@ export function evaluateCondition(condition: Condition, bindings: ConditionLooku
   }
 }
 
-/** Every variable the condition reads, so callers know what to prompt for. */
-export function conditionVariables(condition: Condition): string[] {
-  const names = new Set<string>();
+/**
+ * Every variable the condition reads, with any type it declared — so a prompt
+ * raised by a condition gets the same input a prompt raised by message text
+ * would. Without the type it fell back to a free-text field.
+ */
+export function conditionDeclarations(condition: Condition): VariableDeclaration[] {
+  const found = new Map<string, VariableDeclaration>();
+
+  const add = (operand: Operand): void => {
+    if (operand.kind !== 'variable') return;
+    const existing = found.get(operand.name);
+    // A type declared anywhere in the expression wins over an unannotated use.
+    if (existing?.declaredType != null) return;
+    found.set(operand.name, {
+      name: operand.name,
+      declaredType: operand.declaredType,
+      assigns: false,
+    });
+  };
+
   const walk = (node: Condition): void => {
     switch (node.kind) {
       case 'or':
@@ -91,16 +113,21 @@ export function conditionVariables(condition: Condition): string[] {
         walk(node.operand);
         break;
       case 'truthy':
-        if (node.operand.kind === 'variable') names.add(node.operand.name);
+        add(node.operand);
         break;
       case 'compare':
-        if (node.left.kind === 'variable') names.add(node.left.name);
-        if (node.right.kind === 'variable') names.add(node.right.name);
+        add(node.left);
+        add(node.right);
         break;
     }
   };
+
   walk(condition);
-  return [...names];
+  return [...found.values()];
+}
+
+export function conditionVariables(condition: Condition): string[] {
+  return conditionDeclarations(condition).map((declaration) => declaration.name);
 }
 
 function resolve(operand: Operand, bindings: ConditionLookup) {
@@ -129,7 +156,7 @@ function compare(
 }
 
 type LexToken =
-  | { kind: 'variable'; name: string }
+  | { kind: 'variable'; name: string; declaredType: VariableType | null }
   | { kind: 'literal'; value: string | number | boolean }
   | { kind: 'operator'; value: string };
 
@@ -150,7 +177,8 @@ function lex(input: string): LexToken[] {
     if (input.startsWith('{{', index)) {
       const close = input.indexOf('}}', index);
       if (close === -1) throw new Error('unterminated variable');
-      tokens.push({ kind: 'variable', name: input.slice(index + 2, close).trim() });
+      const { name, declaredType } = parseVariableToken(input.slice(index + 2, close));
+      tokens.push({ kind: 'variable', name, declaredType });
       index = close + 2;
       continue;
     }
@@ -231,7 +259,7 @@ class Parser {
     if (!token || token.kind === 'operator') throw new Error('expected operand');
     this.#index += 1;
     return token.kind === 'variable'
-      ? { kind: 'variable', name: token.name }
+      ? { kind: 'variable', name: token.name, declaredType: token.declaredType }
       : { kind: 'literal', value: token.value };
   }
 

@@ -7,11 +7,12 @@ import { Label } from '../ui/label';
 import { ScrollArea } from '../ui/scroll-area';
 import { Separator } from '../ui/separator';
 import { ToggleGroup, ToggleGroupItem } from '../ui/toggle-group';
-import { RichLabel } from './rich-label';
+import { RichLabel, humaniseLabel } from './rich-label';
 import type { SequenceRunController, VariablePrompt } from '../model/controller';
 import type { Timeline } from '../model/timeline';
 import type { EmphasisMap } from '../layout/emphasis';
 import type { VariableType } from '../parser/ast';
+import type { VariableValue } from '../model/bindings';
 
 /** Classic lays out the whole protocol; modern shows only the active call. */
 export type SequenceVariant = 'classic' | 'modern';
@@ -82,13 +83,15 @@ export function SequenceToolbar({ controller, variant, onVariantChange }: Toolba
  */
 function PromptField({
   prompt,
+  current,
   onSubmit,
 }: {
   prompt: VariablePrompt;
+  current: VariableValue | undefined;
   onSubmit: (raw: string) => void;
 }) {
   const { name, declaredType } = prompt.declaration;
-  const options = unionOptions(declaredType);
+  const options = promptOptions(declaredType);
 
   return (
     <div className="grid gap-1.5">
@@ -105,13 +108,14 @@ function PromptField({
           variant="outline"
           size="sm"
           aria-label={name}
+          value={current === undefined ? [] : [String(current)]}
           onValueChange={(value: string[]) => {
             if (value[0]) onSubmit(value[0]);
           }}
         >
           {options.map((option) => (
-            <ToggleGroupItem key={option} value={option} aria-label={option}>
-              {option}
+            <ToggleGroupItem key={option.value} value={option.value} aria-label={option.label}>
+              {option.label}
             </ToggleGroupItem>
           ))}
         </ToggleGroup>
@@ -131,11 +135,33 @@ function PromptField({
   );
 }
 
-function unionOptions(declaredType: VariableType | null): readonly string[] | null {
-  if (declaredType && typeof declaredType === 'object' && 'union' in declaredType) {
-    return declaredType.union;
+interface PromptOption {
+  readonly value: string;
+  readonly label: string;
+}
+
+/**
+ * Choices render as buttons rather than a switch or a dropdown.
+ *
+ * A boolean needs three states — true, false, and *not answered yet* — and a
+ * switch only has two: sitting in its off position it claims `false` has been
+ * chosen when the run is actually blocked waiting. Buttons show all the answers
+ * at once and let either be picked in one click, which is also what the literal
+ * unions already do.
+ *
+ * The values stay `true`/`false` so they read correctly everywhere else; only
+ * the labels are humanised.
+ */
+function promptOptions(declaredType: VariableType | null): readonly PromptOption[] | null {
+  if (declaredType === 'boolean') {
+    return [
+      { value: 'false', label: 'No' },
+      { value: 'true', label: 'Yes' },
+    ];
   }
-  if (declaredType === 'boolean') return ['true', 'false'];
+  if (declaredType && typeof declaredType === 'object' && 'union' in declaredType) {
+    return declaredType.union.map((option) => ({ value: option, label: option }));
+  }
   return null;
 }
 
@@ -148,6 +174,7 @@ export function VariablePanel({ controller }: { controller: SequenceRunControlle
 
   const submit = (prompt: VariablePrompt, raw: string): void => {
     if (raw === '') return;
+    // 'false' is a real answer — never let a falsy-looking string be dropped.
     const { declaredType } = prompt.declaration;
     const value =
       declaredType === 'number' ? Number(raw) : declaredType === 'boolean' ? raw === 'true' : raw;
@@ -166,6 +193,7 @@ export function VariablePanel({ controller }: { controller: SequenceRunControlle
           <PromptField
             key={prompt.declaration.name}
             prompt={prompt}
+            current={controller.bindings.get(prompt.declaration.name)}
             onSubmit={(raw) => submit(prompt, raw)}
           />
         ))}
@@ -250,7 +278,7 @@ export function DecisionPanel({ controller }: { controller: SequenceRunControlle
               controller.decide({ kind: 'branch', fragmentId: fragment.id, branchId: branch.id })
             }
           >
-            {branch.label || 'otherwise'}
+            {humaniseLabel(branch.label) || 'otherwise'}
           </Button>
         ))}
       </CardContent>
@@ -316,7 +344,8 @@ export function StepList({ controller, emphasis, timeline }: StepListProps) {
                 className="text-xs line-through"
                 style={{ color: 'var(--seq-skipped)' }}
               >
-                {region.kind} · {region.label || 'otherwise'} ({region.statementCount})
+                {region.kind} · {humaniseLabel(region.label) || 'otherwise'} (
+                {region.statementCount})
               </div>
             ))}
           </>

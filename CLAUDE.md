@@ -36,6 +36,12 @@ time. The registry is the seam that makes that additive.
   under `node`; `use-stage-size.ts` does the measuring. It falls back to a fixed
   size when unmeasured — without that, the first paint stacks every object at
   the origin, and nothing renders under jsdom at all.
+- **A prompt has three states: true, false, and unanswered.** Booleans and
+  literal unions both render as toggle _buttons_, never a switch — a switch in
+  its off position claims `false` was chosen when the run is actually blocked
+  waiting, and it cannot offer `false` in one click. (base-ui's Switch also
+  emits an `aria-labelledby` pointing at an element it never renders, which
+  leaves the control with no accessible name.)
 - **Branch on `step.kind`, never `step.node.type`.** The `+`/`-` activation
   shorthand emits a message step _and_ a lifecycle step that share one message
   node, so keying off the node renders the same message twice.

@@ -63,12 +63,11 @@ export function useSequenceRun(ast: SequenceDiagramAst): SequenceRunController {
     }
 
     if (timeline.pending?.kind === 'variable') {
-      for (const name of timeline.pending.names) {
-        if (result.some((prompt) => prompt.declaration.name === name)) continue;
-        result.push({
-          declaration: { name, declaredType: null, assigns: false },
-          reason: 'unknown-condition',
-        });
+      // Use the condition's own declarations: inventing untyped ones here is
+      // what made `opt {{sendSms : boolean}}` prompt with a text field.
+      for (const declaration of timeline.pending.declarations) {
+        if (result.some((prompt) => prompt.declaration.name === declaration.name)) continue;
+        result.push({ declaration, reason: 'unknown-condition' });
       }
     }
 

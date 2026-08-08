@@ -570,6 +570,12 @@
   display: grid;
   place-items: center;
   padding: 10px 16px;
+  /*
+   * max-content, or the containing block squeezes the card into whatever space
+   * is left to the right of its `left` offset — which wrapped a node near the
+   * edge to one character per line.
+   */
+  width: max-content;
   max-width: 9.5rem;
   text-align: center;
   font-weight: 500;

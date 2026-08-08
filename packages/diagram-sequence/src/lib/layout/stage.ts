@@ -30,7 +30,7 @@ export interface StageArc {
  * piles every object on the centre — which is exactly what happened at the
  * width the examples app actually gives this view.
  */
-export const STAGE_RADIUS_RATIO = { x: 0.33, y: 0.31 } as const;
+export const STAGE_RADIUS_RATIO = { x: 0.3, y: 0.31 } as const;
 
 /**
  * Places participants around an ellipse rather than in lanes.

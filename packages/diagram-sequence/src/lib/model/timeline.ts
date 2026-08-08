@@ -1,4 +1,4 @@
-import { conditionVariables, evaluateCondition } from './conditions';
+import { conditionDeclarations, evaluateCondition } from './conditions';
 import { createBindings } from './bindings';
 import type { VariableBindings } from './bindings';
 import type {
@@ -55,6 +55,8 @@ export type PendingDecision =
       readonly kind: 'variable';
       readonly fragment: Fragment;
       readonly names: readonly string[];
+      /** With any type the condition declared, so the prompt renders correctly. */
+      readonly declarations: readonly VariableDeclaration[];
       readonly reason: 'unknown-condition';
     };
 
@@ -291,13 +293,15 @@ function resolveFragment(
         return { selected: [decision.branchId], iterations: 1, pending: null };
       }
 
-      let sawUnknown: string[] | null = null;
+      let sawUnknown: VariableDeclaration[] | null = null;
       for (const branch of fragment.branches) {
         if (!branch.condition) continue;
         const verdict = evaluateCondition(branch.condition, bindings);
         if (verdict === true) return { selected: [branch.id], iterations: 1, pending: null };
         if (verdict === 'unknown' && !sawUnknown) {
-          sawUnknown = conditionVariables(branch.condition).filter((name) => !bindings.has(name));
+          sawUnknown = conditionDeclarations(branch.condition).filter(
+            (declaration) => !bindings.has(declaration.name),
+          );
         }
       }
 
@@ -305,7 +309,13 @@ function resolveFragment(
         return {
           selected: [],
           iterations: 1,
-          pending: { kind: 'variable', fragment, names: sawUnknown, reason: 'unknown-condition' },
+          pending: {
+            kind: 'variable',
+            fragment,
+            names: sawUnknown.map((declaration) => declaration.name),
+            declarations: sawUnknown,
+            reason: 'unknown-condition',
+          },
         };
       }
 
@@ -332,11 +342,19 @@ function resolveFragment(
       if (condition) {
         const verdict = evaluateCondition(condition, bindings);
         if (verdict === 'unknown') {
-          const names = conditionVariables(condition).filter((name) => !bindings.has(name));
+          const declarations = conditionDeclarations(condition).filter(
+            (declaration) => !bindings.has(declaration.name),
+          );
           return {
             selected: [],
             iterations: 1,
-            pending: { kind: 'variable', fragment, names, reason: 'unknown-condition' },
+            pending: {
+              kind: 'variable',
+              fragment,
+              names: declarations.map((declaration) => declaration.name),
+              declarations,
+              reason: 'unknown-condition',
+            },
           };
         }
         return { selected: verdict ? [first] : [], iterations: 1, pending: null };

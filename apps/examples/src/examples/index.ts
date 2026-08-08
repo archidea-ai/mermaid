@@ -55,7 +55,7 @@ export const examples: readonly DiagramExample[] = [
     loop settlement retry
         Orders->>Payments: capture
     end
-    opt {{sendSms}}
+    opt {{sendSms : boolean}}
         Orders->>Email: send SMS too
     end
     Orders-->>-Client: 201 Created`,

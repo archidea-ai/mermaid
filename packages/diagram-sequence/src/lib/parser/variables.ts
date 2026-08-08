@@ -68,7 +68,7 @@ function parseToken(body: string): ParsedToken | null {
   return { name, declaredType, assigns: true, value: parseLiteral(right) };
 }
 
-function parseType(input: string): VariableType | null {
+export function parseType(input: string): VariableType | null {
   if (input === 'string' || input === 'number' || input === 'boolean') return input;
 
   if (input.includes('|')) {
@@ -90,7 +90,7 @@ export function parseLiteral(input: string): string | number | boolean {
 }
 
 /** Splits on the first separator that is not inside quotes, so "a=b" stays whole. */
-function splitOutsideQuotes(
+export function splitOutsideQuotes(
   input: string,
   separator: string,
 ): { before: string; after: string } | null {
@@ -124,4 +124,21 @@ function splitOutsideQuotes(
 
 export function collectEffects(text: RichText): readonly VariableEffect[] {
   return text.effects;
+}
+
+/**
+ * Splits a `{{...}}` body into its name and declared type.
+ *
+ * Shared with the condition grammar: a fragment label may annotate a type the
+ * same way message text does (`opt {{sendSms : boolean}}`), and reading the body
+ * as one opaque identifier there meant the variable was called
+ * "sendSms : boolean" and lost its type entirely.
+ */
+export function parseVariableToken(body: string): {
+  name: string;
+  declaredType: VariableType | null;
+} {
+  const colon = splitOutsideQuotes(body, ':');
+  const name = (colon ? colon.before : body).trim();
+  return { name, declaredType: colon ? parseType(colon.after.trim()) : null };
 }

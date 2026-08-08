@@ -347,3 +347,50 @@ test('the activation shorthand does not render its message twice', async ({ page
   // The lifecycle step is still listed, named for what it is.
   expect(labels.some((label) => label.startsWith('activate'))).toBe(true);
 });
+
+test('a boolean offers both answers as buttons, each reachable in one click', async ({ page }) => {
+  await page.getByRole('button', { name: 'Checkout — parallel work and retries' }).click();
+  await page.getByRole('button', { name: '99' }).count(); // settle
+  await page.waitForTimeout(150);
+
+  // The amount prompt comes first; answer it so sendSms is reached.
+  const amount = page.getByPlaceholder('Enter a value');
+  if (await amount.count()) {
+    await amount.fill('4200');
+    await amount.blur();
+  }
+
+  const no = page.getByRole('button', { name: 'No', exact: true });
+  const yes = page.getByRole('button', { name: 'Yes', exact: true });
+  await expect(no).toBeVisible();
+  await expect(yes).toBeVisible();
+  await expect(page.locator('.archidea-sequence [role="switch"]')).toHaveCount(0);
+
+  // Neither is preselected: unanswered is not the same as false.
+  await expect(no).not.toHaveAttribute('aria-pressed', 'true');
+  await expect(yes).not.toHaveAttribute('aria-pressed', 'true');
+
+  // False is reachable directly, which is what a switch could not do.
+  await no.click();
+  await expect(page.getByRole('button', { name: 'Clear sendSms' })).toBeVisible();
+
+  await page.screenshot({ path: 'e2e-results/boolean.png', fullPage: true });
+});
+
+test('an object near the stage edge is not squeezed into a character column', async ({ page }) => {
+  await page.getByRole('button', { name: 'Checkout — parallel work and retries' }).click();
+  await page.waitForTimeout(200);
+
+  const shapes = await page.evaluate(() =>
+    [...document.querySelectorAll('.seq-stage__object')].map((el) => {
+      const r = el.getBoundingClientRect();
+      return { text: el.textContent, w: Math.round(r.width), h: Math.round(r.height) };
+    }),
+  );
+
+  // A card squeezed by its containing block wraps one letter per line, which
+  // shows up as a tall, narrow box.
+  for (const shape of shapes) {
+    expect(shape.h, `${shape.text} is taller than it is wide`).toBeLessThan(shape.w * 1.6);
+  }
+});
