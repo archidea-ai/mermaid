@@ -639,3 +639,47 @@ test('attention cues collapse under prefers-reduced-motion', async ({ browser })
   expect(await page.evaluate(() => !!document.activeElement?.closest('.seq-prompt'))).toBe(true);
   await context.close();
 });
+
+test('a branch decision is highlighted and takes focus', async ({ page }) => {
+  await page.getByRole('button', { name: /Access lifecycle/ }).click();
+  await page.waitForTimeout(200);
+
+  // Answer values until only the prose-labelled branch is left outstanding.
+  const values = page.locator('[data-slot="card"]', { hasText: 'Values' });
+  for (let guard = 0; guard < 14; guard += 1) {
+    if (await page.locator('.seq-decision').count()) break;
+    const choice = values.locator('button[aria-pressed="false"]');
+    if (await choice.count()) {
+      await choice.first().click();
+      continue;
+    }
+    const text = values.getByPlaceholder('Enter a value');
+    if (await text.count()) {
+      await text.first().fill('subject-1');
+      await text.first().blur();
+      continue;
+    }
+    const next = page.getByRole('button', { name: 'Next step' });
+    if (await next.isDisabled()) break;
+    await next.click();
+  }
+
+  const decision = page.locator('.seq-decision');
+  await expect(decision).toBeVisible();
+
+  const state = await page.evaluate(() => {
+    const panel = document.querySelector('.seq-decision')!;
+    const card = document.querySelector('.seq-decision-card')!;
+    return {
+      animation: getComputedStyle(panel).animationName,
+      outline: getComputedStyle(card).outlineStyle,
+      focusInside: !!document.activeElement?.closest('.seq-decision'),
+    };
+  });
+
+  expect(state.animation).toBe('seq-attention');
+  expect(state.outline).not.toBe('none');
+  expect(state.focusInside).toBe(true);
+
+  await page.screenshot({ path: 'e2e-results/decision.png', fullPage: true });
+});

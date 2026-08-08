@@ -856,8 +856,15 @@
  * viewer did not necessarily cause at the place they are looking, so motion
  * carries the news — and, per the motion rule, nothing else animates.
  */
-.seq-prompt[data-fresh='true'] {
+.seq-prompt[data-fresh='true'],
+.seq-decision[data-fresh='true'] {
   animation: seq-attention 0.85s var(--seq-easing);
+}
+
+/* A blocked run should be findable at a glance, not only by reading. */
+.seq-decision-card {
+  outline: 1px solid color-mix(in srgb, var(--seq-accent) 45%, transparent);
+  outline-offset: -1px;
 }
 
 @keyframes seq-attention {
@@ -878,7 +885,8 @@
   }
 }
 
-.seq-prompt :is(input, button):focus-visible {
+.seq-prompt :is(input, button):focus-visible,
+.seq-decision button:focus-visible {
   outline: 2px solid var(--seq-accent);
   outline-offset: 2px;
 }
@@ -905,6 +913,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .seq-prompt[data-fresh='true'],
+  .seq-decision[data-fresh='true'],
   .seq-next[data-unblocked='true'] {
     animation: none;
   }

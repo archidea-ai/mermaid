@@ -79,10 +79,13 @@ banner in both views; narrower notes stay asides. It **stays up for the whole
 phase** and is replaced by the next one — a heading that flashes past for one
 step is not a heading.
 
-**Two moments earn an attention cue**: the run stopping to ask for a value, and
-becoming advanceable again once it has one. Both are state changes the viewer did
-not cause where they were looking, so motion carries the news — the field takes
-focus and pulses, the Next button pulses when it un-blocks. Focus is not motion,
+**Two moments earn an attention cue**: the run stopping — for a value _or_ for a
+branch choice, which block it identically — and becoming advanceable again once
+it has one. Both are state changes the viewer did
+not cause where they were looking, so motion carries the news — whatever is being
+asked for takes focus and pulses, and the Next button pulses when it un-blocks.
+Only one thing takes focus: when a value and a branch are both outstanding the
+value keeps it, or the two panels fight over the cursor and the later one wins. Focus is not motion,
 so it still happens under `prefers-reduced-motion`; the pulses do not.
 
 An animation's keyframes carry the element's positioning, so **never reuse

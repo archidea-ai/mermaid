@@ -549,3 +549,44 @@ describe('attention when the run stops and starts again', () => {
     expect((container.querySelector('.seq-next') as HTMLElement).dataset.unblocked).toBe('false');
   });
 });
+
+describe('a branch decision blocking the run', () => {
+  const PROSE = 'sequenceDiagram\nalt logged in\nA->>B: x\nelse anonymous\nA->>B: y\nend';
+
+  it('announces itself the same way an unanswered value does', () => {
+    const { container } = render(<SequenceDiagramSurface text={PROSE} id="d" />);
+
+    const decision = container.querySelector('.seq-decision');
+    expect(decision).not.toBeNull();
+    expect(decision!.getAttribute('data-fresh')).toBe('true');
+    expect(container.querySelector('.seq-decision-card')).not.toBeNull();
+  });
+
+  it('takes focus, because it is what the run is waiting on', () => {
+    render(<SequenceDiagramSurface text={PROSE} id="d" />);
+
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'logged in' }));
+  });
+
+  it('yields focus to an outstanding value, so the two do not fight over it', () => {
+    // Both are pending: the value is asked for first, so it keeps the cursor.
+    render(
+      <SequenceDiagramSurface
+        text={`sequenceDiagram\nA->>B: go {{who : string}}\n${PROSE.slice('sequenceDiagram\n'.length)}`}
+        id="d"
+      />,
+    );
+
+    expect(document.activeElement).toBe(screen.getByPlaceholderText('Enter a value'));
+  });
+
+  it('disappears once a path is chosen and the run can advance', async () => {
+    const user = userEvent.setup();
+    const { container } = render(<SequenceDiagramSurface text={PROSE} id="d" />);
+
+    await user.click(screen.getByRole('button', { name: 'logged in' }));
+
+    expect(container.querySelector('.seq-decision')).toBeNull();
+    expect((container.querySelector('.seq-next') as HTMLElement).dataset.unblocked).toBe('true');
+  });
+});

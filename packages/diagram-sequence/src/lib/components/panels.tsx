@@ -275,34 +275,57 @@ export function NotePanel({ controller }: { controller: SequenceRunController })
 
 export function DecisionPanel({ controller }: { controller: SequenceRunController }) {
   const pending = controller.pending;
-  if (!pending || pending.kind === 'variable') return null;
+  const blocking = pending && pending.kind !== 'variable' ? pending : null;
+  const ref = useRef<HTMLDivElement>(null);
 
-  const { fragment } = pending;
+  /*
+   * A branch decision blocks the run exactly as an unanswered value does, so it
+   * gets the same treatment. Focus only when no value is also outstanding —
+   * otherwise the two panels fight over the cursor and the later one wins.
+   */
+  const claimsFocus = blocking !== null && controller.prompts.length === 0;
+  const fragmentId = blocking?.fragment.id ?? null;
+
+  useEffect(() => {
+    if (!claimsFocus) return;
+    ref.current?.querySelector<HTMLElement>('button')?.focus({ preventScroll: true });
+  }, [claimsFocus, fragmentId]);
+
+  if (!blocking) return null;
+  const { fragment } = blocking;
 
   return (
-    <Card>
+    <Card className="seq-decision-card">
       <CardHeader>
         <CardTitle className="text-muted-foreground text-[11px] font-normal tracking-wide uppercase">
           Choose a path
         </CardTitle>
       </CardHeader>
-      <CardContent className="grid gap-1.5">
-        <Badge variant="secondary" className="w-fit font-mono">
-          {fragment.kind}
-        </Badge>
-        {fragment.branches.map((branch) => (
-          <Button
-            key={branch.id}
-            variant="outline"
-            size="sm"
-            className="justify-start"
-            onClick={() =>
-              controller.decide({ kind: 'branch', fragmentId: fragment.id, branchId: branch.id })
-            }
-          >
-            {humaniseLabel(branch.label) || 'otherwise'}
-          </Button>
-        ))}
+      <CardContent>
+        <div
+          className="seq-decision grid gap-1.5"
+          ref={ref}
+          data-fresh="true"
+          role="group"
+          aria-label="Choose a path"
+        >
+          <Badge variant="secondary" className="w-fit font-mono">
+            {fragment.kind}
+          </Badge>
+          {fragment.branches.map((branch) => (
+            <Button
+              key={branch.id}
+              variant="outline"
+              size="sm"
+              className="justify-start"
+              onClick={() =>
+                controller.decide({ kind: 'branch', fragmentId: fragment.id, branchId: branch.id })
+              }
+            >
+              {humaniseLabel(branch.label) || 'otherwise'}
+            </Button>
+          ))}
+        </div>
       </CardContent>
     </Card>
   );
