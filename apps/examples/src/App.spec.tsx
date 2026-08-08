@@ -69,7 +69,8 @@ describe('examples app', () => {
     const user = userEvent.setup();
     render(<App />);
 
-    await user.click(screen.getByRole('button', { name: examples[1]!.title }));
+    const checkout = examples.find((entry) => entry.id === 'checkout-parallel')!;
+    await user.click(screen.getByRole('button', { name: checkout.title }));
 
     expect((screen.getByLabelText('Diagram source') as HTMLTextAreaElement).value).toContain(
       'par charge the card',

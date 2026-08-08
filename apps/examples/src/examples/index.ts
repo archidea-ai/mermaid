@@ -80,4 +80,84 @@ export const examples: readonly DiagramExample[] = [
     destroy Worker
     Scheduler-->>Operator: complete`,
   },
+  {
+    id: 'access-lifecycle',
+    title: 'Access lifecycle — multi-party, three phases',
+    description:
+      'A deliberately large diagram: grouped participants, three phases, nested branches, a scoped region and a review loop. Pick the identity kind and the branch resolves itself; the rest are yours to choose.',
+    source: `sequenceDiagram
+    autonumber
+
+    box rgb(225, 240, 255) Requesting side
+        actor Requester as Requester
+        actor Sponsor as Internal sponsor
+    end
+    box rgb(225, 245, 230) Platform
+        participant Portal as Access portal
+        participant Directory as Directory<br/>service
+    end
+    box rgb(255, 244, 224) External parties
+        actor PartnerAdmin as Partner admin
+        participant PartnerIdp as Partner identity<br/>provider
+    end
+    box rgb(225, 245, 230) Operations
+        participant Audit as Audit log
+        participant Billing as Billing
+    end
+
+    Note over Requester,Billing: Phase 1 - Request and triage
+
+    Requester->>Sponsor: requestAccess(resource, {{duration : "30 days" | "90 days" | "permanent"}})
+    Sponsor->>Portal: submitRequest(requestId, resource, duration)
+    Portal->>Directory: lookupIdentity({{subject : string}}, {{identityKind : "external" | "internal"}})
+    Directory-->>Portal: identityRecord(subjectRef, state)
+
+    alt {{identityKind}} == "external"
+        Portal->>PartnerAdmin: notifyPartner(requestId, resource)
+        PartnerAdmin->>PartnerIdp: confirmAffiliation(subjectRef)
+        PartnerIdp-->>PartnerAdmin: attestation(valid, expiresOn)
+        PartnerAdmin-->>Portal: returnAttestation(requestId, valid)
+        opt {{requiresStepUp : boolean}}
+            Portal->>PartnerIdp: requestStrongAuth(subjectRef)
+            PartnerIdp-->>Portal: assurance(level)
+        end
+    else
+        Portal->>Directory: provisionLocalAccount(subjectRef)
+        Directory-->>Portal: {{accountRef = "acct-4417"}}
+        Note over Portal,Requester: The initial credential is never emailed - it is handed over out of band
+    end
+
+    Note over Requester,Billing: Phase 2 - Approval
+
+    rect rgb(240, 240, 255)
+        Portal->>Portal: evaluatePolicy(resource, duration)
+        alt Low risk
+            Portal->>Audit: recordAutoApproval(requestId)
+        else Elevated risk
+            Portal->>Sponsor: requestSecondApproval(requestId)
+            Sponsor-->>Portal: decision(approve, reject)
+        end
+    end
+
+    Portal->>+Directory: grantEntitlement(subjectRef, resource, duration)
+    Directory-->>-Portal: {{entitlementRef = "ent-9F2C"}}
+    Portal->>Audit: recordGrant(requestId, entitlementRef)
+    Portal->>Billing: reportSeat(entitlementRef, duration)
+    Portal->>Requester: notifyGranted(resource, entitlementRef)
+
+    Note over Requester,Billing: Phase 3 - Review and expiry
+
+    loop scheduled review
+        Portal->>Sponsor: requestAttestation(entitlementRef)
+        Sponsor-->>Portal: attest(keep, revoke)
+    end
+
+    alt Revoke
+        Portal->>Directory: revokeEntitlement(entitlementRef)
+        Portal->>Billing: releaseSeat(entitlementRef)
+        Portal->>Audit: recordRevocation(entitlementRef)
+    else Keep
+        Portal->>Audit: recordRenewal(entitlementRef)
+    end`,
+  },
 ];

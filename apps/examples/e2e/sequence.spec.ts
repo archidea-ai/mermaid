@@ -394,3 +394,78 @@ test('an object near the stage edge is not squeezed into a character column', as
     expect(shape.h, `${shape.text} is taller than it is wide`).toBeLessThan(shape.w * 1.6);
   }
 });
+
+test('the complex example parses natively and walks end to end', async ({ page }) => {
+  await page.getByRole('button', { name: /Access lifecycle/ }).click();
+  await page.waitForTimeout(200);
+
+  // Native renderer, not a proxy fallback — the whole point of a hard example.
+  await expect(page.locator('.app__badge')).toContainText('sequence-react');
+  await expect(page.locator('.seq-stage__object')).toHaveCount(8);
+
+  // A <br/> in a participant name is a line break, not four literal characters.
+  await expect(page.locator('.seq-stage__object', { hasText: 'Directory' })).not.toContainText(
+    '<br',
+  );
+
+  let filledText = false;
+
+  // Walk the whole diagram, answering whatever it asks for as it asks.
+  for (let guard = 0; guard < 90; guard += 1) {
+    // Scoped to the Values panel: the view toggle is also an aria-pressed group,
+    // and an unscoped selector walked the diagram by flipping views instead.
+    const values = page.locator('[data-slot="card"]', { hasText: 'Values' });
+    const choice = values.locator('button[aria-pressed="false"]');
+    if (await choice.count()) {
+      await choice.first().click();
+      continue;
+    }
+
+    const text = values.getByPlaceholder('Enter a value');
+    if ((await text.count()) && !filledText) {
+      await text.first().fill('subject-1');
+      await text.first().blur();
+      filledText = true;
+      continue;
+    }
+
+    // A prose-labelled branch is viewer-chosen by design.
+    const branch = page
+      .locator('[data-slot="card"]', { hasText: 'Choose a path' })
+      .locator('button', { hasText: /Low risk|Elevated risk|Revoke|Keep|otherwise/ });
+    if (await branch.count()) {
+      await branch.first().click();
+      continue;
+    }
+
+    const next = page.getByRole('button', { name: 'Next step' });
+    if (await next.isDisabled()) break;
+    await next.click();
+  }
+
+  // It reached the end of a long run rather than stalling on an unanswered prompt.
+  const counter = await page
+    .locator('.archidea-sequence span')
+    .filter({ hasText: /^\d+ \/ \d+$/ })
+    .first()
+    .textContent();
+  const [current, total] = counter!.split('/').map((part) => Number(part.trim()));
+  expect(total).toBeGreaterThan(15);
+  expect(current).toBe(total);
+
+  await page.waitForTimeout(900);
+  await page.screenshot({ path: 'e2e-results/complex.png', fullPage: true });
+});
+
+test('the complex example renders its groups in the classic view', async ({ page }) => {
+  await page.getByRole('button', { name: /Access lifecycle/ }).click();
+  await toClassic(page);
+  await page.waitForTimeout(200);
+
+  await expect(page.locator('.seq-lifeline')).toHaveCount(8);
+  // A rect region must not print its colour as the frame label.
+  const labels = await page.locator('.seq-fragment__label').allTextContents();
+  expect(labels.some((label) => label.includes('rgb('))).toBe(false);
+
+  await page.screenshot({ path: 'e2e-results/complex-classic.png', fullPage: true });
+});

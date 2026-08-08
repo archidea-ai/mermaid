@@ -42,6 +42,10 @@ time. The registry is the seam that makes that additive.
   waiting, and it cannot offer `false` in one click. (base-ui's Switch also
   emits an `aria-labelledby` pointing at an element it never renders, which
   leaves the control with no accessible name.)
+- **A declared type belongs to the variable, not to one mention of it.**
+  `collectDeclaredTypes(ast)` gathers every annotation so a prompt raised by a
+  fragment condition (which usually just reads `{{name}}`) gets the same input
+  as one raised by the message that declared it.
 - **Branch on `step.kind`, never `step.node.type`.** The `+`/`-` activation
   shorthand emits a message step _and_ a lifecycle step that share one message
   node, so keying off the node renders the same message twice.

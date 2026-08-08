@@ -1,4 +1,4 @@
-import { RichLabel, humaniseLabel } from './rich-label';
+import { RichLabel, humaniseLabel, withBreaks } from './rich-label';
 import { computeArc, computeStage } from '../layout/stage';
 import { useStageSize } from '../layout/use-stage-size';
 import { useMemo } from 'react';
@@ -164,7 +164,7 @@ function StageObject({ node, state }: { node: StageNode; state: ObjectState }) {
       style={{ left: node.x, top: node.y }}
     >
       <span className="seq-stage__ripple" aria-hidden="true" />
-      <span className="seq-stage__name">{node.label}</span>
+      <span className="seq-stage__name">{withBreaks(node.label)}</span>
     </div>
   );
 }

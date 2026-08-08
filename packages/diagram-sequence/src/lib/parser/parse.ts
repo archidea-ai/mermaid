@@ -6,6 +6,8 @@ import { parseRichText } from './variables';
 import type { Token } from './tokenize';
 import type {
   Fragment,
+  VariableDeclaration,
+  VariableType,
   FragmentBranch,
   Participant,
   ParticipantBox,
@@ -168,7 +170,13 @@ export function parse(source: string): SequenceDiagramAst {
         stack.push({
           token,
           branches: [
-            { id: `${token.fragment}-${token.line}-0`, label: token.label, statements: [] },
+            {
+              id: `${token.fragment}-${token.line}-0`,
+              // A rect's "label" is the background colour it declares, which is
+              // styling rather than something to render on the frame.
+              label: token.fragment === 'rect' ? '' : token.label,
+              statements: [],
+            },
           ],
         });
         break;
@@ -249,4 +257,42 @@ export function parse(source: string): SequenceDiagramAst {
     frontmatter,
     ignored,
   };
+}
+
+/**
+ * Every type declared anywhere in the diagram, keyed by variable name.
+ *
+ * A type is a property of the variable, declared once — usually at its first
+ * mention in message text. A prompt raised somewhere else, typically by a
+ * fragment condition that just reads `{{identityKind}}`, must still get it, or
+ * it falls back to a free-text box for what is actually a two-option choice.
+ */
+export function collectDeclaredTypes(ast: SequenceDiagramAst): ReadonlyMap<string, VariableType> {
+  const types = new Map<string, VariableType>();
+
+  const remember = (declarations: readonly VariableDeclaration[]): void => {
+    for (const declaration of declarations) {
+      if (declaration.declaredType && !types.has(declaration.name)) {
+        types.set(declaration.name, declaration.declaredType);
+      }
+    }
+  };
+
+  const walk = (statements: readonly Statement[]): void => {
+    for (const statement of statements) {
+      if (statement.type === 'message' || statement.type === 'note') {
+        remember(statement.text.reads);
+        continue;
+      }
+      if (statement.type === 'fragment') {
+        for (const branch of statement.branches) {
+          remember(parseRichText(branch.label).reads);
+          walk(branch.statements);
+        }
+      }
+    }
+  };
+
+  walk(ast.statements);
+  return types;
 }

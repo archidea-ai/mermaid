@@ -1,3 +1,5 @@
+import { Fragment } from 'react';
+import type { ReactNode } from 'react';
 import type { VariableBindings } from '../model/bindings';
 import type { RichText, TextSegment } from '../parser/ast';
 
@@ -18,7 +20,9 @@ export function RichLabel({ text, values }: RichLabelProps) {
   return (
     <>
       {text.segments.map((segment: TextSegment, index) => {
-        if (segment.kind !== 'variable') return <span key={index}>{segment.value}</span>;
+        if (segment.kind !== 'variable') {
+          return <Fragment key={index}>{withBreaks(segment.value)}</Fragment>;
+        }
 
         const bound = values?.get(segment.name);
         const resolved = bound !== undefined;
@@ -50,4 +54,23 @@ export function humaniseLabel(label: string): string {
     const [name] = body.split(/[:=]/);
     return (name ?? body).trim();
   });
+}
+
+const BREAK = /<br\s*\/?>/i;
+
+/**
+ * `<br/>` is a line break in mermaid text, not four literal characters.
+ *
+ * Real diagrams lean on it heavily to keep participant names and long messages
+ * readable, and rendering it verbatim made every such label look broken.
+ */
+export function withBreaks(value: string): ReactNode {
+  if (!BREAK.test(value)) return value;
+
+  return value.split(BREAK).map((part, index, all) => (
+    <Fragment key={index}>
+      {part}
+      {index < all.length - 1 ? <br /> : null}
+    </Fragment>
+  ));
 }

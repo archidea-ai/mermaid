@@ -295,3 +295,34 @@ describe('displayed fragment labels', () => {
     expect(humaniseLabel('every hour')).toBe('every hour');
   });
 });
+
+describe('a type declared once, prompted elsewhere', () => {
+  // The type is annotated in the message; the prompt is raised by the condition,
+  // which only reads `{{kind}}`. Without carrying the type across, a two-option
+  // choice rendered as a free-text box.
+  const SPLIT = `sequenceDiagram
+    A->>B: lookup({{kind : "external" | "internal"}})
+    alt {{kind}} == "external"
+      A->>B: external path
+    else
+      A->>B: internal path
+    end`;
+
+  it('offers the declared options rather than a free-text field', () => {
+    render(<SequenceDiagramSurface text={SPLIT} id="d" />);
+
+    expect(screen.getByRole('button', { name: 'external' })).toBeDefined();
+    expect(screen.getByRole('button', { name: 'internal' })).toBeDefined();
+    expect(screen.queryByPlaceholderText('Enter a value')).toBeNull();
+  });
+
+  it('resolves the branch once the option is chosen', async () => {
+    const user = userEvent.setup();
+    render(<SequenceDiagramSurface text={SPLIT} id="d" />);
+
+    await user.click(screen.getByRole('button', { name: 'external' }));
+
+    expect(screen.queryByText('Choose a path')).toBeNull();
+    expect(screen.getByText('0 / 2')).toBeDefined();
+  });
+});

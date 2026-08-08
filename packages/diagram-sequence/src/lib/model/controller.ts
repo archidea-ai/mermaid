@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { createBindings, replayEffects } from './bindings';
 import { buildTimeline } from './timeline';
+import { collectDeclaredTypes } from '../parser/parse';
 import type { VariableBindings, VariableValue } from './bindings';
 import type { Decision, PendingDecision, Step, Timeline } from './timeline';
 import type { SequenceDiagramAst, VariableDeclaration } from '../parser/ast';
@@ -34,6 +35,7 @@ export function useSequenceRun(ast: SequenceDiagramAst): SequenceRunController {
   const [values, setValues] = useState<Readonly<Record<string, VariableValue>>>({});
   const listeners = useRef(new Set<(index: number) => void>());
 
+  const declaredTypes = useMemo(() => collectDeclaredTypes(ast), [ast]);
   const seed = useMemo(() => createBindings(values), [values]);
   const timeline = useMemo(() => buildTimeline(ast, decisions, seed), [ast, decisions, seed]);
 
@@ -67,12 +69,20 @@ export function useSequenceRun(ast: SequenceDiagramAst): SequenceRunController {
       // what made `opt {{sendSms : boolean}}` prompt with a text field.
       for (const declaration of timeline.pending.declarations) {
         if (result.some((prompt) => prompt.declaration.name === declaration.name)) continue;
-        result.push({ declaration, reason: 'unknown-condition' });
+        result.push({
+          declaration: {
+            ...declaration,
+            // The condition rarely annotates the type; the message that first
+            // mentioned the variable usually did.
+            declaredType: declaration.declaredType ?? declaredTypes.get(declaration.name) ?? null,
+          },
+          reason: 'unknown-condition',
+        });
       }
     }
 
     return result;
-  }, [nextStep, bindings, timeline.pending]);
+  }, [nextStep, bindings, timeline.pending, declaredTypes]);
 
   const blockedByPrompt = prompts.some((prompt) => prompt.reason === 'step-read');
   const canAdvance = clampedCursor + 1 < timeline.steps.length && !blockedByPrompt;

@@ -1,5 +1,5 @@
 import { HEADER_ROW } from '../layout/grid';
-import { RichLabel } from './rich-label';
+import { RichLabel, withBreaks } from './rich-label';
 import type { ArrowKind } from '../parser/tokenize';
 import type { SequenceGrid } from '../layout/grid';
 import type { EmphasisMap } from '../layout/emphasis';
@@ -90,7 +90,7 @@ export function SequenceCanvas({ grid, timeline, emphasis, onSelectStep }: Seque
             data-emphasis={emphasis.participant(column.participantId)}
             style={{ gridColumn: column.index, gridRow: HEADER_ROW }}
           >
-            {column.label}
+            {withBreaks(column.label)}
           </div>
         ))}
 

@@ -226,3 +226,83 @@ describe('parse', () => {
     expect(() => parse('sequenceDiagram\nA->>B: hi\nend')).toThrow(/unmatched "end"/);
   });
 });
+
+describe('parse — large real-world shapes', () => {
+  const COMPLEX = `sequenceDiagram
+    autonumber
+    box rgb(225, 240, 255) Requesting side
+      actor Requester as Requester
+      actor Sponsor as Internal sponsor
+    end
+    box rgb(225, 245, 230) Platform
+      participant Portal as Access portal
+      participant Directory as Directory<br/>service
+    end
+    Note over Requester,Directory: Phase 1
+    Requester->>Sponsor: request({{duration : "30 days" | "permanent"}})
+    Sponsor->>Portal: submit(id)
+    alt {{kind}} == "external"
+      Portal->>Directory: verify()
+      opt {{stepUp : boolean}}
+        Portal->>Directory: strongAuth()
+      end
+    else
+      Portal->>Directory: provision()
+    end
+    rect rgb(240, 240, 255)
+      Portal->>Portal: evaluate()
+      alt Low risk
+        Portal->>Directory: auto()
+      else Elevated risk
+        Portal->>Sponsor: escalate()
+      end
+    end
+    loop scheduled review
+      Portal->>Sponsor: attest()
+    end`;
+
+  it('parses several boxes, keeping each oneis members', () => {
+    const ast = parse(COMPLEX);
+
+    expect(ast.boxes.map((box) => box.label)).toEqual(['Requesting side', 'Platform']);
+    expect(ast.boxes[0]!.participantIds).toEqual(['Requester', 'Sponsor']);
+    expect(ast.boxes[1]!.participantIds).toEqual(['Portal', 'Directory']);
+    expect(ast.boxes[0]!.color).toBe('rgb(225, 240, 255)');
+  });
+
+  it('keeps a <br/> in a participant label as authored', () => {
+    const ast = parse(COMPLEX);
+    expect(ast.participants.find((p) => p.id === 'Directory')!.label).toBe('Directory<br/>service');
+  });
+
+  it('does not treat a rect colour as a displayable label', () => {
+    const rect = parse(COMPLEX).statements.find(
+      (statement) => statement.type === 'fragment' && statement.kind === 'rect',
+    ) as Fragment;
+
+    expect(rect.color).toBe('rgb(240, 240, 255)');
+    expect(rect.branches[0]!.label).toBe('');
+  });
+
+  it('nests an opt inside an alt branch and an alt inside a rect', () => {
+    const ast = parse(COMPLEX);
+    const alt = ast.statements.find((s) => s.type === 'fragment' && s.kind === 'alt') as Fragment;
+    const rect = ast.statements.find((s) => s.type === 'fragment' && s.kind === 'rect') as Fragment;
+
+    expect(alt.branches[0]!.statements.some((s) => s.type === 'fragment' && s.kind === 'opt')).toBe(
+      true,
+    );
+    expect(
+      rect.branches[0]!.statements.some((s) => s.type === 'fragment' && s.kind === 'alt'),
+    ).toBe(true);
+  });
+
+  it('reads declared types out of fragment labels as well as message text', async () => {
+    const { parseCondition, conditionDeclarations } = await import('../model/conditions');
+    const opt = parseCondition('{{stepUp : boolean}}')!;
+
+    expect(conditionDeclarations(opt)).toEqual([
+      { name: 'stepUp', declaredType: 'boolean', assigns: false },
+    ]);
+  });
+});
