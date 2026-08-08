@@ -5,8 +5,11 @@ export { SequenceDiagramSurface } from './lib/components/surface';
 export { SequenceCanvas } from './lib/components/canvas';
 export { SequenceStage } from './lib/components/stage';
 export { RichLabel, humaniseLabel, withBreaks } from './lib/components/rich-label';
-export { computeArc, computeStage } from './lib/layout/stage';
-export type { StageArc, StageNode, StageSize } from './lib/layout/stage';
+export { computeArc } from './lib/layout/stage';
+export type { StageArc, StagePoint } from './lib/layout/stage';
+export { useAnchors } from './lib/layout/use-anchors';
+export type { AnchorMap } from './lib/layout/use-anchors';
+export { isPhaseBanner } from './lib/model/notes';
 export {
   DecisionPanel,
   NotePanel,

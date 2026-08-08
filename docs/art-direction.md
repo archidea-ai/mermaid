@@ -62,10 +62,20 @@ between them). They are two answers to different questions — "what is the
 protocol?" versus "what is happening now?" — not two visual languages.
 
 They share every token, the run controller and the emphasis vocabulary — but
-**not** their layout. Classic is a CSS Grid of lanes. Modern is free placement
-on a stage: participants around an ellipse, one curved connection lit at a time,
-nothing else on screen. Lanes are what make a sequence diagram read as a
-specification, and removing them is the point rather than a side effect.
+**not** their layout. Classic is a CSS Grid of lanes. Modern shows participants
+in **the groups their author declared** — one panel per `box` — with a single
+curved connection lit at a time.
+
+The grouping is not invented. An arbitrary arrangement (a ring, a scatter) says
+something untrue about the system and collapses past about five participants:
+they collide, and the reader has to work out an ordering that carries no
+meaning. A `box` is the author telling us which things belong together, so the
+layout uses it and the browser sizes the panels.
+
+**A phase note is a heading, not an aside.** A note spanning the whole cast
+(`Note over First,Last: Phase 1`) marks a section, and rendering it as a sticky
+note buries the one label that says where the reader is. It becomes a full-width
+banner in both views; narrower notes stay asides.
 
 The modern view adds three ideas:
 

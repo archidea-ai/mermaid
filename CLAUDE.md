@@ -32,10 +32,13 @@ time. The registry is the seam that makes that additive.
   `layout/grid.ts`) and `modern` (free placement on a stage, `stage.tsx` +
   `layout/stage.ts`). They share the run controller, tokens and emphasis
   vocabulary but deliberately not their layout. Modern is the default.
-- **`layout/stage.ts` is pure and takes a measured size**, so it stays testable
-  under `node`; `use-stage-size.ts` does the measuring. It falls back to a fixed
-  size when unmeasured — without that, the first paint stacks every object at
-  the origin, and nothing renders under jsdom at all.
+- **Modern groups participants by their `box`.** CSS lays the panels out and
+  `use-anchors.ts` measures where members landed so the arc layer can connect
+  two of them. Any arrangement we invent instead is untrue and collides past a
+  handful of participants.
+- **`layout/stage.ts` is pure arc geometry over measured points**, so it stays
+  testable under `node`. jsdom measures everything as zero, so stage tests assert
+  structure and the browser suite asserts placement.
 - **A prompt has three states: true, false, and unanswered.** Booleans and
   literal unions both render as toggle _buttons_, never a switch — a switch in
   its off position claims `false` was chosen when the run is actually blocked

@@ -141,8 +141,9 @@ export function SequenceCanvas({ grid, timeline, emphasis, onSelectStep }: Seque
               key={note.stepId}
               className="seq-note"
               data-emphasis={emphasis.step(note.stepId)}
+              data-banner={note.banner}
               style={{
-                gridColumn: `${note.columnStart} / ${note.columnEnd + 1}`,
+                gridColumn: note.banner ? '1 / -1' : `${note.columnStart} / ${note.columnEnd + 1}`,
                 gridRow: note.row,
               }}
             >

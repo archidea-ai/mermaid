@@ -194,27 +194,6 @@ test('the modern view is objects on a stage, with no lanes', async ({ page }) =>
   await page.screenshot({ path: 'e2e-results/stage.png', fullPage: true });
 });
 
-test('objects are spread around the stage rather than lined up', async ({ page }) => {
-  await page.getByRole('button', { name: 'admin', exact: true }).click();
-
-  const boxes = await page.evaluate(() =>
-    [...document.querySelectorAll('.seq-stage__object')].map((el) => {
-      const r = el.getBoundingClientRect();
-      return { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) };
-    }),
-  );
-
-  expect(boxes).toHaveLength(3);
-  // A lane layout would put them all on one baseline; a stage does not.
-  expect(new Set(boxes.map((b) => b.y)).size).toBeGreaterThan(1);
-  // And they must not overlap each other.
-  for (let i = 0; i < boxes.length; i += 1) {
-    for (let j = i + 1; j < boxes.length; j += 1) {
-      expect(Math.hypot(boxes[i]!.x - boxes[j]!.x, boxes[i]!.y - boxes[j]!.y)).toBeGreaterThan(60);
-    }
-  }
-});
-
 test('the call animates: the arc draws in and a packet travels it', async ({ page }) => {
   await page.getByRole('button', { name: 'admin', exact: true }).click();
   await page.getByRole('button', { name: 'Next step' }).click();
@@ -377,24 +356,6 @@ test('a boolean offers both answers as buttons, each reachable in one click', as
   await page.screenshot({ path: 'e2e-results/boolean.png', fullPage: true });
 });
 
-test('an object near the stage edge is not squeezed into a character column', async ({ page }) => {
-  await page.getByRole('button', { name: 'Checkout — parallel work and retries' }).click();
-  await page.waitForTimeout(200);
-
-  const shapes = await page.evaluate(() =>
-    [...document.querySelectorAll('.seq-stage__object')].map((el) => {
-      const r = el.getBoundingClientRect();
-      return { text: el.textContent, w: Math.round(r.width), h: Math.round(r.height) };
-    }),
-  );
-
-  // A card squeezed by its containing block wraps one letter per line, which
-  // shows up as a tall, narrow box.
-  for (const shape of shapes) {
-    expect(shape.h, `${shape.text} is taller than it is wide`).toBeLessThan(shape.w * 1.6);
-  }
-});
-
 test('the complex example parses natively and walks end to end', async ({ page }) => {
   await page.getByRole('button', { name: /Access lifecycle/ }).click();
   await page.waitForTimeout(200);
@@ -468,4 +429,63 @@ test('the complex example renders its groups in the classic view', async ({ page
   expect(labels.some((label) => label.includes('rgb('))).toBe(false);
 
   await page.screenshot({ path: 'e2e-results/complex-classic.png', fullPage: true });
+});
+
+test('participants are shown in the groups their author declared', async ({ page }) => {
+  await page.getByRole('button', { name: /Access lifecycle/ }).click();
+  await page.waitForTimeout(250);
+
+  const groups = page.locator('.seq-stage__group');
+  await expect(groups).toHaveCount(4);
+  await expect(groups.nth(0)).toContainText('Requesting side');
+  await expect(groups.nth(0).locator('.seq-stage__object')).toHaveCount(2);
+
+  // Grouped, not scattered: no object may overlap another.
+  const boxes = await page.evaluate(() =>
+    [...document.querySelectorAll('.seq-stage__object')].map((el) => {
+      const r = el.getBoundingClientRect();
+      return { x: r.x, y: r.y, right: r.right, bottom: r.bottom };
+    }),
+  );
+  expect(boxes).toHaveLength(8);
+  for (let i = 0; i < boxes.length; i += 1) {
+    for (let j = i + 1; j < boxes.length; j += 1) {
+      const a = boxes[i]!;
+      const b = boxes[j]!;
+      const overlaps = a.x < b.right && b.x < a.right && a.y < b.bottom && b.y < a.bottom;
+      expect(overlaps, `objects ${i} and ${j} overlap`).toBe(false);
+    }
+  }
+
+  await page.screenshot({ path: 'e2e-results/groups.png', fullPage: true });
+});
+
+test('a phase note renders as a full-width banner, not a sticky note', async ({ page }) => {
+  await page.getByRole('button', { name: /Access lifecycle/ }).click();
+  await page.getByRole('button', { name: 'Next step' }).click();
+
+  const banner = page.locator('.seq-stage__banner');
+  await expect(banner).toBeVisible();
+  await expect(banner).toContainText('Phase 1');
+  // A heading for the run, not an overlay demanding dismissal.
+  await expect(page.locator('.seq-stage__overlay')).toHaveCount(0);
+
+  const width = await page.evaluate(() => {
+    const stage = document.querySelector('.seq-stage')!.getBoundingClientRect();
+    const el = document.querySelector('.seq-stage__banner')!.getBoundingClientRect();
+    return el.width / stage.width;
+  });
+  expect(width).toBeGreaterThan(0.98);
+});
+
+test('the examples app puts the source above the diagram', async ({ page }) => {
+  const positions = await page.evaluate(() => {
+    const source = document.querySelector('.app__source')!.getBoundingClientRect();
+    const diagram = document.querySelector('.archidea-sequence')!.getBoundingClientRect();
+    return { sourceBottom: source.bottom, diagramTop: diagram.top, diagramWidth: diagram.width };
+  });
+
+  expect(positions.diagramTop).toBeGreaterThan(positions.sourceBottom);
+  // And the diagram gets the full width rather than sharing a column.
+  expect(positions.diagramWidth).toBeGreaterThan(700);
 });

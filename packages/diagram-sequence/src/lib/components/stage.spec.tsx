@@ -84,14 +84,17 @@ describe('modern stage view', () => {
     const user = userEvent.setup();
     const { container } = render(<SequenceDiagramSurface text={THREE} id="d" />);
 
+    // Endpoints come from the DOM, and jsdom measures everything as zero — so
+    // this pins that the arc is re-created per step, not where it is drawn.
     await user.click(screen.getByRole('button', { name: 'Next step' }));
-    const first = container.querySelector('.seq-stage__arc')!.getAttribute('d');
+    const first = container.querySelector('.seq-stage__label')!.textContent;
 
     await user.click(screen.getByRole('button', { name: 'Next step' }));
-    const second = container.querySelector('.seq-stage__arc')!.getAttribute('d');
+    const second = container.querySelector('.seq-stage__label')!.textContent;
 
     expect(second).not.toBe(first);
     expect(container.querySelector('.seq-stage__packet')).not.toBeNull();
+    expect(container.querySelectorAll('.seq-stage__arc')).toHaveLength(1);
   });
 
   it('advances the stage as the run steps', async () => {
@@ -199,7 +202,10 @@ describe('the +/- activation shorthand', () => {
 });
 
 describe('notes on the stage', () => {
-  const WITH_NOTE = "sequenceDiagram\nA->>B: go\nnote over A,B: retries are the scheduler's job";
+  // Three participants with the note over two of them. A note spanning the
+  // *whole* cast is a phase banner instead, covered separately below.
+  const WITH_NOTE =
+    "sequenceDiagram\nA->>B: go\nA->>C: also\nnote over A,B: retries are the scheduler's job";
 
   it('takes the whole stage rather than hanging off a participant', async () => {
     const user = userEvent.setup();
@@ -208,6 +214,7 @@ describe('notes on the stage', () => {
     await user.click(screen.getByRole('button', { name: 'Next step' }));
     expect(container.querySelector('.seq-stage__overlay')).toBeNull();
 
+    await user.click(screen.getByRole('button', { name: 'Next step' }));
     await user.click(screen.getByRole('button', { name: 'Next step' }));
 
     const overlay = container.querySelector('.seq-stage__overlay');
@@ -225,8 +232,9 @@ describe('notes on the stage', () => {
       <SequenceDiagramSurface text={`${WITH_NOTE}\nB-->>A: done`} id="d" />,
     );
 
-    await user.click(screen.getByRole('button', { name: 'Next step' }));
-    await user.click(screen.getByRole('button', { name: 'Next step' }));
+    for (let i = 0; i < 3; i += 1) {
+      await user.click(screen.getByRole('button', { name: 'Next step' }));
+    }
     expect(container.querySelector('.seq-stage__overlay')).not.toBeNull();
 
     await user.click(screen.getByRole('button', { name: 'Next step' }));
@@ -324,5 +332,72 @@ describe('a type declared once, prompted elsewhere', () => {
 
     expect(screen.queryByText('Choose a path')).toBeNull();
     expect(screen.getByText('0 / 2')).toBeDefined();
+  });
+});
+
+describe('participants shown in their declared groups', () => {
+  const GROUPED = `sequenceDiagram
+    box rgb(225, 240, 255) Client side
+      actor User
+      actor Agent
+    end
+    box rgb(225, 245, 230) Platform
+      participant Portal
+      participant Store
+    end
+    Note over User,Store: Phase 1 - Intake
+    User->>Portal: submit()
+    Portal->>Store: persist()`;
+
+  it("renders one panel per box, holding that box's members", () => {
+    const { container } = render(<SequenceDiagramSurface text={GROUPED} id="d" />);
+    const groups = [...container.querySelectorAll('.seq-stage__group')];
+
+    expect(groups).toHaveLength(2);
+    expect(groups[0]!.querySelector('.seq-stage__group-title')!.textContent).toBe('Client side');
+    expect(
+      [...groups[0]!.querySelectorAll('.seq-stage__object')].map((e) => e.textContent),
+    ).toEqual(['User', 'Agent']);
+    expect(
+      [...groups[1]!.querySelectorAll('.seq-stage__object')].map((e) => e.textContent),
+    ).toEqual(['Portal', 'Store']);
+  });
+
+  it('brings the group holding the current call forward', async () => {
+    const user = userEvent.setup();
+    const { container } = render(<SequenceDiagramSurface text={GROUPED} id="d" />);
+
+    // Step past the phase banner onto the first call.
+    await user.click(screen.getByRole('button', { name: 'Next step' }));
+    await user.click(screen.getByRole('button', { name: 'Next step' }));
+
+    const active = [...container.querySelectorAll<HTMLElement>('.seq-stage__group')].map(
+      (el) => el.dataset.active,
+    );
+    expect(active).toEqual(['true', 'true']);
+  });
+
+  it('renders a note spanning the whole cast as a banner, not an overlay', async () => {
+    const user = userEvent.setup();
+    const { container } = render(<SequenceDiagramSurface text={GROUPED} id="d" />);
+
+    await user.click(screen.getByRole('button', { name: 'Next step' }));
+
+    const banner = container.querySelector('.seq-stage__banner');
+    expect(banner).not.toBeNull();
+    expect(banner!.textContent).toContain('Phase 1 - Intake');
+    // A heading for the run, not a sticky note demanding dismissal.
+    expect(container.querySelector('.seq-stage__overlay')).toBeNull();
+    expect(banner!.getAttribute('role')).toBe('heading');
+  });
+
+  it('groups participants declared outside any box together', () => {
+    const { container } = render(
+      <SequenceDiagramSurface text={'sequenceDiagram\nA->>B: x'} id="d" />,
+    );
+
+    const groups = container.querySelectorAll('.seq-stage__group');
+    expect(groups).toHaveLength(1);
+    expect(groups[0]!.querySelector('.seq-stage__group-title')).toBeNull();
   });
 });

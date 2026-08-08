@@ -1,3 +1,4 @@
+import { isPhaseBanner } from '../model/notes';
 import type { SequenceDiagramAst } from '../parser/ast';
 import type { Timeline } from '../model/timeline';
 
@@ -45,6 +46,8 @@ export interface GridNote {
   readonly row: number;
   readonly columnStart: number;
   readonly columnEnd: number;
+  /** A note spanning the whole cast is a phase heading, not an aside. */
+  readonly banner: boolean;
 }
 
 export interface GridActivation {
@@ -132,7 +135,13 @@ export function computeGrid(ast: SequenceDiagramAst, timeline: Timeline): Sequen
       const columnEnd =
         step.node.placement === 'right of' ? Math.min(columns.length, right + 1) : right;
 
-      notes.push({ stepId: step.id, row, columnStart, columnEnd });
+      notes.push({
+        stepId: step.id,
+        row,
+        columnStart,
+        columnEnd,
+        banner: isPhaseBanner(step.node, ast),
+      });
     }
   }
 

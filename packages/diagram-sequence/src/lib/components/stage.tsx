@@ -1,21 +1,50 @@
-import { RichLabel, humaniseLabel, withBreaks } from './rich-label';
-import { computeArc, computeStage } from '../layout/stage';
-import { useStageSize } from '../layout/use-stage-size';
 import { useMemo } from 'react';
+import { RichLabel, humaniseLabel, withBreaks } from './rich-label';
+import { computeArc } from '../layout/stage';
+import { useAnchors } from '../layout/use-anchors';
+import { isPhaseBanner } from '../model/notes';
 import type { ArrowKind } from '../parser/tokenize';
-import type { StageNode } from '../layout/stage';
 import type { Timeline } from '../model/timeline';
 import type { VariableBindings } from '../model/bindings';
-import type { RichText, SequenceDiagramAst } from '../parser/ast';
+import type { Participant, RichText, SequenceDiagramAst } from '../parser/ast';
 
 const DOTTED: readonly ArrowKind[] = ['-->', '-->>', '--x', '--)', '<<-->>'];
 
+interface StageGroup {
+  readonly id: string;
+  readonly label: string | null;
+  readonly members: readonly Participant[];
+}
+
 /**
- * Used until the stage has been measured. Without it the first paint places
- * every object at the origin and draws nothing, which reads as a flash — and it
- * is also why nothing rendered under jsdom, where getBoundingClientRect is 0.
+ * Groups participants by the `box` they were declared in.
+ *
+ * A ring of eight objects is unreadable — they collide, and the arrangement
+ * says nothing true about the system. The boxes already carry the author's own
+ * grouping, so the layout uses it: each box is one panel, its members sit
+ * together inside it, and the panels flow in a grid the browser sizes.
  */
-const UNMEASURED_STAGE = { width: 880, height: 550 } as const;
+function toGroups(ast: SequenceDiagramAst): readonly StageGroup[] {
+  const groups: StageGroup[] = [];
+  const byBox = new Map<string, Participant[]>();
+
+  for (const participant of ast.participants) {
+    const key = participant.boxId ?? '__loose__';
+    const bucket = byBox.get(key);
+    if (bucket) bucket.push(participant);
+    else byBox.set(key, [participant]);
+  }
+
+  for (const box of ast.boxes) {
+    const members = byBox.get(box.id);
+    if (members?.length) groups.push({ id: box.id, label: box.label || null, members });
+  }
+
+  const loose = byBox.get('__loose__');
+  if (loose?.length) groups.push({ id: '__loose__', label: null, members: loose });
+
+  return groups;
+}
 
 export interface SequenceStageProps {
   ast: SequenceDiagramAst;
@@ -25,55 +54,49 @@ export interface SequenceStageProps {
 }
 
 /**
- * The modern view: objects on a stage, not lanes.
+ * The modern view: participants shown in the groups their author declared, with
+ * only the call happening right now drawn between them.
  *
- * Participants are placed freely around an ellipse and the call happening right
- * now is drawn as a curved arc that draws itself in, with a packet travelling
- * along it. Nothing else is on screen. The lane metaphor is what makes a
- * sequence diagram read as a specification; removing it makes the same data
- * read as a system doing something, which is what someone being walked through
- * it needs.
- *
- * Nodes are HTML so their text wraps, selects and reaches screen readers; only
- * the arcs are SVG, because curves are genuinely a vector problem.
+ * Nodes are HTML so their text wraps, selects and reaches screen readers, and
+ * so CSS can do the grouping; only the arc is SVG, because curves are genuinely
+ * a vector problem. Endpoints come from measuring the DOM.
  */
 export function SequenceStage({ ast, timeline, cursor, bindings }: SequenceStageProps) {
-  const { ref, size } = useStageSize<HTMLDivElement>();
-  const stageSize = size.width > 0 && size.height > 0 ? size : UNMEASURED_STAGE;
-
-  const nodes = useMemo(
-    () => computeStage(ast.participants, stageSize),
-    [ast.participants, stageSize],
-  );
-  const byId = useMemo(() => new Map(nodes.map((node) => [node.participantId, node])), [nodes]);
+  const { containerRef, register, anchors } = useAnchors<HTMLDivElement>();
+  const groups = useMemo(() => toGroups(ast), [ast]);
 
   const step = cursor >= 0 ? timeline.steps[cursor] : undefined;
   const involved = new Set(step?.involved ?? []);
 
   const call = useMemo(() => {
-    // step.kind, not node.type: a lifecycle step shares the message's node and
-    // would otherwise redraw the same call a second time.
     if (!step || step.kind !== 'message' || step.node.type !== 'message') return null;
-    const from = byId.get(step.node.from);
-    const to = byId.get(step.node.to);
+    const from = anchors.get(step.node.from);
+    const to = anchors.get(step.node.to);
     if (!from || !to) return null;
-    return { arc: computeArc(from, to), arrow: step.node.arrow, text: step.node.text };
-  }, [step, byId]);
+
+    return {
+      arc: computeArc(from, to, { self: step.node.from === step.node.to }),
+      arrow: step.node.arrow,
+      text: step.node.text,
+    };
+  }, [step, anchors]);
 
   const note = step && step.kind === 'note' && step.node.type === 'note' ? step.node : null;
+  const banner = note && isPhaseBanner(note, ast) ? note : null;
 
   return (
     <div className="seq-stage" role="group" aria-label="Sequence diagram">
-      <div className="seq-stage__floor" ref={ref}>
-        {/* Arc layer sits under the objects so connections run behind them. */}
+      {/* A phase note is a section heading for the whole run, not an aside. */}
+      {banner ? (
+        <p key={`banner-${step!.id}`} className="seq-stage__banner" role="heading" aria-level={3}>
+          <RichLabel text={banner.text} values={bindings} />
+        </p>
+      ) : null}
+
+      <div className="seq-stage__floor" ref={containerRef}>
         <svg className="seq-stage__arcs" aria-hidden="true">
           {call ? (
-            <g
-              /* Keyed on the step so every new call replays its entrance. */
-              key={step!.id}
-              className="seq-stage__call"
-              data-dotted={DOTTED.includes(call.arrow)}
-            >
+            <g key={step!.id} className="seq-stage__call" data-dotted={DOTTED.includes(call.arrow)}>
               <path className="seq-stage__arc" d={call.arc.path} pathLength={100} fill="none" />
               <circle className="seq-stage__packet" r={5}>
                 <animateMotion dur="0.9s" begin="0.15s" fill="freeze" path={call.arc.path} />
@@ -82,13 +105,34 @@ export function SequenceStage({ ast, timeline, cursor, bindings }: SequenceStage
           ) : null}
         </svg>
 
-        {nodes.map((node) => (
-          <StageObject
-            key={node.participantId}
-            node={node}
-            state={objectState(node, step ? involved : null, step)}
-          />
-        ))}
+        <div className="seq-stage__groups">
+          {groups.map((group) => (
+            <section
+              key={group.id}
+              className="seq-stage__group"
+              data-active={group.members.some((m) => involved.has(m.id))}
+              aria-label={group.label ?? 'Participants'}
+            >
+              {group.label ? (
+                <h4 className="seq-stage__group-title">{withBreaks(group.label)}</h4>
+              ) : null}
+              <div className="seq-stage__members">
+                {group.members.map((participant) => (
+                  <div
+                    key={participant.id}
+                    ref={register(participant.id)}
+                    className="seq-stage__object"
+                    data-kind={participant.kind}
+                    data-state={objectState(participant.id, involved, step)}
+                  >
+                    <span className="seq-stage__ripple" aria-hidden="true" />
+                    <span className="seq-stage__name">{withBreaks(participant.label)}</span>
+                  </div>
+                ))}
+              </div>
+            </section>
+          ))}
+        </div>
 
         {call && step ? (
           <p
@@ -101,16 +145,8 @@ export function SequenceStage({ ast, timeline, cursor, bindings }: SequenceStage
           </p>
         ) : null}
 
-        {/*
-          A note is an aside from the author, not part of the mechanism — so it
-          takes the whole stage rather than hanging off one participant, where it
-          competed with the objects and could not be read at a glance.
-
-          role="note" with aria-live, not role="dialog": it is informational and
-          the stepper dismisses it, so claiming dialog semantics without focus
-          management would announce a trap that does not exist.
-        */}
-        {note ? (
+        {/* An ordinary note is an aside from the author; it takes the stage. */}
+        {note && !banner ? (
           <div key={`note-${step!.id}`} className="seq-stage__overlay">
             <div className="seq-stage__scrim" aria-hidden="true" />
             <p className="seq-stage__note" role="note" aria-live="polite">
@@ -141,30 +177,15 @@ export function SequenceStage({ ast, timeline, cursor, bindings }: SequenceStage
 type ObjectState = 'idle' | 'sending' | 'receiving' | 'resting';
 
 function objectState(
-  node: StageNode,
-  involved: Set<string> | null,
+  participantId: string,
+  involved: Set<string>,
   step: Timeline['steps'][number] | undefined,
 ): ObjectState {
-  if (!involved || !step) return 'idle';
-  if (!involved.has(node.participantId)) return 'resting';
+  if (!step) return 'idle';
+  if (!involved.has(participantId)) return 'resting';
 
-  // The sender is the first element of `involved`, the receiver the last.
   const first = step.involved[0];
   const last = step.involved[step.involved.length - 1];
-  if (node.participantId === last && last !== first) return 'receiving';
+  if (participantId === last && last !== first) return 'receiving';
   return 'sending';
-}
-
-function StageObject({ node, state }: { node: StageNode; state: ObjectState }) {
-  return (
-    <div
-      className="seq-stage__object"
-      data-kind={node.kind}
-      data-state={state}
-      style={{ left: node.x, top: node.y }}
-    >
-      <span className="seq-stage__ripple" aria-hidden="true" />
-      <span className="seq-stage__name">{withBreaks(node.label)}</span>
-    </div>
-  );
 }

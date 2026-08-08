@@ -492,12 +492,12 @@
 }
 
 /* ---------------------------------------------------------------------------
- * Modern view: objects on a stage.
+ * Modern view: participants in their declared groups.
  *
- * No lanes, no columns, no grid. Participants are placed freely around an
- * ellipse and the current call is a curved arc that draws itself in with a
- * packet travelling along it. Motion here conveys state — who is calling whom,
- * right now — and every duration collapses under prefers-reduced-motion.
+ * Boxes carry the author's own grouping, so the layout uses it instead of an
+ * arbitrary arrangement. Panels flow in a grid the browser sizes; the current
+ * call arcs between two measured members. Motion conveys who is calling whom
+ * right now, and collapses under prefers-reduced-motion.
  * ------------------------------------------------------------------------- */
 
 .seq-stage {
@@ -506,21 +506,46 @@
   align-content: start;
 }
 
+/* A phase note is a section heading for the whole run. */
+.seq-stage__banner,
+.seq-note[data-banner='true'] {
+  margin: 0;
+  padding: 7px 14px;
+  text-align: center;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--seq-text-strong);
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--seq-accent) 22%, transparent),
+    color-mix(in srgb, var(--seq-accent) 9%, transparent)
+  );
+  border: 1px solid color-mix(in srgb, var(--seq-accent) 42%, transparent);
+  border-radius: 8px;
+}
+.seq-stage__banner {
+  animation: seq-rise 0.35s var(--seq-easing);
+}
+/* In the classic view it is a full-width row rather than a boxed note. */
+.seq-note[data-banner='true'] {
+  justify-self: stretch;
+  max-width: none;
+  font-size: var(--seq-font-size);
+}
+
 .seq-stage__floor {
   position: relative;
-  width: 100%;
-  min-height: 19rem;
-  aspect-ratio: 16 / 10;
   border: 1px solid var(--seq-border);
   border-radius: var(--seq-radius);
   background:
     radial-gradient(
-      circle at 50% 45%,
-      color-mix(in srgb, var(--seq-accent) 9%, transparent),
+      circle at 50% 40%,
+      color-mix(in srgb, var(--seq-accent) 7%, transparent),
       transparent 62%
     ),
     var(--seq-surface);
-  overflow: hidden;
+  padding: 16px;
+  min-height: 15rem;
 }
 
 .seq-stage__arcs {
@@ -529,60 +554,60 @@
   width: 100%;
   height: 100%;
   pointer-events: none;
+  z-index: 2;
+  overflow: visible;
 }
 
-.seq-stage__arc {
-  stroke: var(--seq-message-current);
-  stroke-width: 2;
-  stroke-linecap: round;
-  /* pathLength is normalised to 100, so the dash maths is resolution-free. */
-  stroke-dasharray: 100;
-  animation: seq-draw 0.75s var(--seq-easing) forwards;
-  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--seq-accent) 45%, transparent));
-}
-.seq-stage__call[data-dotted='true'] .seq-stage__arc {
-  stroke-dasharray: 6 5;
-  animation: seq-dash 0.9s linear infinite;
+.seq-stage__groups {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: 12px;
+  align-items: start;
 }
 
-@keyframes seq-draw {
-  from {
-    stroke-dashoffset: 100;
-  }
-  to {
-    stroke-dashoffset: 0;
-  }
+.seq-stage__group {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px dashed var(--seq-fragment-stroke);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--seq-surface-raised) 55%, transparent);
+  transition:
+    border-color var(--seq-duration) var(--seq-easing),
+    background var(--seq-duration) var(--seq-easing);
 }
-@keyframes seq-dash {
-  to {
-    stroke-dashoffset: -22;
-  }
+/* The group holding the current call comes forward with it. */
+.seq-stage__group[data-active='true'] {
+  border-style: solid;
+  border-color: color-mix(in srgb, var(--seq-accent) 45%, transparent);
+  background: color-mix(in srgb, var(--seq-accent) 7%, var(--seq-surface-raised));
 }
 
-.seq-stage__packet {
-  fill: var(--seq-accent);
-  filter: drop-shadow(0 0 7px var(--seq-accent));
+.seq-stage__group-title {
+  margin: 0;
+  font-size: var(--seq-font-size-small);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--seq-text-muted);
+}
+
+.seq-stage__members {
+  display: grid;
+  gap: 6px;
 }
 
 .seq-stage__object {
-  position: absolute;
-  translate: -50% -50%;
+  position: relative;
   display: grid;
   place-items: center;
-  padding: 10px 16px;
-  /*
-   * max-content, or the containing block squeezes the card into whatever space
-   * is left to the right of its `left` offset — which wrapped a node near the
-   * edge to one character per line.
-   */
-  width: max-content;
-  max-width: 9.5rem;
+  padding: 8px 12px;
   text-align: center;
   font-weight: 500;
   color: var(--seq-participant-text);
   background: var(--seq-participant-fill);
   border: 1.5px solid var(--seq-participant-stroke);
-  border-radius: 10px;
+  border-radius: 8px;
   overflow-wrap: anywhere;
   transition:
     scale var(--seq-duration) var(--seq-easing),
@@ -593,18 +618,17 @@
 .seq-stage__object[data-kind='actor'] {
   border-radius: 999px;
 }
-
 /* Not involved: recede, but stay legible — absent is a different statement. */
 .seq-stage__object[data-state='resting'] {
-  opacity: 0.55;
-  scale: 0.92;
+  opacity: 0.62;
 }
 .seq-stage__object[data-state='sending'],
 .seq-stage__object[data-state='receiving'] {
   background: var(--seq-participant-current-fill);
   border-color: var(--seq-participant-current-stroke);
-  scale: 1.06;
+  scale: 1.04;
   font-weight: 600;
+  z-index: 3;
 }
 
 .seq-stage__name {
@@ -612,7 +636,6 @@
   z-index: 1;
 }
 
-/* The receiver rings when the packet lands. */
 .seq-stage__ripple {
   position: absolute;
   inset: -2px;
@@ -634,35 +657,78 @@
   }
   100% {
     opacity: 0;
-    scale: 1.45;
+    scale: 1.35;
+  }
+}
+
+.seq-stage__arc {
+  stroke: var(--seq-message-current);
+  stroke-width: 2;
+  stroke-linecap: round;
+  /* pathLength is normalised to 100, so the dash maths is resolution-free. */
+  stroke-dasharray: 100;
+  animation: seq-draw 0.75s var(--seq-easing) forwards;
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--seq-accent) 45%, transparent));
+}
+.seq-stage__call[data-dotted='true'] .seq-stage__arc {
+  stroke-dasharray: 6 5;
+  animation: seq-dash 0.9s linear infinite;
+}
+.seq-stage__packet {
+  fill: var(--seq-accent);
+  filter: drop-shadow(0 0 7px var(--seq-accent));
+}
+
+@keyframes seq-draw {
+  from {
+    stroke-dashoffset: 100;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes seq-dash {
+  to {
+    stroke-dashoffset: -22;
   }
 }
 
 .seq-stage__label {
   position: absolute;
+  z-index: 4;
   translate: -50% -50%;
   max-width: 15rem;
   margin: 0;
   padding: 5px 11px;
   text-align: center;
   border-radius: 8px;
-  animation: seq-rise 0.45s var(--seq-easing) 0.35s backwards;
   color: var(--seq-text-strong);
-  background: color-mix(in srgb, var(--seq-surface) 88%, transparent);
-  border: 1px solid var(--seq-border);
+  background: color-mix(in srgb, var(--seq-surface) 92%, transparent);
+  border: 1px solid var(--seq-accent);
   backdrop-filter: blur(3px);
+  animation: seq-rise 0.45s var(--seq-easing) 0.35s backwards;
+}
+
+@keyframes seq-rise {
+  from {
+    opacity: 0;
+    translate: -50% calc(-50% + 10px);
+  }
+  to {
+    opacity: 1;
+    translate: -50% -50%;
+  }
 }
 
 /* A note takes the stage: it is an aside from the author, not the mechanism. */
 .seq-stage__overlay {
   position: absolute;
   inset: 0;
-  z-index: 3;
+  z-index: 5;
   display: grid;
   place-items: center;
   padding: 20px;
 }
-
 .seq-stage__scrim {
   position: absolute;
   inset: 0;
@@ -670,7 +736,6 @@
   backdrop-filter: blur(2px);
   animation: seq-fade 0.28s var(--seq-easing);
 }
-
 .seq-stage__note {
   position: relative;
   max-width: 22rem;
@@ -684,7 +749,6 @@
   box-shadow: 0 12px 32px color-mix(in srgb, #000 34%, transparent);
   animation: seq-pop 0.32s var(--seq-easing);
 }
-
 .seq-stage__note-tag {
   display: block;
   margin-bottom: 5px;
@@ -700,7 +764,6 @@
     opacity: 0;
   }
 }
-
 @keyframes seq-pop {
   from {
     opacity: 0;
@@ -709,21 +772,8 @@
   }
 }
 
-@keyframes seq-rise {
-  from {
-    opacity: 0;
-    translate: -50% calc(-50% + 10px);
-  }
-  to {
-    opacity: 1;
-    translate: -50% -50%;
-  }
-}
-
 .seq-stage__idle {
-  position: absolute;
-  inset: auto 0 16px;
-  margin: 0;
+  margin: 12px 0 0;
   text-align: center;
   color: var(--seq-text-muted);
 }
@@ -747,10 +797,6 @@
   color: var(--seq-text);
 }
 
-/*
- * Reduced motion: keep every state change, drop every animation. The arc must
- * still be fully drawn rather than stuck at its starting dash offset.
- */
 @media (prefers-reduced-motion: reduce) {
   .seq-stage__arc {
     animation: none;
@@ -762,6 +808,7 @@
   }
   .seq-stage__label,
   .seq-stage__note,
+  .seq-stage__banner,
   .seq-stage__scrim {
     animation: none;
   }

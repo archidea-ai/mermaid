@@ -52,7 +52,7 @@ export function App() {
             {example.description}
           </p>
 
-          <div className="app__split">
+          <div className="app__stack">
             <div className="app__card">
               <label className="app__label" htmlFor="source">
                 Diagram source
