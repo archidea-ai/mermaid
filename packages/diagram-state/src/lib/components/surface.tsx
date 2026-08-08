@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useMemo } from 'react';
 import { proxyRenderer } from '@archidea-ai/mermaid-core';
 import {
+  RichLabel,
   computeArc,
   humaniseLabel,
   useAnchors,
@@ -121,13 +122,42 @@ function StateRun({
     // trail[0] is where the run started, which is cursor -1; trail[i] is where
     // step i-1 landed.
     return [
+      // No `via` at all: nothing led to the state the run began at.
       { stateId: walked[0]!.from, cursor: -1 },
-      ...walked.slice(0, -1).map((step, index) => ({ stateId: step.to, cursor: index })),
+      ...walked.slice(0, -1).map((step, index) => ({
+        stateId: step.to,
+        cursor: index,
+        via: step.transition.label,
+      })),
     ];
   }, [run.timeline, run.current]);
 
   /* The walk, grouped into contiguous runs that share a container chain. */
-  const runs = useMemo(() => buildTrack(ast, trail, current), [ast, trail, current]);
+  const runs = useMemo(() => {
+    const built = buildTrack(ast, trail, current);
+    if (current === null || built.length === 0) return built;
+
+    // The current entry's inbound transition is the step the cursor sits on.
+    const step = run.timeline.steps[run.current];
+    if (!step) return built;
+
+    const last = built[built.length - 1]!;
+    const entries = [...last.entries];
+    entries[entries.length - 1] = { ...entries[entries.length - 1]!, via: step.transition.label };
+    return [...built.slice(0, -1), { ...last, entries }];
+  }, [ast, trail, current, run.timeline, run.current]);
+
+  /** The line between two chips, carrying the transition it stands for. */
+  const link = (entry: TrackEntry, key: string) =>
+    entry.via === undefined ? null : (
+      <span className="state-link" key={key} data-labelled={entry.via !== null}>
+        {entry.via !== null ? (
+          <span className="state-link__label">
+            <RichLabel text={entry.via} values={run.bindings} />
+          </span>
+        ) : null}
+      </span>
+    );
 
   const lines = useMemo(() => {
     const from = current ? anchors.get(current) : undefined;
@@ -217,7 +247,13 @@ function StateRun({
 
     const inner =
       level === track.containers.length ? (
-        track.entries.map(entryChip)
+        track.entries.flatMap((entry, index) =>
+          // The first entry of a run is joined from outside its box, at track
+          // level, so the line is not drawn inside the container it enters.
+          index === 0
+            ? [entryChip(entry, index)]
+            : [link(entry, `link-${track.key}-${index}`), entryChip(entry, index)],
+        )
       ) : (
         <section
           key={track.containers[level]!.id}
@@ -272,7 +308,10 @@ function StateRun({
           {/* Grows rightwards: where we came from, where we are, where we can go. */}
           <div className="state-track state-track--root">
             {runs.map((track, index) => (
-              <Fragment key={track.key}>{renderRun(track, index === runs.length - 1)}</Fragment>
+              <Fragment key={track.key}>
+                {index > 0 ? link(track.entries[0]!, `enter-${track.key}`) : null}
+                {renderRun(track, index === runs.length - 1)}
+              </Fragment>
             ))}
           </div>
 

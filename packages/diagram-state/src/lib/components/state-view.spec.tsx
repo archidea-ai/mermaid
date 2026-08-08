@@ -74,3 +74,53 @@ describe('clicking a history state', () => {
 // Scrolling is not asserted here on purpose: jsdom defines scrollTo as a no-op
 // and implements no layout, so neither the smooth path nor the scrollLeft
 // fallback is observable. The browser suite covers it.
+
+describe('connections between history states', () => {
+  const LABELLED = 'stateDiagram-v2\n[*] --> A\nA --> B: one\nB --> C: two';
+
+  const click = async (user: ReturnType<typeof userEvent.setup>) =>
+    user.click(document.querySelector('.state-option') as HTMLElement);
+
+  it('joins each state to the next with the transition that got there', async () => {
+    const user = userEvent.setup();
+    const { container } = render(<StateDiagramSurface text={LABELLED} id="d" />);
+
+    // Nothing has happened, so there is nothing to join.
+    expect(container.querySelectorAll('.state-link')).toHaveLength(0);
+
+    await click(user);
+    expect([...container.querySelectorAll('.state-link')].map((el) => el.textContent)).toEqual([
+      'one',
+    ]);
+
+    await click(user);
+    expect([...container.querySelectorAll('.state-link')].map((el) => el.textContent)).toEqual([
+      'one',
+      'two',
+    ]);
+  });
+
+  it('draws no line into the state the run began at', async () => {
+    const user = userEvent.setup();
+    const { container } = render(<StateDiagramSurface text={LABELLED} id="d" />);
+    await click(user);
+
+    // One line for one step: the first state was not arrived at.
+    expect(container.querySelectorAll('.state-link')).toHaveLength(1);
+    expect(container.querySelectorAll('.state-chip')).toHaveLength(2);
+  });
+
+  it('leaves the line unlabelled when the transition has nothing to say', async () => {
+    const user = userEvent.setup();
+    const { container } = render(
+      <StateDiagramSurface text={'stateDiagram-v2\n[*] --> A\nA --> B'} id="d" />,
+    );
+    await click(user);
+
+    // The connection is still drawn — it is the label that is absent.
+    const links = container.querySelectorAll('.state-link');
+    expect(links).toHaveLength(1);
+    expect(links[0]!.getAttribute('data-labelled')).toBe('false');
+    expect(links[0]!.textContent).toBe('');
+  });
+});

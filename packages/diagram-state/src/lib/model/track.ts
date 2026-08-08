@@ -1,10 +1,23 @@
 import { enclosingStates } from './nesting';
+import type { RichText } from '@archidea-ai/mermaid-scenario';
 import type { StateDiagramAst, StateNode } from '../parser/ast';
 
 export interface TrackEntry {
   readonly stateId: string;
   /** Cursor that returns the run here, or null for where it stands now. */
   readonly cursor: number | null;
+  /**
+   * The transition that led here.
+   *
+   * `undefined` means nothing led here — this is where the run began. `null`
+   * means a transition led here but said nothing, which still draws a line;
+   * conflating the two lost the connection entirely for unlabelled moves.
+   *
+   * Carried on the entry rather than looked up while rendering: the arrival is
+   * what the transition belongs to, and a connector between two chips has no
+   * other way to know which step it stands for.
+   */
+  readonly via?: RichText | null;
 }
 
 export interface TrackRun {
