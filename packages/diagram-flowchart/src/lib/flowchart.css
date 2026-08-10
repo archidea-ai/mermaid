@@ -240,6 +240,7 @@
     stroke var(--seq-duration) var(--seq-easing),
     opacity var(--seq-duration) var(--seq-easing);
 }
+/* An absolute dash, so two edges of different lengths dash the same. */
 .flow-edge[data-style='dotted'] {
   stroke-dasharray: 4 4;
 }

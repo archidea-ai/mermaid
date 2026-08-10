@@ -143,7 +143,13 @@ function FlowchartOverview({
               { ...to, x: to.x - ((to.width ?? 0) / 2) * (to.x >= from.x ? 1 : -1) },
             ];
 
-        return [{ edge, arc: computeArc(start, end, { bow: 0.1, self: edge.from === edge.to }) }];
+        /*
+         * Barely bowed. A flowchart edge is a straight statement of order; a
+         * pronounced curve bends the approach so the head reads as pointing
+         * somewhere other than the node it lands on. Enough bow to keep a pair
+         * of opposite edges apart, and no more.
+         */
+        return [{ edge, arc: computeArc(start, end, { bow: 0.035, self: edge.from === edge.to }) }];
       }),
     [ast.edges, anchors, stacked],
   );
@@ -181,7 +187,6 @@ function FlowchartOverview({
                 data-head={edge.head}
                 markerEnd={edge.head === 'none' ? undefined : `url(#${markerId(id, edge.head)})`}
                 d={arc.path}
-                pathLength={100}
                 fill="none"
               />
             ))}
@@ -234,40 +239,47 @@ const markerId = (diagram: string, head: string) => `flow-${diagram}-${head}`;
  * it rather than needing a second marker per state.
  */
 function markerFor(diagram: string, head: (typeof HEADS)[number]) {
+  /*
+   * Measured in stroke widths, not pixels. A head fixed in user units is a fat
+   * wedge on a hairline and a stub on a thick edge; in `strokeWidth` units it
+   * keeps its proportions against whatever line it caps.
+   */
   const shared = {
     id: markerId(diagram, head),
-    markerWidth: 9,
-    markerHeight: 9,
-    refX: head === 'arrow' ? 8 : 4.5,
-    refY: 4.5,
+    markerUnits: 'strokeWidth' as const,
     orient: 'auto' as const,
-    markerUnits: 'userSpaceOnUse' as const,
   };
 
+  // `o` and `x` cap a line just as an arrow does, so they carry the same weight.
   if (head === 'circle') {
     return (
-      <marker key={head} {...shared}>
-        <circle cx={4.5} cy={4.5} r={3} fill="none" stroke="context-stroke" strokeWidth={1.5} />
+      <marker key={head} {...shared} markerWidth={4.4} markerHeight={4.4} refX={4} refY={2.2}>
+        <circle cx={2.2} cy={2.2} r={1.7} fill="none" stroke="context-stroke" strokeWidth={0.8} />
       </marker>
     );
   }
 
   if (head === 'cross') {
     return (
-      <marker key={head} {...shared}>
+      <marker key={head} {...shared} markerWidth={4.4} markerHeight={4.4} refX={4} refY={2.2}>
         <path
-          d="M 1.5 1.5 L 7.5 7.5 M 7.5 1.5 L 1.5 7.5"
+          d="M 0.5 0.5 L 3.9 3.9 M 3.9 0.5 L 0.5 3.9"
           fill="none"
           stroke="context-stroke"
-          strokeWidth={1.5}
+          strokeWidth={0.8}
+          strokeLinecap="round"
         />
       </marker>
     );
   }
 
+  /*
+   * Longer than it is wide, or it reads as a wedge rather than an arrow. The
+   * base sits a little behind the tip so the line's round cap is covered.
+   */
   return (
-    <marker key={head} {...shared}>
-      <path d="M 0 1 L 8 4.5 L 0 8 z" fill="context-stroke" />
+    <marker key={head} {...shared} markerWidth={4.4} markerHeight={3.2} refX={4} refY={1.6}>
+      <path d="M 0 0 L 4 1.6 L 0 3.2 z" fill="context-stroke" />
     </marker>
   );
 }
