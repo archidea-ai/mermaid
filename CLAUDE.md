@@ -35,6 +35,15 @@ time. The registry is the seam that makes that additive.
   node lights it, its first-degree neighbours and the edges between them;
   widening that ring past one step lights the whole chart back up, which is the
   thing selecting was meant to cut through.
+- **A flowchart is laid out along the axis it was written in.** `TB`/`BT` stack
+  the ranks, `LR`/`RL` run them across. The ranks themselves are the same either
+  way — only the axis changes, and the arc endpoints inset along it. `flowchart
+TD` is the commonest form there is, and drawing it left to right contradicts
+  its own source.
+- **A clipped node has no border down its diagonal.** `clip-path` cuts the
+  border with the box, so diamonds, hexagons, parallelograms and the rest read
+  by their fill alone — give them contrast, not an outline. Slants are in px:
+  a percentage of a wide box flattens a parallelogram into two parallel rules.
 - **Flowchart rank is the _longest_ path from a source**, not the shortest.
   A node reachable both early and late belongs after both; the shortest distance
   drew edges running backwards through the chart. A cycle is handled by refusing

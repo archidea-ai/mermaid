@@ -70,6 +70,39 @@
 }
 
 /* ---------------------------------------------------------------------------
+ * Direction. The ranks are the same whichever way round; only the axis they
+ * are laid out along changes — so a `flowchart TD` reads downwards, as written.
+ * ------------------------------------------------------------------------- */
+
+.flow-chart[data-direction='RL'] {
+  flex-direction: row-reverse;
+}
+
+.flow-chart[data-direction='TB'],
+.flow-chart[data-direction='BT'] {
+  flex-direction: column;
+  align-items: center;
+  gap: 4rem;
+}
+.flow-chart[data-direction='BT'] {
+  flex-direction: column-reverse;
+}
+
+/* Stacked, a rank is a row of siblings rather than a column of them. */
+.flow-chart[data-direction='TB'] .flow-column__nodes,
+.flow-chart[data-direction='BT'] .flow-column__nodes {
+  grid-auto-flow: column;
+  justify-items: center;
+  align-items: center;
+}
+
+.flow-chart[data-direction='TB'] .flow-column,
+.flow-chart[data-direction='BT'] .flow-column {
+  grid-auto-flow: column;
+  justify-items: center;
+}
+
+/* ---------------------------------------------------------------------------
  * Nodes. The shape an author drew carries meaning, so it is kept.
  * ------------------------------------------------------------------------- */
 
@@ -101,13 +134,62 @@
 .flow-node[data-shape='circle'] {
   border-radius: 999px;
 }
+/*
+ * Clipped shapes.
+ *
+ * `clip-path` cuts the border along with the box, so there is no outline down
+ * a diagonal edge — a clipped node drawn like the others is a couple of stray
+ * horizontal lines. These read by their silhouette instead: no border, and a
+ * fill with enough contrast to be a shape rather than a smudge.
+ *
+ * Slants are in px, not percentages. A percentage of a wide box is a huge
+ * horizontal offset, which flattened a parallelogram into two parallel rules.
+ */
 .flow-node[data-shape='diamond'],
+.flow-node[data-shape='hexagon'],
+.flow-node[data-shape='parallelogram'],
+.flow-node[data-shape='trapezoid'],
+.flow-node[data-shape='asymmetric'] {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--seq-participant-stroke) 34%, var(--seq-participant-fill));
+}
+
+/* A decision comes to a point; nothing else in the vocabulary does. */
+.flow-node[data-shape='diamond'] {
+  border-radius: 0;
+  clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+  padding: 16px 40px;
+}
+
+/* A hexagon has parallel sides, which is what tells it from a diamond. */
 .flow-node[data-shape='hexagon'] {
-  border-radius: 4px;
-  /* A decision reads as a diamond; clipping the box says so without an SVG. */
-  clip-path: polygon(14% 0, 86% 0, 100% 50%, 86% 100%, 14% 100%, 0 50%);
+  border-radius: 0;
+  clip-path: polygon(
+    20px 0,
+    calc(100% - 20px) 0,
+    100% 50%,
+    calc(100% - 20px) 100%,
+    20px 100%,
+    0 50%
+  );
+  padding-inline: 28px;
+}
+
+.flow-node[data-shape='parallelogram'] {
+  clip-path: polygon(14px 0, 100% 0, calc(100% - 14px) 100%, 0 100%);
   padding-inline: 26px;
 }
+
+.flow-node[data-shape='trapezoid'] {
+  clip-path: polygon(16px 0, calc(100% - 16px) 0, 100% 100%, 0 100%);
+  padding-inline: 28px;
+}
+
+.flow-node[data-shape='asymmetric'] {
+  clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 50%, calc(100% - 14px) 100%, 0 100%);
+  padding-right: 26px;
+}
+
 .flow-node[data-shape='cylinder'] {
   border-radius: 8px / 20px;
 }
@@ -116,11 +198,6 @@
     inset 4px 0 0 -1.5px var(--seq-participant-stroke),
     inset -4px 0 0 -1.5px var(--seq-participant-stroke);
   padding-inline: 20px;
-}
-.flow-node[data-shape='parallelogram'],
-.flow-node[data-shape='trapezoid'],
-.flow-node[data-shape='asymmetric'] {
-  border-radius: 3px;
 }
 
 .flow-node:hover,

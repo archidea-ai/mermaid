@@ -49,7 +49,14 @@ export function FlowchartSurface(props: DiagramSurfaceProps) {
   }, [parsed.error, onError]);
 
   if (!parsed.ast) return <ProxyFallback {...props} />;
-  return <FlowchartOverview ast={parsed.ast} className={props.className} style={props.style} />;
+  return (
+    <FlowchartOverview
+      ast={parsed.ast}
+      id={props.id}
+      className={props.className}
+      style={props.style}
+    />
+  );
 }
 
 function ProxyFallback({ text, id, config, className, style, onError }: DiagramSurfaceProps) {
@@ -90,10 +97,12 @@ function ProxyFallback({ text, id, config, className, style, onError }: DiagramS
  */
 function FlowchartOverview({
   ast,
+  id,
   className,
   style,
 }: {
   ast: FlowchartAst;
+  id: string;
   className?: string;
   style?: DiagramSurfaceProps['style'];
 }) {
@@ -102,6 +111,13 @@ function FlowchartOverview({
 
   const columns = useMemo(() => buildColumns(ast), [ast]);
   const lit = useMemo(() => selectNeighbours(ast, selected), [ast, selected]);
+
+  /*
+   * `flowchart TD` is the commonest form there is, and drawing it left to right
+   * contradicts the source it was written from. The ranks are the same either
+   * way — only the axis they are laid out along changes.
+   */
+  const stacked = ast.direction === 'TB' || ast.direction === 'BT';
 
   /* Nodes are placed by CSS, so the edges between them are measured. */
   const arcs = useMemo(
@@ -114,15 +130,22 @@ function FlowchartOverview({
         /*
          * Border to border, not centre to centre. A line between centres runs
          * underneath both nodes, and its midpoint — where the edge's own label
-         * goes — lands on top of one of them rather than in the gap.
+         * goes — lands on top of one of them rather than in the gap. Which
+         * border depends on which way the chart is laid out.
          */
-        const forwards = to.x >= from.x;
-        const start = { ...from, x: from.x + ((from.width ?? 0) / 2) * (forwards ? 1 : -1) };
-        const end = { ...to, x: to.x - ((to.width ?? 0) / 2) * (forwards ? 1 : -1) };
+        const [start, end] = stacked
+          ? [
+              { ...from, y: from.y + ((from.height ?? 0) / 2) * (to.y >= from.y ? 1 : -1) },
+              { ...to, y: to.y - ((to.height ?? 0) / 2) * (to.y >= from.y ? 1 : -1) },
+            ]
+          : [
+              { ...from, x: from.x + ((from.width ?? 0) / 2) * (to.x >= from.x ? 1 : -1) },
+              { ...to, x: to.x - ((to.width ?? 0) / 2) * (to.x >= from.x ? 1 : -1) },
+            ];
 
         return [{ edge, arc: computeArc(start, end, { bow: 0.1, self: edge.from === edge.to }) }];
       }),
-    [ast.edges, anchors],
+    [ast.edges, anchors, stacked],
   );
 
   return (
@@ -134,13 +157,21 @@ function FlowchartOverview({
     <div
       className={['archidea-sequence', 'archidea-flowchart', className].filter(Boolean).join(' ')}
       style={style}
+      // Escape is the way out of a selection without hunting for the node again.
+      onKeyDown={(event) => event.key === 'Escape' && setSelected(null)}
     >
       <p className="flow-hint">Click a node to see what it connects to</p>
 
       <div className="flow-view">
-        <div className="flow-chart" ref={containerRef} data-selecting={selected !== null}>
+        <div
+          className="flow-chart"
+          ref={containerRef}
+          data-selecting={selected !== null}
+          data-direction={ast.direction}
+        >
           {/* Behind the nodes, so a line is context rather than something across them. */}
           <svg className="flow-chart__lines" aria-hidden="true">
+            <defs>{HEADS.map((head) => markerFor(id, head))}</defs>
             {arcs.map(({ edge, arc }) => (
               <path
                 key={edge.id}
@@ -148,6 +179,7 @@ function FlowchartOverview({
                 data-lit={lit.edges.has(edge.id)}
                 data-style={edge.style}
                 data-head={edge.head}
+                markerEnd={edge.head === 'none' ? undefined : `url(#${markerId(id, edge.head)})`}
                 d={arc.path}
                 pathLength={100}
                 fill="none"
@@ -186,6 +218,57 @@ function FlowchartOverview({
         </div>
       </div>
     </div>
+  );
+}
+
+const HEADS = ['arrow', 'circle', 'cross'] as const;
+
+const markerId = (diagram: string, head: string) => `flow-${diagram}-${head}`;
+
+/**
+ * The arrowhead an edge ends in.
+ *
+ * A flowchart without them says what is connected but not which way anything
+ * flows, which is most of what a flowchart is for. `context-stroke` makes the
+ * head take the colour of the line it caps, so a lit edge's head lights with
+ * it rather than needing a second marker per state.
+ */
+function markerFor(diagram: string, head: (typeof HEADS)[number]) {
+  const shared = {
+    id: markerId(diagram, head),
+    markerWidth: 9,
+    markerHeight: 9,
+    refX: head === 'arrow' ? 8 : 4.5,
+    refY: 4.5,
+    orient: 'auto' as const,
+    markerUnits: 'userSpaceOnUse' as const,
+  };
+
+  if (head === 'circle') {
+    return (
+      <marker key={head} {...shared}>
+        <circle cx={4.5} cy={4.5} r={3} fill="none" stroke="context-stroke" strokeWidth={1.5} />
+      </marker>
+    );
+  }
+
+  if (head === 'cross') {
+    return (
+      <marker key={head} {...shared}>
+        <path
+          d="M 1.5 1.5 L 7.5 7.5 M 7.5 1.5 L 1.5 7.5"
+          fill="none"
+          stroke="context-stroke"
+          strokeWidth={1.5}
+        />
+      </marker>
+    );
+  }
+
+  return (
+    <marker key={head} {...shared}>
+      <path d="M 0 1 L 8 4.5 L 0 8 z" fill="context-stroke" />
+    </marker>
   );
 }
 

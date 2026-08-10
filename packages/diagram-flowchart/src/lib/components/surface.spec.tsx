@@ -142,6 +142,55 @@ describe('<FlowchartSurface />', () => {
     expect(chosen[0]!.textContent).toBe('Coverage ok?');
   });
 
+  it('caps every edge with the head its arrow was drawn with', () => {
+    const { container } = render(
+      <FlowchartSurface text={'flowchart LR\nA --> B\nB --o C\nC --x D\nD --- E'} id="d" />,
+    );
+    const edges = [...container.querySelectorAll('.flow-edge')];
+
+    expect(edges.map((edge) => edge.getAttribute('data-head'))).toEqual([
+      'arrow',
+      'circle',
+      'cross',
+      'none',
+    ]);
+
+    // A head is a marker on the path; an undirected link is capped with nothing.
+    expect(edges.map((edge) => edge.getAttribute('marker-end'))).toEqual([
+      'url(#flow-d-arrow)',
+      'url(#flow-d-circle)',
+      'url(#flow-d-cross)',
+      null,
+    ]);
+    expect(container.querySelectorAll('marker')).toHaveLength(3);
+  });
+
+  it('scopes its markers to the diagram, so two charts on a page do not share them', () => {
+    const { container } = render(<FlowchartSurface text={'flowchart LR\nA --> B'} id="second" />);
+    expect(container.querySelector('marker')!.id).toBe('flow-second-arrow');
+  });
+
+  it('lays a chart out the way it was written', () => {
+    const across = render(<FlowchartSurface text={'flowchart LR\nA --> B'} id="a" />);
+    expect(across.container.querySelector('.flow-chart')).toHaveProperty('dataset.direction', 'LR');
+
+    // `flowchart TD` is the commonest form there is, and drawing it left to
+    // right contradicts the source it was written from.
+    const down = render(<FlowchartSurface text={'flowchart TD\nA --> B'} id="b" />);
+    expect(down.container.querySelector('.flow-chart')).toHaveProperty('dataset.direction', 'TB');
+  });
+
+  it('clears the selection on Escape, without hunting for the node again', async () => {
+    const user = userEvent.setup();
+    const { container } = render(<FlowchartSurface text={PIPELINE} id="d" />);
+
+    await user.click(screen.getByRole('button', { name: 'Coverage ok?' }));
+    expect(container.querySelector('.flow-chart')).toHaveProperty('dataset.selecting', 'true');
+
+    await user.keyboard('{Escape}');
+    expect(container.querySelector('.flow-chart')).toHaveProperty('dataset.selecting', 'false');
+  });
+
   it('falls back to the proxy for a chart it cannot parse, reporting it as non-fatal', async () => {
     const onError = vi.fn();
     render(

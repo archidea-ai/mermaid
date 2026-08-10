@@ -136,3 +136,73 @@ test('choosing the same node again clears the selection', async ({ page }) => {
   await expect(page.locator('.flow-chart')).toHaveAttribute('data-selecting', 'false');
   await expect(page.locator('.flow-node[data-lit="true"]')).toHaveCount(0);
 });
+
+test('a top-down chart is drawn top-down, as it was written', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('combobox', { name: 'Load example' }).click();
+  await page.getByRole('option', { name: 'Incident triage — a top-down flowchart' }).click();
+  await expect(page.locator('.flow-chart')).toHaveAttribute('data-direction', 'TB');
+
+  const run = await page.evaluate(() => {
+    const ranks = [...document.querySelectorAll('.flow-column')].map((column) =>
+      column.getBoundingClientRect(),
+    );
+    // Centres, not left edges: the ranks are centred, so a wider rank starts
+    // further left while still sitting on the same axis.
+    const centres = ranks.map((box) => box.left + box.width / 2);
+
+    return {
+      descends: ranks.every((box, i) => i === 0 || box.top > ranks[i - 1]!.top),
+      drift: Math.max(...centres) - Math.min(...centres),
+    };
+  });
+
+  expect(run.descends).toBe(true);
+  expect(run.drift).toBeLessThan(2);
+});
+
+test('every directed edge is capped with a head that paints', async ({ page }) => {
+  await load(page);
+
+  // The marker has to exist, be referenced, and actually render — a marker that
+  // resolves to nothing leaves a chart that says what connects but not which
+  // way anything flows, which is most of what a flowchart is for.
+  const heads = await page.evaluate(() => {
+    const edges = [...document.querySelectorAll('.flow-edge')];
+    const referenced = edges
+      .map((edge) => edge.getAttribute('marker-end'))
+      .filter((value): value is string => value !== null);
+
+    /*
+     * A marker's children have no layout box of their own — they are painted
+     * only as part of the path that references them — so the head is proved by
+     * its geometry and its paint, not by a bounding rect.
+     */
+    const head = document.querySelector('marker path') as SVGPathElement;
+
+    return {
+      edges: edges.length,
+      referenced: referenced.length,
+      resolve: referenced.every((value) => Boolean(document.getElementById(value.slice(5, -1)))),
+      geometry: head.getTotalLength(),
+      // context-stroke is what makes a head take its own line's colour; a
+      // browser that did not understand it would compute something else.
+      fill: getComputedStyle(head).fill,
+    };
+  });
+
+  expect(heads.referenced).toBe(heads.edges);
+  expect(heads.resolve).toBe(true);
+  expect(heads.geometry).toBeGreaterThan(0);
+  expect(heads.fill).toBe('context-stroke');
+});
+
+test('Escape clears the selection', async ({ page }) => {
+  await load(page);
+
+  await page.getByRole('button', { name: 'Coverage >= 80%?' }).click();
+  await expect(page.locator('.flow-chart')).toHaveAttribute('data-selecting', 'true');
+
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.flow-chart')).toHaveAttribute('data-selecting', 'false');
+});

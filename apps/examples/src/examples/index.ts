@@ -244,4 +244,21 @@ export const examples: readonly DiagramExample[] = [
     Prod --> Announce([Announce release])
     Rollback --> Lint`,
   },
+  {
+    id: 'incident-flowchart',
+    title: 'Incident triage — a top-down flowchart',
+    description:
+      'The same renderer reading `flowchart TD`: written downwards, drawn downwards. Arrowheads say which way each edge runs, and the shapes an author chose are kept.',
+    source: `flowchart TD
+    Alert([Alert fires]) --> Ack[/Acknowledge/]
+    Ack --> Triage{Customer impact?}
+    Triage -- none --> Watch[Watch and close]
+    Triage -- some --> Page[[Page the on-call]]
+    Page --> Mitigate[Apply mitigation]
+    Mitigate --> Check{Recovered?}
+    Check -- no --> Escalate>Escalate to incident lead]
+    Escalate --> Mitigate
+    Check -- yes --> Record[(Write the postmortem)]
+    Record --> Close([Close incident])`,
+  },
 ];
