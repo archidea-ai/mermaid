@@ -27,3 +27,54 @@ export function C4Toolbar({
     </div>
   );
 }
+
+/**
+ * The transport for a numbered run.
+ *
+ * A static C4 chart is a map, not a run: `count` is 0 for one, and the
+ * transport says "No run" and disables both buttons rather than hiding
+ * itself — controls the active renderer cannot support are disabled and
+ * visible, never hidden.
+ */
+export function C4Transport({
+  current,
+  count,
+  onPrev,
+  onNext,
+}: {
+  current: number;
+  count: number;
+  onPrev: () => void;
+  onNext: () => void;
+}) {
+  return (
+    <div className="c4-transport">
+      <button
+        type="button"
+        className="c4-toolbar__button"
+        aria-label="Previous step"
+        disabled={current < 0}
+        onClick={onPrev}
+      >
+        ◀
+      </button>
+      <span className="c4-transport__where">
+        {/*
+         * A static chart is a map, so the transport says so rather than
+         * showing a step count it does not have — disabled and visible, never
+         * hidden.
+         */}
+        {count ? (current < 0 ? `${count} steps` : `Step ${current + 1} of ${count}`) : 'No run'}
+      </span>
+      <button
+        type="button"
+        className="c4-toolbar__button"
+        aria-label="Next step"
+        disabled={current >= count - 1}
+        onClick={onNext}
+      >
+        ▶
+      </button>
+    </div>
+  );
+}

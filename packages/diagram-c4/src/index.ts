@@ -30,3 +30,4 @@ export { computeLit } from './lib/model/selection';
 export type { C4Lit, C4Selection, C4SelectionKind } from './lib/model/selection';
 export { C4_DIAGRAM_TYPE, fromElementRef, isC4Selection, toElementRef } from './lib/model/refs';
 export type { C4ElementRef, C4SelectionData } from './lib/model/refs';
+export { orderedRelations, useStepController } from './lib/model/run';

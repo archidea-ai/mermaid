@@ -21,13 +21,14 @@ export function C4Surface(props: DiagramSurfaceProps) {
   }, [text]);
 
   /*
-   * A static C4 chart is a map, not a run, so it offers no step controller and
-   * the transport disables itself rather than pretending. C4Dynamic supplies
-   * one — see the run controller.
+   * The chart owns the step controller now — it reports null itself for a
+   * static source, and the real controller for a dynamic one (see
+   * `model/run.ts`). The surface only has to report null when there is no
+   * chart at all: a parse failure, where nothing will ever call back.
    */
   useEffect(() => {
     onViewportController?.(null);
-    if (parsed.ast?.kind !== 'dynamic') onStepController?.(null);
+    if (!parsed.ast) onStepController?.(null);
   }, [parsed.ast, onStepController, onViewportController]);
 
   useEffect(() => {
@@ -44,6 +45,7 @@ export function C4Surface(props: DiagramSurfaceProps) {
       style={props.style}
       selection={props.selection}
       onSelect={props.onSelect}
+      onStepController={onStepController}
     />
   );
 }

@@ -45,6 +45,21 @@
   cursor: not-allowed;
 }
 
+.c4-transport {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.c4-transport__where {
+  font-size: var(--seq-font-size-small);
+  color: var(--seq-text-muted);
+  font-variant-numeric: tabular-nums;
+  min-width: 7rem;
+  text-align: center;
+}
+
 .c4-view {
   position: relative;
   padding: 18px;

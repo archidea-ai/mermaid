@@ -5,14 +5,15 @@ import { insetEndpoints } from '../model/geometry';
 import { buildLinks } from '../model/links';
 import { orderMembers } from '../model/order';
 import { fromElementRef, toElementRef } from '../model/refs';
+import { orderedRelations, useStepController } from '../model/run';
 import { computeLit } from '../model/selection';
 import { buildTree, elementCountOf } from '../model/tree';
 import { C4BoundaryBox } from './boundary';
 import { C4Detail } from './detail';
 import { C4ElementBox } from './element';
 import { C4LinkDialog } from './link-dialog';
-import { C4Toolbar } from './toolbar';
-import type { DiagramElementRef, DiagramEventMap } from '@archidea-ai/mermaid-core';
+import { C4Toolbar, C4Transport } from './toolbar';
+import type { DiagramElementRef, DiagramEventMap, StepController } from '@archidea-ai/mermaid-core';
 import type { CSSProperties, ReactNode } from 'react';
 import type { C4Ast, C4Relation } from '../parser/ast';
 import type { C4Selection } from '../model/selection';
@@ -25,6 +26,12 @@ export interface C4ChartProps {
   /** Omit for uncontrolled. Passing it — including null — takes control. */
   readonly selection?: DiagramElementRef | null;
   readonly onSelect?: (event: DiagramEventMap['select']) => void;
+  /**
+   * Reports the run controller for a `C4Dynamic` source, or null for a static
+   * one — a static chart is a map, not a run, so it has no controller and the
+   * transport disables itself rather than pretending.
+   */
+  readonly onStepController?: (controller: StepController | null) => void;
 }
 
 /**
@@ -80,6 +87,26 @@ export function C4Chart(props: C4ChartProps) {
   /** Choosing the same thing again clears it, so there is a way back out. */
   const select = (next: C4Selection) =>
     commit(selection && selection.kind === next.kind && selection.id === next.id ? null : next);
+
+  /*
+   * A dynamic diagram's relations, in run order. Empty for a static chart,
+   * which is a map rather than a run — `useStepController` then holds at
+   * count 0 and the transport disables itself rather than pretending.
+   */
+  const steps = useMemo(() => orderedRelations(ast), [ast]);
+  const { current, controller } = useStepController(steps.length);
+
+  // Stepping is just a selection, so it reveals and docks like any other —
+  // the reveal effect above is the only place that opens a relation's ends.
+  useEffect(() => {
+    const relation = current >= 0 ? steps[current] : null;
+    if (relation) commit({ kind: 'relation', id: relation.id });
+  }, [current, steps, commit]);
+
+  const { onStepController } = props;
+  useEffect(() => {
+    onStepController?.(ast.kind === 'dynamic' ? controller : null);
+  }, [ast.kind, controller, onStepController]);
 
   const [dialogLinkId, setDialogLinkId] = useState<string | null>(null);
 
@@ -207,7 +234,14 @@ export function C4Chart(props: C4ChartProps) {
       <C4Toolbar
         onExpandAll={() => setCollapsed(new Set())}
         onCollapseAll={() => setCollapsed(allBoundaryIds(ast))}
-      />
+      >
+        <C4Transport
+          current={current}
+          count={steps.length}
+          onPrev={() => controller.prev()}
+          onNext={() => controller.next()}
+        />
+      </C4Toolbar>
 
       {ast.title ? <h3 className="c4-title">{ast.title}</h3> : null}
 

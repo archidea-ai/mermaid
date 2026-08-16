@@ -419,3 +419,62 @@ describe('C4Chart — events', () => {
     expect(screen.getByText('Single-Page App', { selector: '.c4-element__name' })).toBeDefined();
   });
 });
+
+const dynamic = parse(`C4Dynamic
+Container(spa, "SPA", "Angular")
+Container_Boundary(api, "API Application") {
+    Component(reset, "Reset Controller", "Spring MVC")
+    Component(security, "Security", "Spring Bean")
+}
+Rel(spa, reset, "submits the address to", "JSON/HTTPS")
+Rel(reset, security, "validates using")`);
+
+describe('C4Chart — a dynamic run', () => {
+  it('offers a transport, disabled, for a chart that is a map rather than a run', () => {
+    chart();
+    expect((screen.getByRole('button', { name: 'Next step' }) as HTMLButtonElement).disabled).toBe(
+      true,
+    );
+  });
+
+  it('walks the numbered relations, and says where it is', async () => {
+    const user = userEvent.setup();
+    render(<C4Chart ast={dynamic} id="run" />);
+
+    await user.click(screen.getByRole('button', { name: 'Next step' }));
+    expect(screen.getByText('Step 1 of 2')).toBeDefined();
+  });
+
+  it('opens whatever hides an end of the step it lands on', async () => {
+    const user = userEvent.setup();
+    render(<C4Chart ast={dynamic} id="run2" />);
+
+    expect(screen.queryByText('Reset Controller', { selector: '.c4-element__name' })).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Next step' }));
+
+    // The same reveal the modal's pick makes — one mechanism, two triggers.
+    // Scoped to the element name: the docked detail panel shows the same
+    // component name once the relation lands (Tasks 14/15's collision).
+    expect(screen.getByText('Reset Controller', { selector: '.c4-element__name' })).toBeDefined();
+  });
+
+  it('docks the step relation detail as it lands', async () => {
+    const user = userEvent.setup();
+    render(<C4Chart ast={dynamic} id="run3" />);
+
+    await user.click(screen.getByRole('button', { name: 'Next step' }));
+    expect(screen.getByRole('complementary').textContent).toContain('submits the address to');
+  });
+
+  it('stops at the end rather than running off it', async () => {
+    const user = userEvent.setup();
+    render(<C4Chart ast={dynamic} id="run4" />);
+
+    await user.click(screen.getByRole('button', { name: 'Next step' }));
+    await user.click(screen.getByRole('button', { name: 'Next step' }));
+    expect((screen.getByRole('button', { name: 'Next step' }) as HTMLButtonElement).disabled).toBe(
+      true,
+    );
+    expect(screen.getByText('Step 2 of 2')).toBeDefined();
+  });
+});
