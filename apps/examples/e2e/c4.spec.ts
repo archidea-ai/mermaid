@@ -97,15 +97,25 @@ test('a line leaves and lands on the borders of its own two endpoints', async ({
 });
 
 test('collapsing re-measures, so no line is left stranded', async ({ page }) => {
-  await load(page, 'Internet Banking — containers');
+  await load(page, 'API Application — components');
   await page.getByRole('button', { name: 'Expand all' }).click();
 
-  const before = await page.locator('.c4-link').first().getAttribute('d');
-  await page.getByRole('button', { name: 'Collapse all' }).click();
+  /*
+   * One named line, present on both sides of the collapse — not `.first()`
+   * across a Collapse all, which replaces the whole link set and so returns a
+   * different path whatever the arc layer did. Shutting Domain Services leaves
+   * Sign In Controller and the Single-Page Application both on the chart, so
+   * this exact line survives; what must change is where it was measured to.
+   */
+  const line = page.locator('.c4-link[data-link="signin::spa"]');
+  await expect(line).toHaveCount(1);
+  const before = await line.getAttribute('d');
+
+  await page.getByRole('button', { name: 'Collapse Domain Services' }).click();
+
   // The transition has to settle before the anchors are read back.
-  await expect
-    .poll(async () => page.locator('.c4-link').first().getAttribute('d'))
-    .not.toBe(before);
+  await expect.poll(async () => line.getAttribute('d')).not.toBe(before);
+  await expect(line).toHaveCount(1);
 });
 
 test('a count badge sits on its own line', async ({ page }) => {
@@ -114,30 +124,92 @@ test('a count badge sits on its own line', async ({ page }) => {
   const badge = page.locator('.c4-link__label[data-aggregate="true"]').first();
   await expect(badge).toBeVisible();
 
-  const onLine = await page.evaluate(() => {
-    const label = document.querySelector('.c4-link__label[data-aggregate="true"]')!;
-    const box = label.getBoundingClientRect();
-    const paths = [...document.querySelectorAll('.c4-link')].map((p) => p.getBoundingClientRect());
-    const x = box.left + box.width / 2;
-    const y = box.top + box.height / 2;
-    return paths.some(
-      (p) => x >= p.left - 8 && x <= p.right + 8 && y >= p.top - 8 && y <= p.bottom + 8,
-    );
+  /*
+   * Against the path's own geometry, not its bounding box: a long diagonal's
+   * bounding box covers much of the chart, so a badge anywhere in that
+   * rectangle — nowhere near the curve — passed. And against *its own* path,
+   * named by data-link, rather than `some()` over every line on the chart.
+   */
+  const offsets = await page.evaluate(() => {
+    const chart = document.querySelector('.c4-chart')!;
+    const svgRect = chart.querySelector('.c4-chart__lines')!.getBoundingClientRect();
+
+    return [...chart.querySelectorAll('.c4-link__label[data-aggregate="true"]')].map((label) => {
+      const id = label.getAttribute('data-link');
+      const path = chart.querySelector(`.c4-link[data-link="${id}"]`) as SVGPathElement | null;
+      if (!path) return Number.POSITIVE_INFINITY;
+
+      const middle = path.getPointAtLength(path.getTotalLength() / 2);
+      const box = label.getBoundingClientRect();
+
+      return Math.hypot(
+        box.left + box.width / 2 - (svgRect.left + middle.x),
+        box.top + box.height / 2 - (svgRect.top + middle.y),
+      );
+    });
   });
 
-  expect(onLine).toBe(true);
+  expect(offsets.length).toBeGreaterThan(0);
+  // The badge is centred on the arc's midpoint, so a couple of pixels of
+  // rounding is the whole budget — a badge sitting anywhere else fails.
+  for (const offset of offsets) expect(offset).toBeLessThan(3);
 });
 
-test('a collapse does not shift the rest of the chart out from under the pointer', async ({
-  page,
-}) => {
+/*
+ * Measured on boxes inside `.c4-chart`, not on `.c4-toolbar`: the toolbar is
+ * the renderer root's first child and the chart sits below it, so nothing the
+ * chart could possibly do would move it — the old assertion held under every
+ * regression, including one that reflowed the whole chart.
+ *
+ * And measured against the chart's own content box rather than the viewport,
+ * because clicking a control scrolls `.c4-view` to keep it visible: that moves
+ * every viewport coordinate on the page without one box having moved.
+ *
+ * This is not free. `orderMembers` is re-run over the *link set*, which
+ * `buildLinks` rebuilds on every collapse — so member order is genuinely
+ * recomputed here and could reflow the row. What has to hold is that nothing
+ * laid out before the box being shut moves at all.
+ */
+test('a collapse leaves everything laid out before it exactly where it was', async ({ page }) => {
   await load(page, 'API Application — components');
   await page.getByRole('button', { name: 'Expand all' }).click();
 
-  const toolbar = await page.locator('.c4-toolbar').boundingBox();
-  await page.getByRole('button', { name: 'Collapse all' }).click();
+  const places = () =>
+    page.evaluate(() => {
+      const chart = document.querySelector('.c4-chart')!;
+      const origin = chart.getBoundingClientRect();
 
-  expect((await page.locator('.c4-toolbar').boundingBox())?.y).toBeCloseTo(toolbar!.y, 0);
+      return Object.fromEntries(
+        [...chart.querySelectorAll('.c4-element')].map((node) => {
+          const box = node.getBoundingClientRect();
+          return [
+            node.querySelector('.c4-element__name')!.textContent!,
+            [Math.round(box.x - origin.x), Math.round(box.y - origin.y)] as const,
+          ];
+        }),
+      );
+    });
+
+  const before = await places();
+  // Located structurally, not by accessible name: the chevron renames itself
+  // to "Expand …" the moment it is clicked.
+  await page
+    .locator('.c4-boundary .c4-boundary > .c4-boundary__header > .c4-boundary__toggle')
+    .click();
+  const after = await places();
+
+  // The three root boxes, and the two controllers ahead of Domain Services
+  // inside API Application. What follows it is free to close up — that is the
+  // collapse doing its job.
+  for (const name of [
+    'Database',
+    'Mainframe Banking System',
+    'E-mail System',
+    'Sign In Controller',
+    'Accounts Summary Controller',
+  ]) {
+    expect(after[name], name).toEqual(before[name]);
+  }
 });
 
 test('picking a relation in the modal opens both ends and lights it', async ({ page }) => {

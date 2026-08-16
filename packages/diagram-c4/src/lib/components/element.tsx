@@ -66,14 +66,44 @@ export function C4ElementBox({
  * Author-declared colour, and nothing else. No component here picks a colour;
  * this is the source's own content reaching the chart, the same exception
  * mermaid's `rect rgb(...)` already gets in the sequence renderer.
+ *
+ * Each subject gets its own property names rather than sharing one set:
+ * `.c4-element` re-declares its three on itself, which beats inheriting them
+ * from a `.c4-boundary` ancestor — so a boundary writing the element names
+ * coloured nothing at all, including itself.
  */
-export function styleOf(subject: { style: C4Element['style'] }): CSSProperties {
-  const style = subject.style;
+export function styleOf(subject: { style: C4Style }): CSSProperties {
+  return customProperties(subject.style, 'element');
+}
+
+/** `UpdateBoundaryStyle`, on the properties `.c4-boundary` actually reads. */
+export function styleOfBoundary(subject: { style: C4Style }): CSSProperties {
+  return customProperties(subject.style, 'boundary');
+}
+
+/**
+ * `UpdateRelStyle`, on the one line that can honestly carry it.
+ *
+ * A line standing for several relations has no single author style — the
+ * directive names a pair, and every relation between that pair takes it, so an
+ * aggregate could hold two contradicting colours and drawing either would be a
+ * claim the source never made. It is applied only to a line carrying exactly
+ * one relation; open the boundary, and each relation gets its own line and its
+ * own colour.
+ */
+export function styleOfLink(link: { relations: readonly { style: C4Style }[] }): CSSProperties {
+  const only = link.relations.length === 1 ? link.relations[0] : undefined;
+  return only ? customProperties(only.style, 'link') : {};
+}
+
+type C4Style = C4Element['style'];
+
+function customProperties(style: C4Style, subject: 'element' | 'boundary' | 'link'): CSSProperties {
   if (!style) return {};
 
   return {
-    ...(style.background ? { '--c4-element-fill': style.background } : {}),
-    ...(style.border ? { '--c4-element-stroke': style.border } : {}),
-    ...(style.text ? { '--c4-element-text': style.text } : {}),
+    ...(style.background ? { [`--c4-${subject}-fill`]: style.background } : {}),
+    ...(style.border ? { [`--c4-${subject}-stroke`]: style.border } : {}),
+    ...(style.text ? { [`--c4-${subject}-text`]: style.text } : {}),
   } as CSSProperties;
 }

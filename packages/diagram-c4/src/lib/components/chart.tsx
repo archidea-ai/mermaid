@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { computeArc, useAnchors } from '@archidea-ai/mermaid-diagram-sequence';
 import { allBoundaryIds, isVisible, revealFor } from '../model/collapse';
 import { insetEndpoints } from '../model/geometry';
@@ -10,7 +10,7 @@ import { computeLit } from '../model/selection';
 import { buildTree, elementCountOf } from '../model/tree';
 import { C4BoundaryBox } from './boundary';
 import { C4Detail } from './detail';
-import { C4ElementBox } from './element';
+import { C4ElementBox, styleOfLink } from './element';
 import { C4LinkDialog } from './link-dialog';
 import { C4Toolbar, C4Transport } from './toolbar';
 import type { DiagramElementRef, DiagramEventMap, StepController } from '@archidea-ai/mermaid-core';
@@ -59,8 +59,11 @@ export function C4Chart(props: C4ChartProps) {
   const [internal, setInternal] = useState<C4Selection | null>(null);
   const controlled = selectionProp !== undefined;
   const selection = useMemo(
-    () => (controlled ? fromElementRef(selectionProp ?? null) : internal),
-    [controlled, selectionProp, internal],
+    // The lookup is what lets a *bare* ref — an id and a kind, all a search
+    // box or an external list has — name an edge: only the chart knows
+    // whether that id is a drawn line or one relation on one.
+    () => (controlled ? fromElementRef(selectionProp ?? null, { ast, links }) : internal),
+    [controlled, selectionProp, internal, ast, links],
   );
 
   // A new source is a new model, so nothing carried over is still true.
@@ -96,11 +99,39 @@ export function C4Chart(props: C4ChartProps) {
   const steps = useMemo(() => orderedRelations(ast), [ast]);
   const { current, controller } = useStepController(steps.length);
 
+  /*
+   * The relation this run last put on the chart.
+   *
+   * `commit` closes over `links`, which is rebuilt on every collapse change,
+   * so the effect below re-runs whenever a boundary opens or shuts — not only
+   * when the step moves. Re-committing there would reinstate the run's
+   * relation over whatever the viewer had since chosen, and the reveal effect
+   * would re-open the boundary they had just shut: Collapse all and every
+   * chevron were dead for the rest of a run. Holding the id makes the effect
+   * idempotent, so only an actual step commits.
+   */
+  const steppedRef = useRef<string | null>(null);
+
+  // A new source is a new run, so nothing it committed is still true. Declared
+  // before the step effect so the clearing lands first, in the same pass.
+  useEffect(() => {
+    steppedRef.current = null;
+  }, [ast]);
+
   // Stepping is just a selection, so it reveals and docks like any other —
-  // the reveal effect above is the only place that opens a relation's ends.
+  // the reveal effect below is the only place that opens a relation's ends.
   useEffect(() => {
     const relation = current >= 0 ? steps[current] : null;
-    if (relation) commit({ kind: 'relation', id: relation.id });
+    if (!relation) {
+      // Rewinding past the start ends the run, so stepping back onto the same
+      // relation is a fresh step and must commit again.
+      steppedRef.current = null;
+      return;
+    }
+
+    if (steppedRef.current === relation.id) return;
+    steppedRef.current = relation.id;
+    commit({ kind: 'relation', id: relation.id });
   }, [current, steps, commit]);
 
   const { onStepController } = props;
@@ -282,6 +313,7 @@ export function C4Chart(props: C4ChartProps) {
                 data-lit={lit.links.has(link.id)}
                 d={arc.path}
                 fill="none"
+                style={styleOfLink(link)}
                 markerEnd={link.forward ? `url(#c4-${id}-arrow)` : undefined}
                 markerStart={link.backward ? `url(#c4-${id}-arrow-start)` : undefined}
               />
@@ -302,6 +334,9 @@ export function C4Chart(props: C4ChartProps) {
                 key={`label-${link.id}`}
                 type="button"
                 className="c4-link__label"
+                // The line this label belongs to, so a check that it sits on
+                // that line can name the one path rather than accepting any.
+                data-link={link.id}
                 data-aggregate={!single}
                 data-lit={lit.links.has(link.id)}
                 /*
@@ -327,6 +362,9 @@ export function C4Chart(props: C4ChartProps) {
         link={dialogLinkId ? (links.byId.get(dialogLinkId) ?? null) : null}
         tree={tree}
         open={dialogLinkId !== null}
+        // Portalled to <body>, so the host's inline theme cannot reach it by
+        // inheritance — it travels explicitly.
+        style={style}
         onOpenChange={(next) => !next && setDialogLinkId(null)}
         onPick={reveal}
       />

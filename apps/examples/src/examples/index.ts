@@ -265,7 +265,7 @@ export const examples: readonly DiagramExample[] = [
     id: 'c4-context',
     title: 'Big Bank plc — system context',
     description:
-      'Everything starts shut. Open Customer Channels and five relations that were one aggregated line become five.',
+      'Everything starts shut, so the coarsest reading comes first. Expand all, then shut Customer Channels — four relations become one line.',
     source: `C4Context
     title Big Bank plc — system context
 

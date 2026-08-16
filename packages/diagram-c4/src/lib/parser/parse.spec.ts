@@ -229,12 +229,13 @@ describe('parse — relations', () => {
     });
   });
 
-  it('gives every relation an id derived from its position, not its index', () => {
-    const ast = parse('C4Context\nRel(a, b, "x")\nRel(a, b, "y")');
-    const ids = ast.relations.map((relation) => relation.id);
+  it('gives every relation an id derived from its source line, not its array index', () => {
+    // A blank line before the second Rel, so the two ids differ by two rather
+    // than by one: an index-derived id would read rel-1/rel-2 whatever the
+    // source looked like, and the literal shape is what says which it is.
+    const ast = parse('C4Context\nRel(a, b, "x")\n\nRel(a, b, "y")');
 
-    expect(new Set(ids).size).toBe(2);
-    expect(ids.every((id) => id.includes('3') || id.includes('2'))).toBe(true);
+    expect(ast.relations.map((relation) => relation.id)).toEqual(['rel-2-0', 'rel-4-1']);
   });
 
   it('reads BiRel as bidirectional', () => {

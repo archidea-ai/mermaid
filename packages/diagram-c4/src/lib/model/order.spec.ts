@@ -22,8 +22,16 @@ describe('orderMembers', () => {
     expect(ordered.indexOf('d')).toBeLessThan(ordered.indexOf('c'));
   });
 
-  it('ignores a link to something outside the set — it has no position here', () => {
+  it('counts a link leaving the set, projecting it onto whichever edge is nearer', () => {
+    // Not "ignores": Task 17 made an outward link count. `a` is already at the
+    // front, so projecting its outward link onto the front edge leaves the
+    // order alone — which is why this pair alone cannot tell counting from
+    // discarding.
     expect(orderMembers(['a', 'b'], [link('a', 'faraway')])).toEqual(['a', 'b']);
+    // `b` sits in the middle of three and is nearer the front, so the same
+    // projection pulls it past `a`, which has nothing pulling it anywhere.
+    // Discarding the link would have left this one ['a', 'b', 'c'].
+    expect(orderMembers(['a', 'b', 'c'], [link('b', 'faraway')])).toEqual(['b', 'a', 'c']);
   });
 
   it('is stable: the same input gives the same order every time', () => {

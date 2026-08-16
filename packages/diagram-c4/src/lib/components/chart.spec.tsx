@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { parse } from '../parser/parse';
 import { C4Chart } from './chart';
+import type { CSSProperties } from 'react';
 
 const ast = parse(`C4Container
 title Internet Banking
@@ -88,6 +89,54 @@ describe('C4Chart', () => {
 
     const box = screen.getByText('P').closest('.c4-element') as HTMLElement;
     expect(box.style.getPropertyValue('--c4-element-fill')).toBe('#1168bd');
+  });
+
+  /*
+   * Asserted on the rendered element, never on the ast: both of these were
+   * parsed, recorded and tested at the parser — and drawn nowhere. A boundary
+   * wrote the *element* properties, which `.c4-element` re-declares on itself
+   * and so overrides, and a line had no style hook at all.
+   */
+  it('paints a boundary in the colour its own directive declares', () => {
+    const styled = parse(`C4Context
+System_Boundary(b, "B") { }
+UpdateBoundaryStyle(b, $borderColor="#00ff00", $bgColor="#001100")`);
+    const { container } = render(<C4Chart ast={styled} id="bstyle" />);
+
+    const box = container.querySelector('.c4-boundary') as HTMLElement;
+    expect(box.style.getPropertyValue('--c4-boundary-stroke')).toBe('#00ff00');
+    expect(box.style.getPropertyValue('--c4-boundary-fill')).toBe('#001100');
+    // The element properties are what `.c4-boundary` does *not* read.
+    expect(box.style.getPropertyValue('--c4-element-stroke')).toBe('');
+  });
+
+  it('paints a line in the colour its own relation declares', () => {
+    const styled = parse(`C4Context
+System(a, "A")
+System(b, "B")
+Rel(a, b, "calls")
+UpdateRelStyle(a, b, $lineColor="#ff0000")`);
+    const { container } = render(<C4Chart ast={styled} id="rstyle" />);
+
+    const path = container.querySelector('.c4-link') as unknown as SVGPathElement;
+    expect(path.style.getPropertyValue('--c4-link-stroke')).toBe('#ff0000');
+  });
+
+  it('leaves an aggregated line uncoloured, because it stands for more than one style', () => {
+    // UpdateRelStyle names a *pair*, and every relation between that pair
+    // takes it — so an aggregate can hold two contradicting colours and
+    // drawing either would state something the source never did.
+    const styled = parse(`C4Context
+System(a, "A")
+System(b, "B")
+Rel(a, b, "one")
+Rel(a, b, "two")
+UpdateRelStyle(a, b, $lineColor="#ff0000")`);
+    const { container } = render(<C4Chart ast={styled} id="rstyle2" />);
+
+    const path = container.querySelector('.c4-link') as unknown as SVGPathElement;
+    expect(container.querySelectorAll('.c4-link')).toHaveLength(1);
+    expect(path.style.getPropertyValue('--c4-link-stroke')).toBe('');
   });
 });
 
@@ -328,6 +377,49 @@ Rel(api, customer, "notifies")`);
     expect(screen.queryByText('API')).toBeNull();
   });
 
+  /*
+   * base-ui's Portal appends to <body>, outside the chart root — and every
+   * --seq-* token is declared on `.archidea-sequence` and nowhere else. A
+   * popup without that class made every token-reading declaration in c4.css
+   * invalid at computed-value time: no background, no border, no scrim, the
+   * host page's font. `toBeVisible()` said nothing about any of it.
+   */
+  it('wears the token class on the portalled popup, or the dialog renders unstyled', async () => {
+    const user = userEvent.setup();
+    const { container } = render(<C4Chart ast={dense} id="dense-portal" />);
+
+    await user.click(screen.getByRole('button', { name: /3 relations/ }));
+
+    const dialog = screen.getByRole('dialog');
+    // Portalled: the chart's own root is not an ancestor, so the class it
+    // wears cannot reach here by inheritance.
+    expect(container.contains(dialog)).toBe(false);
+    expect(dialog.closest('.archidea-sequence')).not.toBeNull();
+    expect(
+      document.querySelector('.c4-dialog__backdrop')?.closest('.archidea-sequence'),
+    ).not.toBeNull();
+  });
+
+  it('carries the host theme across the portal, which inheritance cannot', async () => {
+    const user = userEvent.setup();
+    render(
+      <C4Chart
+        ast={dense}
+        id="dense-theme"
+        // A theme override is inline custom properties on the renderer root —
+        // the documented mechanism, and one the portal cuts off. `width` is
+        // here to prove only the theme travels: a modal is not the diagram.
+        style={{ '--seq-surface-raised': '#123456', width: '640px' } as CSSProperties}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: /3 relations/ }));
+
+    const dialog = screen.getByRole('dialog');
+    expect(dialog.style.getPropertyValue('--seq-surface-raised')).toBe('#123456');
+    expect(dialog.style.width).toBe('');
+  });
+
   it('closes the dialog when the source changes underneath it', async () => {
     const user = userEvent.setup();
     const { rerender } = render(<C4Chart ast={dense} id="dense6" />);
@@ -384,17 +476,86 @@ describe('C4Chart — events', () => {
   });
 
   it('marks the box a controlling non-null selection names as selected', () => {
+    // A genuine payload, exactly as `toElementRef` builds it — the shape a
+    // host echoes back from `onSelect`.
+    const element = ast.elements.find((candidate) => candidate.id === 'customer')!;
     const { container } = render(
       <C4Chart
         ast={ast}
         id="ev3b"
-        selection={{ kind: 'node', id: 'customer', diagramType: 'c4', data: { type: 'element' } }}
+        selection={{
+          kind: 'node',
+          id: 'customer',
+          diagramType: 'c4',
+          data: { type: 'element', element },
+        }}
       />,
     );
 
     const selected = container.querySelectorAll('[data-selected="true"]');
     expect(selected).toHaveLength(1);
     expect(selected[0]?.querySelector('.c4-element__name')?.textContent).toBe('Banking Customer');
+  });
+
+  /*
+   * The case the README documents: a search box holds an id and a kind, and
+   * nothing else. Requiring the payload made every such ref resolve to null,
+   * and silently — so the only selection anyone could actually drive from
+   * outside was one echoed straight back from `onSelect`.
+   */
+  describe('a controlling ref carrying only an id and a kind', () => {
+    it('selects the element a node ref names', () => {
+      const { container } = render(
+        <C4Chart
+          ast={ast}
+          id="bare1"
+          selection={{ kind: 'node', id: 'customer', diagramType: 'c4' }}
+        />,
+      );
+
+      const selected = container.querySelectorAll('[data-selected="true"]');
+      expect(selected).toHaveLength(1);
+      expect(selected[0]?.querySelector('.c4-element__name')?.textContent).toBe('Banking Customer');
+    });
+
+    it('selects the boundary a group ref names', () => {
+      const { container } = render(
+        <C4Chart
+          ast={ast}
+          id="bare2"
+          selection={{ kind: 'group', id: 'banking', diagramType: 'c4' }}
+        />,
+      );
+
+      expect(container.querySelectorAll('.c4-boundary[data-selected="true"]')).toHaveLength(1);
+    });
+
+    it('selects the relation an edge ref names, and opens what hides its ends', () => {
+      render(
+        <C4Chart
+          ast={ast}
+          id="bare3"
+          selection={{ kind: 'edge', id: ast.relations[0]!.id, diagramType: 'c4' }}
+        />,
+      );
+
+      expect(screen.getByText('Single-Page App', { selector: '.c4-element__name' })).toBeDefined();
+      expect(screen.getByRole('complementary').textContent).toContain('views balances');
+    });
+
+    it('selects the drawn line an edge ref names, when the id is a line rather than a relation', () => {
+      const { container } = render(
+        <C4Chart
+          ast={ast}
+          id="bare4"
+          selection={{ kind: 'edge', id: 'banking::customer', diagramType: 'c4' }}
+        />,
+      );
+
+      // Everything starts shut, so customer ↔ the boundary is the one line.
+      expect(container.querySelectorAll('.c4-link[data-lit="true"]')).toHaveLength(1);
+      expect(screen.getByRole('complementary').textContent).toContain('1 relation');
+    });
   });
 
   it('opens the boundaries hiding a relation the controller selects from outside', () => {
@@ -476,5 +637,80 @@ describe('C4Chart — a dynamic run', () => {
       true,
     );
     expect(screen.getByText('Step 2 of 2')).toBeDefined();
+  });
+
+  /*
+   * A run is not a lock on the chart.
+   *
+   * `commit` closes over the link set, which is rebuilt whenever a boundary
+   * opens or shuts — so the step effect re-fired on every collapse change and
+   * re-committed the step's relation, which the reveal effect then re-opened.
+   * Collapse all and every chevron were dead for the rest of a run, a viewer's
+   * own pick was silently thrown away, and one click reported itself twice.
+   * The four tests below are that behaviour, one consequence each.
+   */
+  it('lets Collapse all shut a boundary mid-run, and leaves it shut', async () => {
+    const user = userEvent.setup();
+    render(<C4Chart ast={dynamic} id="run5" />);
+
+    await user.click(screen.getByRole('button', { name: 'Next step' }));
+    expect(screen.getByText('Reset Controller', { selector: '.c4-element__name' })).toBeDefined();
+
+    await user.click(screen.getByRole('button', { name: 'Collapse all' }));
+    expect(screen.queryByText('Reset Controller', { selector: '.c4-element__name' })).toBeNull();
+  });
+
+  it('lets a chevron shut the very boundary the step opened, and leaves it shut', async () => {
+    const user = userEvent.setup();
+    render(<C4Chart ast={dynamic} id="run6" />);
+
+    await user.click(screen.getByRole('button', { name: 'Next step' }));
+    await user.click(screen.getByRole('button', { name: /Collapse API Application/ }));
+
+    expect(screen.queryByText('Reset Controller', { selector: '.c4-element__name' })).toBeNull();
+  });
+
+  it('keeps a viewer own pick when a boundary is toggled mid-run', async () => {
+    const user = userEvent.setup();
+    const { container } = render(<C4Chart ast={dynamic} id="run7" />);
+
+    await user.click(screen.getByRole('button', { name: 'Next step' }));
+    await user.click(screen.getByRole('button', { name: /SPA/ }));
+    expect(container.querySelectorAll('.c4-element[data-selected="true"]')).toHaveLength(1);
+
+    await user.click(screen.getByRole('button', { name: /Collapse API Application/ }));
+
+    const selected = container.querySelectorAll('.c4-element[data-selected="true"]');
+    expect(selected).toHaveLength(1);
+    expect(selected[0]?.querySelector('.c4-element__name')?.textContent).toBe('SPA');
+  });
+
+  it('reports one step as one selection, not two', async () => {
+    const user = userEvent.setup();
+    const onSelect = vi.fn();
+    render(<C4Chart ast={dynamic} id="run8" onSelect={onSelect} />);
+
+    await user.click(screen.getByRole('button', { name: 'Next step' }));
+
+    expect(onSelect).toHaveBeenCalledTimes(1);
+    expect(onSelect).toHaveBeenCalledWith(
+      expect.objectContaining({
+        element: expect.objectContaining({ kind: 'edge', id: dynamic.relations[0]!.id }),
+      }),
+    );
+  });
+
+  it('still opens what hides a step, and opens it again after the viewer shuts it', async () => {
+    const user = userEvent.setup();
+    render(<C4Chart ast={dynamic} id="run9" />);
+
+    await user.click(screen.getByRole('button', { name: 'Next step' }));
+    expect(screen.getByText('Reset Controller', { selector: '.c4-element__name' })).toBeDefined();
+
+    // Shut it by hand, then step on: the next step's reveal must still fire.
+    await user.click(screen.getByRole('button', { name: /Collapse API Application/ }));
+    await user.click(screen.getByRole('button', { name: 'Next step' }));
+
+    expect(screen.getByText('Security', { selector: '.c4-element__name' })).toBeDefined();
   });
 });

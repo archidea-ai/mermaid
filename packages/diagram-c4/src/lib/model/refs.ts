@@ -22,7 +22,16 @@ export type C4SelectionData =
   | {
       readonly type: 'boundary';
       readonly boundary: C4Boundary;
-      readonly members: readonly string[];
+      /**
+       * The ids of this boundary's *direct* children — nested boundaries
+       * included, and nothing from inside them.
+       *
+       * Deliberately not the same number the chart's own badge and detail
+       * panel show: those read `elementCountOf`, which descends the whole
+       * subtree and counts elements only. Both facts are true and neither is
+       * the other, so the field says which one it is.
+       */
+      readonly childIds: readonly string[];
     }
   | { readonly type: 'link'; readonly link: C4Link }
   | {
@@ -36,7 +45,31 @@ export interface C4ElementRef extends DiagramElementRef {
 }
 
 export function isC4Selection(ref: DiagramElementRef | null): ref is C4ElementRef {
-  return !!ref && ref.diagramType === C4_DIAGRAM_TYPE && !!ref.data;
+  return isC4Ref(ref) && !!ref.data;
+}
+
+/**
+ * A ref this renderer owns, payload or no payload.
+ *
+ * `isC4Selection` narrows to the full payload `toElementRef` produces; this
+ * one only asks whose diagram it is, which is what an id-and-kind ref built
+ * by a consumer can honestly answer.
+ */
+export function isC4Ref(ref: DiagramElementRef | null): ref is DiagramElementRef {
+  return !!ref && ref.diagramType === C4_DIAGRAM_TYPE;
+}
+
+/**
+ * What a bare ref is resolved against.
+ *
+ * `node` and `group` say which half of the model they mean on their own, but
+ * `edge` covers both a drawn line and one relation riding on it — so that one
+ * is decided by looking the id up, which only the chart (holding the ast and
+ * the current link set) can do.
+ */
+export interface C4RefLookup {
+  readonly ast: C4Ast;
+  readonly links: C4LinkSet;
 }
 
 /**
@@ -76,7 +109,7 @@ export function toElementRef(
       data: {
         type: 'boundary',
         boundary,
-        members: tree.boxes.get(selection.id)?.children ?? [],
+        childIds: tree.boxes.get(selection.id)?.children ?? [],
       },
     };
   }
@@ -93,18 +126,47 @@ export function toElementRef(
   return { ...base, kind: 'edge', data: { type: 'relation', relation, linkId } };
 }
 
-/** The inverse, so a controlling prop can drive the chart. */
-export function fromElementRef(ref: DiagramElementRef | null): C4Selection | null {
-  if (!isC4Selection(ref)) return null;
+/**
+ * The inverse, so a controlling prop can drive the chart.
+ *
+ * Two shapes are accepted, because two exist in practice. A ref echoed back
+ * from `onSelect` carries the full payload and says outright what it is. A ref
+ * a consumer *builds* — the search box and the external list the README
+ * promises — has an id and a kind and nothing else, because that is all a
+ * search index holds; requiring the payload made the documented case
+ * unbuildable, and failing it silently made that invisible.
+ */
+export function fromElementRef(
+  ref: DiagramElementRef | null,
+  lookup?: C4RefLookup,
+): C4Selection | null {
+  if (!isC4Ref(ref)) return null;
 
-  switch (ref.data.type) {
-    case 'element':
-      return { kind: 'element', id: ref.id };
-    case 'boundary':
-      return { kind: 'boundary', id: ref.id };
-    case 'link':
-      return { kind: 'link', id: ref.id };
-    default:
-      return { kind: 'relation', id: ref.id };
+  if (isC4Selection(ref)) {
+    switch (ref.data.type) {
+      case 'element':
+        return { kind: 'element', id: ref.id };
+      case 'boundary':
+        return { kind: 'boundary', id: ref.id };
+      case 'link':
+        return { kind: 'link', id: ref.id };
+      default:
+        return { kind: 'relation', id: ref.id };
+    }
   }
+
+  if (ref.kind === 'node') return { kind: 'element', id: ref.id };
+  if (ref.kind === 'group') return { kind: 'boundary', id: ref.id };
+
+  if (ref.kind === 'edge') {
+    // A line first: its id is the pair id the chart draws, and a relation id
+    // never collides with one. Without a lookup there is nothing to decide
+    // against, so nothing is claimed.
+    if (lookup?.links.byId.has(ref.id)) return { kind: 'link', id: ref.id };
+    if (lookup?.ast.relations.some((relation) => relation.id === ref.id)) {
+      return { kind: 'relation', id: ref.id };
+    }
+  }
+
+  return null;
 }

@@ -1,6 +1,6 @@
 import { ChevronDownIcon, ChevronRightIcon } from 'lucide-react';
 import { withBreaks } from '@archidea-ai/mermaid-diagram-sequence';
-import { styleOf } from './element';
+import { styleOfBoundary } from './element';
 import type { ReactNode } from 'react';
 import type { C4Boundary } from '../parser/ast';
 
@@ -42,7 +42,7 @@ export function C4BoundaryBox({
       data-node={boundary.isNode}
       data-lit={lit}
       data-selected={selected}
-      style={styleOf(boundary)}
+      style={styleOfBoundary(boundary)}
       /*
        * A shut boundary is one box, so it anchors on itself; an open one is a
        * container the size of its members, and a line to its middle would run

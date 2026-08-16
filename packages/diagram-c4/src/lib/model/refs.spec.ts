@@ -30,7 +30,11 @@ describe('toElementRef', () => {
     const ref = toElementRef({ kind: 'boundary', id: 'bank' }, tree, links, ast)!;
 
     expect(ref.kind).toBe('group');
-    expect(isC4Selection(ref) && ref.data.type === 'boundary' && ref.data.members).toEqual(['api']);
+    // `childIds`, not "members": these are the boundary's direct children,
+    // while the badge and the detail panel count elements recursively.
+    expect(isC4Selection(ref) && ref.data.type === 'boundary' && ref.data.childIds).toEqual([
+      'api',
+    ]);
   });
 
   it('maps a link and a relation to the edge kind, so no new kind is needed', () => {
@@ -126,5 +130,51 @@ describe('fromElementRef', () => {
 
   it('ignores a ref from another diagram type', () => {
     expect(fromElementRef({ kind: 'node', id: 'x', diagramType: 'sequence' })).toBeNull();
+  });
+
+  /*
+   * The case the README documents and the branch could not build: a search box
+   * or an external list holds an id and a kind, never the payload `onSelect`
+   * hands back. Requiring the payload made every such ref resolve to null, and
+   * resolve silently.
+   */
+  describe('a bare ref, carrying only an id and a kind', () => {
+    const lookup = { ast, links };
+
+    it('reads a node as the element it names', () => {
+      expect(fromElementRef({ kind: 'node', id: 'customer', diagramType: 'c4' }, lookup)).toEqual({
+        kind: 'element',
+        id: 'customer',
+      });
+    });
+
+    it('reads a group as the boundary it names', () => {
+      expect(fromElementRef({ kind: 'group', id: 'bank', diagramType: 'c4' }, lookup)).toEqual({
+        kind: 'boundary',
+        id: 'bank',
+      });
+    });
+
+    it('reads an edge naming a drawn line as that line', () => {
+      expect(
+        fromElementRef({ kind: 'edge', id: 'api::customer', diagramType: 'c4' }, lookup),
+      ).toEqual({ kind: 'link', id: 'api::customer' });
+    });
+
+    it('reads an edge naming one relation as that relation', () => {
+      const id = ast.relations[0]!.id;
+      expect(fromElementRef({ kind: 'edge', id, diagramType: 'c4' }, lookup)).toEqual({
+        kind: 'relation',
+        id,
+      });
+    });
+
+    it('claims nothing for an edge the model does not have', () => {
+      expect(fromElementRef({ kind: 'edge', id: 'ghost', diagramType: 'c4' }, lookup)).toBeNull();
+    });
+
+    it('claims nothing for an edge with no model to decide against', () => {
+      expect(fromElementRef({ kind: 'edge', id: 'api::customer', diagramType: 'c4' })).toBeNull();
+    });
   });
 });

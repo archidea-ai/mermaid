@@ -82,6 +82,17 @@ const [selection, setSelection] = useState<DiagramElementRef | null>(null);
 when the pick did not come from a click — a C4 dynamic run's step and the
 controlling prop itself both select without one.
 
+A ref echoed back from `onSelect` carries a renderer-specific `data` payload,
+but you do not have to build one: an id and a kind are enough, which is all a
+search index holds.
+
+```tsx
+<Mermaid text={source} selection={{ kind: 'node', id: 'customer', diagramType: 'c4' }} />
+```
+
+For C4, `node` names an element, `group` a boundary, and `edge` either a drawn
+line or one relation on it — whichever the id turns out to be.
+
 ## Interactive sequence diagrams
 
 Two extensions to mermaid syntax, both written inside message text so the same

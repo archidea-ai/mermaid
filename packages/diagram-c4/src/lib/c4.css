@@ -139,15 +139,24 @@
 
 /* --- boundaries --------------------------------------------------------- */
 
+/*
+ * Its own three properties, not the element ones: `.c4-element` re-declares
+ * those on itself, so anything a boundary set would be overridden the moment
+ * it reached a member — and never read by the boundary either.
+ */
 .c4-boundary {
+  --c4-boundary-fill: var(--seq-surface);
+  --c4-boundary-stroke: var(--seq-border);
+  --c4-boundary-text: var(--seq-text-strong);
+
   position: relative;
   z-index: 1;
   display: grid;
   gap: 8px;
   padding: 10px;
-  border: 1px dashed var(--seq-border);
+  border: 1px dashed var(--c4-boundary-stroke);
   border-radius: var(--seq-radius);
-  background: var(--seq-surface);
+  background: var(--c4-boundary-fill);
 }
 
 /* A deployment node is infrastructure, not a drawn grouping — it reads solid. */
@@ -203,7 +212,7 @@
 
 .c4-boundary__name {
   font-weight: 600;
-  color: var(--seq-text-strong);
+  color: var(--c4-boundary-text);
 }
 
 .c4-boundary__select {
@@ -236,7 +245,11 @@
 }
 
 .c4-link {
-  stroke: var(--seq-message);
+  /* The seam UpdateRelStyle's line colour arrives through, defaulted to the
+   * token so a diagram declaring none is themed like everything else. */
+  --c4-link-stroke: var(--seq-message);
+
+  stroke: var(--c4-link-stroke);
   stroke-width: 1.5;
   stroke-linecap: round;
   transition: stroke var(--seq-duration) var(--seq-easing);
@@ -361,12 +374,20 @@
   background: color-mix(in oklab, var(--seq-text) 40%, transparent);
 }
 
+/*
+ * Both halves of the dialog wear `archidea-sequence` themselves — the portal
+ * puts them under <body>, and that is the only class the --seq-* tokens are
+ * declared on. It brings the renderer root's own grid with it, so the one
+ * declaration that is about a diagram canvas rather than a token is reset
+ * here: this box sizes to its four rows of content.
+ */
 .c4-dialog {
   position: fixed;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
   display: grid;
+  grid-template-rows: none;
   gap: 10px;
   width: min(34rem, calc(100vw - 2rem));
   max-height: min(32rem, calc(100vh - 2rem));

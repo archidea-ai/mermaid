@@ -1,10 +1,27 @@
 import { Dialog } from '@base-ui/react/dialog';
+import type { CSSProperties } from 'react';
 import type { C4Link } from '../model/links';
 import type { C4Relation } from '../parser/ast';
 import type { C4Tree } from '../model/tree';
 
 function nameOf(id: string, tree: C4Tree): string {
   return tree.elementById.get(id)?.label ?? tree.boundaryById.get(id)?.label ?? id;
+}
+
+/**
+ * The host's theme, and nothing else it happened to put on the root.
+ *
+ * A theme override is inline custom properties on the renderer root — that is
+ * the documented mechanism, because an ancestor cannot beat the root's own
+ * class rule. The portal breaks the inheritance that carries them, so they are
+ * copied across by hand. Only the `--*` declarations: a width or a height the
+ * host set for its diagram means nothing to a centred modal.
+ */
+function themeOf(style: CSSProperties | undefined): CSSProperties {
+  if (!style) return {};
+  return Object.fromEntries(
+    Object.entries(style).filter(([property]) => property.startsWith('--')),
+  ) as CSSProperties;
 }
 
 /**
@@ -18,20 +35,32 @@ export function C4LinkDialog({
   link,
   tree,
   open,
+  style,
   onOpenChange,
   onPick,
 }: {
   link: C4Link | null;
   tree: C4Tree;
   open: boolean;
+  /** The chart root's own style, so the portal carries the host's theme. */
+  style?: CSSProperties;
   onOpenChange: (open: boolean) => void;
   onPick: (relation: C4Relation) => void;
 }) {
+  const theme = themeOf(style);
+
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
+      {/*
+       * The portal appends to <body>, outside the chart root — so both halves
+       * wear `archidea-sequence` themselves. Every --seq-* token is declared
+       * on that class and nothing else, and a portalled element that does not
+       * carry it renders with no background, no border and the host page's
+       * font: exactly the "renders unstyled" failure the house rules name.
+       */}
       <Dialog.Portal>
-        <Dialog.Backdrop className="c4-dialog__backdrop" />
-        <Dialog.Popup className="c4-dialog">
+        <Dialog.Backdrop className="archidea-sequence c4-dialog__backdrop" style={theme} />
+        <Dialog.Popup className="archidea-sequence c4-dialog" style={theme}>
           <Dialog.Title className="c4-dialog__title">
             {link ? `${nameOf(link.a, tree)} ↔ ${nameOf(link.b, tree)}` : ''}
           </Dialog.Title>

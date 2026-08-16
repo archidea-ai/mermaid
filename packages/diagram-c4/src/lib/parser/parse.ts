@@ -175,7 +175,6 @@ export function parse(source: string): C4Ast {
 
   let kind: C4DiagramKind | null = null;
   let title: string | null = null;
-  let headerLine = 0;
   const elements: C4Element[] = [];
   const boundaries: C4Boundary[] = [];
   const relations: C4Relation[] = [];
@@ -199,7 +198,6 @@ export function parse(source: string): C4Ast {
       const header = /^(C4Context|C4Container|C4Component|C4Dynamic|C4Deployment)\b/.exec(text);
       if (!header) throw new C4ParseError('Not a C4 diagram', index + 1, raw.trim());
       kind = HEADERS[header[1]!]!;
-      headerLine = index + 1;
       continue;
     }
 
@@ -353,7 +351,6 @@ export function parse(source: string): C4Ast {
   }
 
   if (!kind) throw new C4ParseError('Not a C4 diagram', 1, lines[0]?.trim() ?? '');
-  void headerLine;
 
   if (stack.length) {
     throw new C4ParseError(
