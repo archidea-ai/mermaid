@@ -28,11 +28,13 @@ export function useStepController(count: number): {
   const listeners = useRef(new Set<(index: number) => void>());
 
   // A live mirror of `current`, read by the controller's getters and by
-  // `next`/`prev` below. Without it, `controller` would need `current` in its
-  // own dependency list to stay honest — and recomputing on every step is
-  // exactly the churn this hook must not produce (see the memo below).
+  // `next`/`prev` below. `goTo` is the only writer — it sets this ref
+  // synchronously before `setCurrent`, so two calls in the same tick (no
+  // re-render between them) still see each other's result. Without it,
+  // `controller` would need `current` in its own dependency list to stay
+  // honest — and recomputing on every step is exactly the churn this hook
+  // must not produce (see the memo below).
   const currentRef = useRef(current);
-  currentRef.current = current;
 
   const goTo = useCallback(
     (index: number) => {
