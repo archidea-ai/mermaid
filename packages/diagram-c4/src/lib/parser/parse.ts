@@ -1,5 +1,14 @@
 import { MermaidReplacementError } from '@archidea-ai/mermaid-core';
-import type { C4Ast, C4Boundary, C4DiagramKind, C4Element, C4Kind } from './ast';
+import type {
+  C4Ast,
+  C4Boundary,
+  C4DiagramKind,
+  C4Element,
+  C4Hint,
+  C4Kind,
+  C4Relation,
+  C4Style,
+} from './ast';
 
 export class C4ParseError extends MermaidReplacementError {
   readonly line: number;
@@ -114,6 +123,41 @@ const BOUNDARIES: Readonly<Record<string, string | null>> = {
 /** A Deployment_Node and its aliases are boundaries that are also boxes. */
 const NODES = new Set(['Deployment_Node', 'Node', 'Node_L', 'Node_R']);
 
+/** Rel / BiRel, with the reversing `_Back` and the ignored direction hints. */
+const RELATION = /^(BiRel|Rel)(_Back)?(_U|_Up|_D|_Down|_L|_Left|_R|_Right)?$/;
+
+/**
+ * Direction suffixes are hints for upstream's graph solver, not for this
+ * layout — our boxes sit where the containment tree puts them, so a per-edge
+ * "draw this one going up" is recorded and never obeyed. `Rel_Back` is kept
+ * out of this table because it is not a hint: it swaps the ends outright.
+ */
+const HINTS: Readonly<Record<string, C4Hint>> = {
+  _U: 'up',
+  _Up: 'up',
+  _D: 'down',
+  _Down: 'down',
+  _L: 'left',
+  _Left: 'left',
+  _R: 'right',
+  _Right: 'right',
+};
+
+/** Directives whose colour is applied once the whole source has been read. */
+const STYLE_TARGETS = new Set(['UpdateElementStyle', 'UpdateRelStyle', 'UpdateBoundaryStyle']);
+
+/**
+ * Author-declared colour is content, the same sanctioned exception this
+ * repo's sequence renderer already makes for mermaid's own `rect rgb(...)`.
+ */
+function readStyle(args: C4Args): C4Style {
+  return {
+    background: args.named['bgColor'] ?? null,
+    border: args.named['borderColor'] ?? args.named['lineColor'] ?? null,
+    text: args.named['fontColor'] ?? args.named['textColor'] ?? null,
+  };
+}
+
 /**
  * Line-oriented parser for the C4 family.
  *
@@ -134,6 +178,12 @@ export function parse(source: string): C4Ast {
   let headerLine = 0;
   const elements: C4Element[] = [];
   const boundaries: C4Boundary[] = [];
+  const relations: C4Relation[] = [];
+  const ignored: { text: string; line: number }[] = [];
+  // A directive can name something declared later in the source, so it is
+  // collected here and applied only once every element, boundary and
+  // relation it might refer to has been read.
+  const styles: { name: string; args: C4Args }[] = [];
 
   // Boundaries nest, so "whose child is this line" is whatever is still open —
   // a stack of ids, innermost last.
@@ -245,6 +295,60 @@ export function parse(source: string): C4Ast {
       continue;
     }
 
+    // UpdateLayoutConfig tunes the upstream graph solver we do not run, so it
+    // is inert here — recorded rather than thrown away, so nothing vanishes
+    // silently, but never applied.
+    if (name === 'UpdateLayoutConfig') {
+      ignored.push({ text, line: index + 1 });
+      continue;
+    }
+
+    if (STYLE_TARGETS.has(name)) {
+      styles.push({ name, args });
+      continue;
+    }
+
+    // RelIndex takes an extra leading positional (the number), so it is read
+    // as a plain `Rel` once that argument has been split off.
+    const relation = name === 'RelIndex' ? RELATION.exec('Rel') : RELATION.exec(name);
+    if (relation) {
+      const indexed = name === 'RelIndex';
+      const positional = indexed ? args.positional.slice(1) : args.positional;
+
+      // Rel_Back's arrow points from its second argument to its first — every
+      // other form, including the direction hints, keeps them as written.
+      const [from, to] =
+        relation[2] === '_Back'
+          ? [positional[1] ?? '', positional[0] ?? '']
+          : [positional[0] ?? '', positional[1] ?? ''];
+
+      relations.push({
+        id: `rel-${index + 1}-${relations.length}`,
+        line: index + 1,
+        from,
+        to,
+        label: args.named['label'] ?? positional[2] ?? '',
+        technology: args.named['techn'] ?? positional[3] ?? null,
+        description: args.named['descr'] ?? positional[4] ?? null,
+        bidirectional: relation[1] === 'BiRel',
+        index: null,
+        hint: relation[3] ? (HINTS[relation[3]] ?? null) : null,
+        style: null,
+      });
+
+      if (indexed) {
+        // A non-numeric or missing index argument leaves `index` at its
+        // default of `null` — this is a dynamic diagram's step number, not
+        // something the parser refuses to read.
+        const number = Number(args.positional[0]);
+        const last = relations[relations.length - 1];
+        if (Number.isFinite(number) && last) {
+          relations[relations.length - 1] = { ...last, index: number };
+        }
+      }
+      continue;
+    }
+
     throw new C4ParseError(`Unrecognised statement "${name}"`, index + 1, raw.trim());
   }
 
@@ -259,7 +363,52 @@ export function parse(source: string): C4Ast {
     );
   }
 
-  return { kind, title, elements, boundaries, relations: [], ignored: [] };
+  /*
+   * A dynamic diagram's relations are its steps, so they carry a number.
+   * Declaration order supplies it wherever RelIndex did not. The `[...]` copy
+   * (rather than reusing `relations` itself) keeps the style pass below from
+   * mutating an array something else might still hold a reference to.
+   */
+  const numbered: C4Relation[] =
+    kind === 'dynamic'
+      ? relations.map((relation, position) => ({
+          ...relation,
+          index: relation.index ?? position + 1,
+        }))
+      : [...relations];
+
+  const elementById = new Map(elements.map((element, position) => [element.id, position]));
+  const boundaryById = new Map(boundaries.map((boundary, position) => [boundary.id, position]));
+
+  for (const { name, args } of styles) {
+    const style = readStyle(args);
+    const target = args.positional[0] ?? '';
+
+    if (name === 'UpdateElementStyle') {
+      const at = elementById.get(target);
+      if (at !== undefined) elements[at] = { ...elements[at]!, style };
+      continue;
+    }
+    if (name === 'UpdateBoundaryStyle') {
+      const at = boundaryById.get(target);
+      if (at !== undefined) boundaries[at] = { ...boundaries[at]!, style };
+      continue;
+    }
+
+    // UpdateRelStyle names a pair, and every relation between them takes it,
+    // in either direction — the author is styling the connection, not one
+    // arrow's-worth of `from`/`to` bookkeeping.
+    const other = args.positional[1] ?? '';
+    for (let at = 0; at < numbered.length; at += 1) {
+      const relation = numbered[at]!;
+      const matches =
+        (relation.from === target && relation.to === other) ||
+        (relation.from === other && relation.to === target);
+      if (matches) numbered[at] = { ...relation, style };
+    }
+  }
+
+  return { kind, title, elements, boundaries, relations: numbered, ignored };
 }
 
 /** Strips a `%%` comment, but only outside a quoted string. */

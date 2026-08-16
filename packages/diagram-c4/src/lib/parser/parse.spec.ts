@@ -211,3 +211,119 @@ describe('parse — boundaries', () => {
     expect(ast.elements[0]?.parent).toBe('');
   });
 });
+
+describe('parse — relations', () => {
+  it('reads a relation with its label and technology', () => {
+    const ast = parse(`C4Container
+    Container(spa, "SPA", "Angular")
+    Container(api, "API", "Java")
+    Rel(spa, api, "Makes API calls to", "JSON/HTTPS")`);
+
+    expect(ast.relations[0]).toMatchObject({
+      from: 'spa',
+      to: 'api',
+      label: 'Makes API calls to',
+      technology: 'JSON/HTTPS',
+      bidirectional: false,
+      hint: null,
+    });
+  });
+
+  it('gives every relation an id derived from its position, not its index', () => {
+    const ast = parse('C4Context\nRel(a, b, "x")\nRel(a, b, "y")');
+    const ids = ast.relations.map((relation) => relation.id);
+
+    expect(new Set(ids).size).toBe(2);
+    expect(ids.every((id) => id.includes('3') || id.includes('2'))).toBe(true);
+  });
+
+  it('reads BiRel as bidirectional', () => {
+    expect(parse('C4Context\nBiRel(a, b, "syncs with")').relations[0]?.bidirectional).toBe(true);
+  });
+
+  it('swaps the ends of Rel_Back, because the arrow points the other way', () => {
+    const back = parse('C4Context\nRel_Back(a, b, "feeds")').relations[0];
+    expect([back?.from, back?.to]).toEqual(['b', 'a']);
+  });
+
+  it('records a direction suffix as a hint and keeps the ends as written', () => {
+    const ast = parse(`C4Context
+    Rel_U(a, b, "up")
+    Rel_Down(c, d, "down")
+    Rel_L(e, f, "left")
+    Rel_R(g, h, "right")`);
+
+    expect(ast.relations.map((r) => [r.from, r.to, r.hint])).toEqual([
+      ['a', 'b', 'up'],
+      ['c', 'd', 'down'],
+      ['e', 'f', 'left'],
+      ['g', 'h', 'right'],
+    ]);
+  });
+
+  it('numbers a dynamic diagram by declaration order, and honours RelIndex', () => {
+    const dynamic = parse(`C4Dynamic
+    Rel(a, b, "first")
+    RelIndex(7, b, c, "seventh")
+    Rel(c, d, "third")`);
+
+    expect(dynamic.relations.map((r) => [r.label, r.index])).toEqual([
+      ['first', 1],
+      ['seventh', 7],
+      ['third', 3],
+    ]);
+  });
+
+  it('leaves index null outside a dynamic diagram', () => {
+    expect(parse('C4Context\nRel(a, b, "x")').relations[0]?.index).toBeNull();
+  });
+
+  it('reads a description from the fifth positional arg or a named one', () => {
+    const ast = parse(`C4Container
+    Rel(a, b, "calls", "HTTPS", "Only on the happy path")
+    Rel(c, d, "calls", "HTTPS", $descr="Named instead")`);
+
+    expect(ast.relations.map((r) => r.description)).toEqual([
+      'Only on the happy path',
+      'Named instead',
+    ]);
+  });
+});
+
+describe('parse — style directives', () => {
+  it('applies an element style as author-declared colour', () => {
+    const ast = parse(`C4Context
+    Person(customer, "Customer")
+    UpdateElementStyle(customer, $bgColor="#1168bd", $fontColor="#ffffff")`);
+
+    expect(ast.elements[0]?.style).toEqual({
+      background: '#1168bd',
+      border: null,
+      text: '#ffffff',
+    });
+  });
+
+  it('applies a relation style to every relation between the named pair', () => {
+    const ast = parse(`C4Context
+    Rel(a, b, "one")
+    Rel(a, b, "two")
+    Rel(b, c, "three")
+    UpdateRelStyle(a, b, $lineColor="#ff0000")`);
+
+    expect(ast.relations.map((r) => r.style?.border ?? null)).toEqual(['#ff0000', '#ff0000', null]);
+  });
+
+  it('applies a boundary style', () => {
+    const ast = parse(`C4Context
+    System_Boundary(b, "B") { }
+    UpdateBoundaryStyle(b, $borderColor="#00ff00")`);
+
+    expect(ast.boundaries[0]?.style?.border).toBe('#00ff00');
+  });
+
+  it('records UpdateLayoutConfig as ignored — it configures a solver we do not run', () => {
+    const ast = parse('C4Context\nUpdateLayoutConfig($c4ShapeInRow="3")');
+    expect(ast.ignored).toEqual([{ text: 'UpdateLayoutConfig($c4ShapeInRow="3")', line: 2 }]);
+    expect(ast.relations).toEqual([]);
+  });
+});
