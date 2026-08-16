@@ -75,3 +75,30 @@ describe('state diagram registration', () => {
     expect(defaultRegistry.resolve('gantt').id).toBe('proxy');
   });
 });
+
+describe('c4 registration', () => {
+  it('resolves the c4 type to the native renderer', async () => {
+    await import('../index');
+    const { defaultRegistry } = await import('@archidea-ai/mermaid-core');
+
+    expect(defaultRegistry.resolve('c4').id).toBe('c4-react');
+  });
+
+  it('claims stepping for every C4 type, because the transport must stay visible even where only C4Dynamic has a run', async () => {
+    await import('../index');
+    const { defaultRegistry } = await import('@archidea-ai/mermaid-core');
+
+    expect(defaultRegistry.resolve('c4').capabilities).toEqual({
+      events: true,
+      viewport: false,
+      step: true,
+    });
+  });
+
+  it('renders through a Component, not just the imperative renderToSvg path', async () => {
+    await import('../index');
+    const { defaultRegistry } = await import('@archidea-ai/mermaid-core');
+
+    expect(defaultRegistry.resolve('c4').Component).toBeTypeOf('function');
+  });
+});
