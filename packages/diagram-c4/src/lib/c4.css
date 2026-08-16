@@ -195,3 +195,49 @@
   align-items: flex-start;
   gap: 1.5rem;
 }
+
+/* --- links -------------------------------------------------------------- */
+
+.c4-chart__lines {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  /*
+   * `inset: 0` sizes this to the visible box, but the chart is wider than that
+   * once it scrolls. overflow: visible lets paths paint past the edge, and the
+   * anchors are measured in content coordinates so they scroll with the chart.
+   */
+  overflow: visible;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.c4-link {
+  stroke: var(--seq-message);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  transition: stroke var(--seq-duration) var(--seq-easing);
+}
+
+.c4-link__label {
+  position: absolute;
+  z-index: 2;
+  transform: translate(-50%, -50%);
+  padding: 1px 6px;
+  font-size: var(--seq-font-size-small);
+  color: var(--seq-message-text);
+  background: var(--seq-surface-sunken);
+  border-radius: var(--seq-radius);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* A count is a quantity, not a sentence — it reads as a chip. */
+.c4-link__label[data-aggregate='true'] {
+  min-width: 1.4em;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  color: var(--seq-text-strong);
+  border: 1px solid var(--seq-border);
+}

@@ -90,3 +90,68 @@ describe('C4Chart', () => {
     expect(box.style.getPropertyValue('--c4-element-fill')).toBe('#1168bd');
   });
 });
+
+describe('C4Chart — links', () => {
+  it('draws one line per visible pair', async () => {
+    const user = userEvent.setup();
+    const { container } = chart();
+    await user.click(screen.getByRole('button', { name: 'Expand all' }));
+
+    expect(container.querySelectorAll('.c4-link')).toHaveLength(1);
+  });
+
+  it('labels a line carrying one relation with that relation own words', async () => {
+    const user = userEvent.setup();
+    chart();
+    await user.click(screen.getByRole('button', { name: 'Expand all' }));
+
+    expect(screen.getByText('views balances')).toBeDefined();
+  });
+
+  it('labels an aggregate with its count instead — four labels on one arc is not a reading', () => {
+    const many = parse(`C4Context
+System(a, "A")
+System(b, "B")
+Rel(a, b, "one")
+Rel(a, b, "two")
+Rel(b, a, "three")`);
+    const { container } = render(<C4Chart ast={many} id="many" />);
+
+    expect(container.querySelectorAll('.c4-link')).toHaveLength(1);
+    // Asserted on the label element, not by text: Task 14 turns this into a
+    // control whose accessible name is "3 relations", and a getByText('3')
+    // written here would break there for no behavioural reason.
+    const label = container.querySelector('.c4-link__label[data-aggregate="true"]');
+    expect(label?.textContent).toContain('3');
+    expect(screen.queryByText('one')).toBeNull();
+  });
+
+  it('heads the line on whichever ends carry traffic', () => {
+    const both = parse(`C4Context
+System(a, "A")
+System(b, "B")
+Rel(a, b, "there")
+Rel(b, a, "back")`);
+    const { container } = render(<C4Chart ast={both} id="both" />);
+    const path = container.querySelector('.c4-link')!;
+
+    expect(path.getAttribute('marker-end')).not.toBeNull();
+    expect(path.getAttribute('marker-start')).not.toBeNull();
+  });
+
+  it('drops the line and counts the relation when a collapse makes it internal', () => {
+    const { container } = chart();
+    // Everything starts shut: customer → spa crosses the boundary, so it stays.
+    expect(container.querySelectorAll('.c4-link')).toHaveLength(1);
+
+    const inside = parse(`C4Container
+System_Boundary(b, "B") {
+    Container(x, "X", "T")
+    Container(y, "Y", "T")
+}
+Rel(x, y, "calls")`);
+    const shut = render(<C4Chart ast={inside} id="shut" />);
+
+    expect(shut.container.querySelectorAll('.c4-link')).toHaveLength(0);
+  });
+});
