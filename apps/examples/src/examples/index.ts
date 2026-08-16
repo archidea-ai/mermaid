@@ -261,4 +261,195 @@ export const examples: readonly DiagramExample[] = [
     Check -- yes --> Record[(Write the postmortem)]
     Record --> Close([Close incident])`,
   },
+  {
+    id: 'c4-context',
+    title: 'Big Bank plc — system context',
+    description:
+      'Everything starts shut. Open Customer Channels and five relations that were one aggregated line become five.',
+    source: `C4Context
+    title Big Bank plc — system context
+
+    Person(customer, "Personal Banking Customer", "A customer of the bank, with personal bank accounts.")
+
+    Enterprise_Boundary(bank, "Big Bank plc") {
+        Person_Ext(support, "Customer Service Staff", "Customer service staff within the bank.")
+        Person(backoffice, "Back Office Staff", "Administration and support staff within the bank.")
+
+        System_Boundary(channels, "Customer Channels") {
+            System(banking, "Internet Banking System", "Allows customers to view information about their bank accounts and make payments.")
+            System(mobileGw, "Mobile Gateway", "Serves the iOS and Android apps.")
+            System(atm, "ATM Network", "Allows customers to withdraw cash.")
+        }
+
+        System(mainframe, "Mainframe Banking System", "Stores all of the core banking information about customers, accounts and transactions.")
+        SystemDb(warehouse, "Data Warehouse", "Reporting and analytics over historical transactions.")
+        System_Ext(email, "E-mail System", "The internal Microsoft Exchange e-mail system.")
+    }
+
+    Rel(customer, banking, "Views account balances and makes payments using", "HTTPS")
+    Rel(customer, mobileGw, "Views account balances using", "HTTPS")
+    Rel(customer, atm, "Withdraws cash using")
+    Rel(customer, support, "Asks questions to", "Telephone")
+    Rel(banking, mainframe, "Gets account information from", "XML/HTTPS")
+    Rel(mobileGw, mainframe, "Gets account information from", "XML/HTTPS")
+    Rel(atm, mainframe, "Gets account information from")
+    Rel(support, mainframe, "Uses")
+    Rel(backoffice, mainframe, "Uses")
+    Rel(mainframe, warehouse, "Streams transactions to", "Kafka")
+    Rel(banking, email, "Sends e-mail using", "SMTP")
+    Rel(email, customer, "Sends e-mails to")
+    Rel(mobileGw, customer, "Sends push notifications to", "APNs, FCM")
+
+    UpdateElementStyle(customer, $bgColor="#1168bd", $fontColor="#ffffff")`,
+  },
+  {
+    id: 'c4-container',
+    title: 'Internet Banking — containers',
+    description:
+      'Two relations run API → Database and two run both ways to the event bus, so lines aggregate even with the boundary open.',
+    source: `C4Container
+    title Internet Banking System — containers
+
+    Person(customer, "Banking Customer", "A customer of the bank, with personal bank accounts.")
+
+    System_Boundary(banking, "Internet Banking System") {
+        Container(web, "Web Application", "Java, Spring MVC", "Delivers the static content and the single-page application.")
+        Container(spa, "Single-Page Application", "JavaScript, Angular", "Provides the banking functionality in the browser.")
+        Container(mobile, "Mobile App", "Kotlin, Android", "Provides a subset of the banking functionality to the customer's phone.")
+        Container(api, "API Application", "Java, Spring MVC", "Provides banking functionality via a JSON/HTTPS API.")
+        ContainerDb(db, "Database", "Oracle 19c", "Stores user registration information, hashed authentication credentials and access logs.")
+        ContainerQueue(events, "Event Bus", "Kafka", "Carries account and payment events to downstream consumers.")
+    }
+
+    System_Ext(email, "E-mail System", "The internal Microsoft Exchange e-mail system.")
+    System_Ext(mainframe, "Mainframe Banking System", "Stores all of the core banking information.")
+
+    Rel(customer, web, "Visits bigbank.com using", "HTTPS")
+    Rel(customer, spa, "Views account balances and makes payments using", "HTTPS")
+    Rel(customer, mobile, "Views account balances using")
+    Rel(web, spa, "Delivers to the customer's web browser")
+    Rel(spa, api, "Makes API calls to", "JSON/HTTPS")
+    Rel(mobile, api, "Makes API calls to", "JSON/HTTPS")
+    Rel(api, db, "Reads from and writes to", "JDBC")
+    Rel(api, db, "Writes access logs to", "JDBC")
+    Rel(api, events, "Publishes account events to", "Kafka")
+    Rel(events, api, "Delivers payment settlements to", "Kafka")
+    Rel(api, mainframe, "Makes API calls to", "XML/HTTPS")
+    Rel(api, email, "Sends e-mail using", "SMTP")
+    Rel(email, customer, "Sends e-mails to")
+    Rel(mobile, customer, "Sends push notifications to", "FCM")`,
+  },
+  {
+    id: 'c4-component',
+    title: 'API Application — components',
+    description:
+      'A boundary inside a boundary. Shut Domain Services and three controllers each keep a counted line into it.',
+    source: `C4Component
+    title API Application — components
+
+    Container_Boundary(api, "API Application") {
+        Component(signin, "Sign In Controller", "Spring MVC REST Controller", "Allows users to sign in to the internet banking system.")
+        Component(accounts, "Accounts Summary Controller", "Spring MVC REST Controller", "Provides customers with a summary of their bank accounts.")
+        Component(reset, "Reset Password Controller", "Spring MVC REST Controller", "Allows users to reset their passwords with a single-use URL.")
+
+        Container_Boundary(services, "Domain Services") {
+            Component(security, "Security Component", "Spring Bean", "Provides functionality related to signing in, changing passwords, and so on.")
+            Component(mailer, "E-mail Component", "Spring Bean", "Sends e-mails to users.")
+            Component(facade, "Mainframe Facade", "Spring Bean", "A facade onto the mainframe banking system.")
+            Component(audit, "Audit Component", "Spring Bean", "Records who did what, and when.")
+        }
+    }
+
+    ContainerDb(db, "Database", "Oracle 19c", "Stores user registration information and hashed credentials.")
+    System_Ext(mainframe, "Mainframe Banking System", "Stores all of the core banking information.")
+    System_Ext(email, "E-mail System", "The internal Microsoft Exchange e-mail system.")
+    Container(spa, "Single-Page Application", "JavaScript, Angular", "Provides the banking functionality in the browser.")
+
+    Rel(spa, signin, "Makes API calls to", "JSON/HTTPS")
+    Rel(spa, accounts, "Makes API calls to", "JSON/HTTPS")
+    Rel(spa, reset, "Makes API calls to", "JSON/HTTPS")
+    Rel(signin, security, "Uses")
+    Rel(accounts, facade, "Uses")
+    Rel(reset, security, "Uses")
+    Rel(reset, mailer, "Uses")
+    Rel(signin, audit, "Records sign-ins with")
+    Rel(reset, audit, "Records resets with")
+    Rel(accounts, audit, "Records reads with")
+    Rel(security, db, "Reads from and writes to", "JDBC")
+    Rel(audit, db, "Writes to", "JDBC")
+    Rel(facade, mainframe, "Makes API calls to", "XML/HTTPS")
+    Rel(mailer, email, "Sends e-mail using", "SMTP")`,
+  },
+  {
+    id: 'c4-deployment',
+    title: 'Internet Banking — production deployment',
+    description:
+      'Deployment nodes three deep. Shut the data centre and database replication becomes an internal relation, counted rather than drawn.',
+    source: `C4Deployment
+    title Internet Banking System — production deployment
+
+    Deployment_Node(customerDevice, "Customer's Computer", "Microsoft Windows or Apple macOS") {
+        Deployment_Node(browser, "Web Browser", "Chrome, Firefox, Safari or Edge") {
+            Container(spa, "Single-Page Application", "JavaScript, Angular", "Provides the banking functionality in the browser.")
+        }
+    }
+
+    Deployment_Node(customerPhone, "Customer's Mobile Device", "Apple iOS or Android") {
+        Container(mobile, "Mobile App", "Kotlin, Android", "Provides a subset of the banking functionality.")
+    }
+
+    Deployment_Node(datacentre, "Big Bank plc", "Big Bank plc data centre") {
+        Deployment_Node(apiCluster, "bigbank-api***", "Ubuntu 20.04 LTS", "A cluster of four API hosts") {
+            Deployment_Node(tomcat, "Apache Tomcat", "Apache Tomcat 8.x") {
+                Container(api, "API Application", "Java, Spring MVC", "Provides banking functionality via a JSON/HTTPS API.")
+            }
+        }
+        Deployment_Node(webCluster, "bigbank-web***", "Ubuntu 20.04 LTS", "A cluster of four web hosts") {
+            Deployment_Node(tomcatWeb, "Apache Tomcat", "Apache Tomcat 8.x") {
+                Container(web, "Web Application", "Java, Spring MVC", "Delivers the static content and the single-page application.")
+            }
+        }
+        Deployment_Node(primaryDb, "bigbank-db01", "Ubuntu 20.04 LTS", "The primary database server") {
+            ContainerDb(primary, "Database", "Oracle 19c", "Stores user registration information and hashed credentials.")
+        }
+        Deployment_Node(secondaryDb, "bigbank-db02", "Ubuntu 20.04 LTS", "The failover database server") {
+            ContainerDb(secondary, "Database", "Oracle 19c", "A read replica of the primary.")
+        }
+    }
+
+    Rel(spa, api, "Makes API calls to", "JSON/HTTPS")
+    Rel(mobile, api, "Makes API calls to", "JSON/HTTPS")
+    Rel(web, spa, "Delivers to the customer's web browser")
+    Rel(api, primary, "Reads from and writes to", "JDBC")
+    Rel(api, secondary, "Reads from", "JDBC")
+    Rel(primary, secondary, "Replicates data to")`,
+  },
+  {
+    id: 'c4-dynamic',
+    title: 'Reset password — the order of calls',
+    description:
+      'A numbered run. Every step opens whatever hides its ends, and steps 2 and 4 walk the same pair in opposite directions.',
+    source: `C4Dynamic
+    title Reset password — the order of calls
+
+    Container(spa, "Single-Page Application", "JavaScript, Angular", "Provides the banking functionality in the browser.")
+
+    Container_Boundary(api, "API Application") {
+        Component(reset, "Reset Password Controller", "Spring MVC REST Controller", "Allows users to reset their passwords.")
+        Component(security, "Security Component", "Spring Bean", "Provides functionality related to signing in and changing passwords.")
+        Component(mailer, "E-mail Component", "Spring Bean", "Sends e-mails to users.")
+    }
+
+    ContainerDb(db, "Database", "Oracle 19c", "Stores user registration information, hashed credentials and reset tokens.")
+    System_Ext(email, "E-mail System", "The internal Microsoft Exchange e-mail system.")
+
+    Rel(spa, reset, "Submits the e-mail address to", "JSON/HTTPS")
+    Rel(reset, security, "Validates the e-mail address using")
+    Rel(security, db, "select * from users where email = ?", "JDBC")
+    Rel(security, reset, "Returns the user, or nothing")
+    Rel(reset, security, "Requests a single-use reset token from")
+    Rel(security, db, "insert into reset_tokens …", "JDBC")
+    Rel(reset, mailer, "Requests a reset e-mail from")
+    Rel(mailer, email, "Sends the e-mail using", "SMTP")`,
+  },
 ];

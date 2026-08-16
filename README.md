@@ -11,11 +11,13 @@ nothing renders worse than it does today.
 
 **[Live examples →](https://archidea-ai.github.io/mermaid/)**
 
-| Diagram type      | Renderer         | Interaction                                             |
-| ----------------- | ---------------- | ------------------------------------------------------- |
-| `sequenceDiagram` | `sequence-react` | Step through; classic lanes or the modern grouped stage |
-| `stateDiagram-v2` | `state-react`    | Stand in a state, choose the next transition            |
-| everything else   | `proxy`          | Rendered by upstream mermaid, unchanged                 |
+| Diagram type                                                           | Renderer          | Interaction                                                                        |
+| ---------------------------------------------------------------------- | ----------------- | ---------------------------------------------------------------------------------- |
+| `sequenceDiagram`                                                      | `sequence-react`  | Step through; classic lanes or the modern grouped stage                            |
+| `stateDiagram-v2`                                                      | `state-react`     | Stand in a state, choose the next transition                                       |
+| `flowchart`                                                            | `flowchart-react` | One overview; click a node to light its neighbourhood                              |
+| `C4Context`, `C4Container`, `C4Component`, `C4Dynamic`, `C4Deployment` | `c4-react`        | Every boundary shut on first paint; expand, pick a relation, or step a dynamic run |
+| everything else                                                        | `proxy`           | Rendered by upstream mermaid, unchanged                                            |
 
 ## Install
 
@@ -57,6 +59,28 @@ import { SequenceDiagram } from '@archidea-ai/mermaid/react';
 Subpath exports: `@archidea-ai/mermaid` (mermaid-compatible module),
 `@archidea-ai/mermaid/react` (components and hooks),
 `@archidea-ai/mermaid/registry` (registry and contracts).
+
+## Controlling selection
+
+`<Mermaid>` accepts `selection` and `onSelect` for any renderer whose
+capabilities include `events`. Omit `selection` for uncontrolled use — a
+renderer tracks its own pick internally and reports it. Pass it — including
+`null` — to drive selection from outside instead, which is what lets a search
+box or an external list highlight something on the diagram:
+
+```tsx
+import { useState } from 'react';
+import { Mermaid } from '@archidea-ai/mermaid/react';
+import type { DiagramElementRef } from '@archidea-ai/mermaid/registry';
+
+const [selection, setSelection] = useState<DiagramElementRef | null>(null);
+
+<Mermaid text={source} selection={selection} onSelect={(event) => setSelection(event.element)} />;
+```
+
+`element` is `null` when a selection is cleared, and `originalEvent` is absent
+when the pick did not come from a click — a C4 dynamic run's step and the
+controlling prop itself both select without one.
 
 ## Interactive sequence diagrams
 

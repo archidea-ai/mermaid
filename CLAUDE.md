@@ -20,6 +20,7 @@ time. The registry is the seam that makes that additive.
 | `@archidea-ai/mermaid-react`             | `<Mermaid>` host, `<SequenceDiagram>`, hooks.                                                                                                                     |
 | `@archidea-ai/mermaid-diagram-sequence`  | Native interactive sequence renderer: parser, timeline, layout, components.                                                                                       |
 | `@archidea-ai/mermaid-diagram-flowchart` | Native flowchart renderer: parser, layered layout, overview component.                                                                                            |
+| `@archidea-ai/mermaid-diagram-c4`        | Native C4 renderer: parser, containment model, collapse and link aggregation, exploration components.                                                             |
 | `@archidea-ai/mermaid`                   | Drop-in facade. Mirrors upstream's module shape, registers the native renderers.                                                                                  |
 | `apps/examples`                          | Not published. Consumes the facade as an end user would; deploys to GitHub Pages.                                                                                 |
 
@@ -138,6 +139,27 @@ TD` is the commonest form there is, and drawing it left to right contradicts
   `goTo(n)` is path-independent.
 - **Parse failure is never fatal.** The sequence renderer falls back to the proxy
   and reports a non-fatal notice, so this package never renders worse than upstream.
+- **Upstream detects all five C4 headers as the single type `c4`.** One renderer
+  claims them all, and the header line inside the source is the only thing that
+  says which of the five it is.
+- **A C4 boundary collapses, and every relation it hides re-points onto it.**
+  `visibleOwner()` resolves an endpoint to the _outermost_ collapsed ancestor —
+  the innermost is not the box a viewer can point at. Relations between the same
+  two visible endpoints then become one line, headed on whichever ends carry
+  traffic.
+- **A relation whose ends both land in the same box leaves the arc layer.** It is
+  internal to a collapsed group, and drawing a loop would state a relationship
+  with itself; it is counted in that group's detail instead. This is the one
+  lossy step in aggregation and it is deliberate.
+- **`revealFor()` is the one way a relation is shown.** The modal's pick, a
+  dynamic run's step and the controlling `selection` prop all call it — the
+  reveal is a consequence of selecting a relation, not of how it was selected.
+- **A C4 box prints type, name and technology and nothing else.** The description
+  lives in the docked detail panel. Uniform boxes are what let a forty-element
+  chart grid cleanly.
+- **`select` carries a nullable element.** Deselection has to be expressible, and
+  `originalEvent` is optional because a selection can arrive from the keyboard, a
+  stepped run, or the controlling prop.
 
 ## Working with Nx
 
