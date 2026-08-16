@@ -155,3 +155,81 @@ Rel(x, y, "calls")`);
     expect(shut.container.querySelectorAll('.c4-link')).toHaveLength(0);
   });
 });
+
+describe('C4Chart — selection', () => {
+  it('says what to do before anything is chosen, rather than showing an empty panel', () => {
+    chart();
+    expect(screen.getByText(/Select an element/i)).toBeDefined();
+  });
+
+  it('docks an element description, technology and tags when it is chosen', async () => {
+    const user = userEvent.setup();
+    chart();
+
+    await user.click(screen.getByRole('button', { name: /Banking Customer/ }));
+
+    const detail = screen.getByRole('complementary');
+    expect(detail.textContent).toContain('A customer of the bank.');
+  });
+
+  it('lights the chosen box and its first-degree neighbours', async () => {
+    const user = userEvent.setup();
+    const { container } = chart();
+    await user.click(screen.getByRole('button', { name: 'Expand all' }));
+    await user.click(screen.getByRole('button', { name: /Banking Customer/ }));
+
+    const lit = [...container.querySelectorAll('.c4-element[data-lit="true"]')].map(
+      (node) => node.querySelector('.c4-element__name')?.textContent,
+    );
+    expect(lit.sort()).toEqual(['Banking Customer', 'Single-Page App']);
+  });
+
+  it('marks only the chosen one as selected, not its neighbours', async () => {
+    const user = userEvent.setup();
+    const { container } = chart();
+    await user.click(screen.getByRole('button', { name: 'Expand all' }));
+    await user.click(screen.getByRole('button', { name: /Banking Customer/ }));
+
+    expect(container.querySelectorAll('.c4-element[data-selected="true"]')).toHaveLength(1);
+  });
+
+  it('clears the selection when the chosen element is used again', async () => {
+    const user = userEvent.setup();
+    const { container } = chart();
+
+    await user.click(screen.getByRole('button', { name: /Banking Customer/ }));
+    await user.click(screen.getByRole('button', { name: /Banking Customer/ }));
+
+    expect(container.querySelectorAll('[data-selected="true"]')).toHaveLength(0);
+  });
+
+  it('clears the selection on Escape, so there is a way out without hunting', async () => {
+    const user = userEvent.setup();
+    const { container } = chart();
+
+    await user.click(screen.getByRole('button', { name: /Banking Customer/ }));
+    await user.keyboard('{Escape}');
+
+    expect(container.querySelectorAll('[data-selected="true"]')).toHaveLength(0);
+  });
+
+  it('reports what a shut boundary holds, including the relations now inside it', async () => {
+    const user = userEvent.setup();
+    const inside = parse(`C4Container
+System_Boundary(b, "Bank") {
+    Container(x, "X", "T")
+    Container(y, "Y", "T")
+}
+Rel(x, y, "calls")`);
+    render(<C4Chart ast={inside} id="inside" />);
+
+    // The boundary starts shut, so its select button reads its element count
+    // ("2 elements"), not "Details" — that label only appears once it is
+    // expanded. Selecting while shut is exactly the case worth covering here.
+    await user.click(screen.getByRole('button', { name: '2 elements' }));
+
+    const detail = screen.getByRole('complementary');
+    expect(detail.textContent).toContain('2 elements');
+    expect(detail.textContent).toContain('1 internal relation');
+  });
+});

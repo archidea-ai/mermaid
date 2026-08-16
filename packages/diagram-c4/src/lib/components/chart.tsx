@@ -4,12 +4,15 @@ import { allBoundaryIds, isVisible } from '../model/collapse';
 import { insetEndpoints } from '../model/geometry';
 import { buildLinks } from '../model/links';
 import { orderMembers } from '../model/order';
+import { computeLit } from '../model/selection';
 import { buildTree, elementCountOf } from '../model/tree';
 import { C4BoundaryBox } from './boundary';
+import { C4Detail } from './detail';
 import { C4ElementBox } from './element';
 import { C4Toolbar } from './toolbar';
 import type { CSSProperties, ReactNode } from 'react';
 import type { C4Ast } from '../parser/ast';
+import type { C4Selection } from '../model/selection';
 
 export interface C4ChartProps {
   readonly ast: C4Ast;
@@ -39,6 +42,19 @@ export function C4Chart(props: C4ChartProps) {
   useEffect(() => setCollapsed(allBoundaryIds(ast)), [ast]);
 
   const links = useMemo(() => buildLinks(ast, tree, collapsed), [ast, tree, collapsed]);
+
+  const [selection, setSelection] = useState<C4Selection | null>(null);
+
+  // A new source is a new model, so nothing carried over is still true.
+  useEffect(() => setSelection(null), [ast]);
+
+  const lit = useMemo(() => computeLit(selection, links), [selection, links]);
+
+  /** Choosing the same thing again clears it, so there is a way back out. */
+  const select = (next: C4Selection) =>
+    setSelection((previous) =>
+      previous && previous.kind === next.kind && previous.id === next.id ? null : next,
+    );
 
   /* Boxes are placed by CSS, so the lines between them are measured. */
   const arcs = useMemo(
@@ -76,10 +92,10 @@ export function C4Chart(props: C4ChartProps) {
         <C4ElementBox
           key={boxId}
           element={element}
-          lit={false}
-          selected={false}
+          lit={lit.boxes.has(boxId)}
+          selected={selection?.kind === 'element' && selection.id === boxId}
           register={register}
-          onSelect={() => undefined}
+          onSelect={(elementId) => select({ kind: 'element', id: elementId })}
         />
       );
     }
@@ -94,11 +110,11 @@ export function C4Chart(props: C4ChartProps) {
         boundary={boundary}
         collapsed={collapsed.has(boxId)}
         count={elementCountOf(tree, boxId)}
-        lit={false}
-        selected={false}
+        lit={lit.boxes.has(boxId)}
+        selected={selection?.kind === 'boundary' && selection.id === boxId}
         register={register}
         onToggle={toggle}
-        onSelect={() => undefined}
+        onSelect={(boundaryId) => select({ kind: 'boundary', id: boundaryId })}
       >
         {orderMembers(children, links.links).map(renderBox)}
       </C4BoundaryBox>
@@ -114,6 +130,8 @@ export function C4Chart(props: C4ChartProps) {
       className={['archidea-sequence', 'archidea-c4', className].filter(Boolean).join(' ')}
       style={style}
       data-diagram={id}
+      // Escape is the way out of a selection without hunting for the box again.
+      onKeyDown={(event) => event.key === 'Escape' && setSelection(null)}
     >
       <C4Toolbar
         onExpandAll={() => setCollapsed(new Set())}
@@ -123,7 +141,7 @@ export function C4Chart(props: C4ChartProps) {
       {ast.title ? <h3 className="c4-title">{ast.title}</h3> : null}
 
       <div className="c4-view">
-        <div className="c4-chart" ref={containerRef}>
+        <div className="c4-chart" data-selecting={selection !== null} ref={containerRef}>
           {/* Behind the boxes, so a line is context rather than something across them. */}
           <svg className="c4-chart__lines" aria-hidden="true">
             <defs>
@@ -156,6 +174,7 @@ export function C4Chart(props: C4ChartProps) {
                 key={link.id}
                 className="c4-link"
                 data-link={link.id}
+                data-lit={lit.links.has(link.id)}
                 d={arc.path}
                 fill="none"
                 markerEnd={link.forward ? `url(#c4-${id}-arrow)` : undefined}
@@ -177,6 +196,7 @@ export function C4Chart(props: C4ChartProps) {
                 key={`label-${link.id}`}
                 className="c4-link__label"
                 data-aggregate={!single}
+                data-lit={lit.links.has(link.id)}
                 style={{ left: arc.midX, top: arc.midY }}
               >
                 {text}
@@ -185,6 +205,8 @@ export function C4Chart(props: C4ChartProps) {
           })}
         </div>
       </div>
+
+      <C4Detail selection={selection} ast={ast} tree={tree} links={links} />
     </div>
   );
 }

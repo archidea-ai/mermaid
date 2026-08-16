@@ -241,3 +241,78 @@
   color: var(--seq-text-strong);
   border: 1px solid var(--seq-border);
 }
+
+/* --- emphasis ------------------------------------------------------------
+ * One accent, marking the selection and nothing else. Everything not in the
+ * lit set recedes rather than the lit set advancing, so the chart does not
+ * brighten as a whole every time something is chosen.
+ * ---------------------------------------------------------------------- */
+
+.c4-chart[data-selecting='true'] .c4-element[data-lit='false'],
+.c4-chart[data-selecting='true'] .c4-boundary[data-lit='false'] > .c4-boundary__header {
+  opacity: 0.4;
+}
+
+.c4-chart[data-selecting='true'] .c4-link[data-lit='false'] {
+  stroke: var(--seq-skipped);
+}
+
+.c4-chart[data-selecting='true'] .c4-link__label[data-lit='false'] {
+  opacity: 0.4;
+}
+
+.c4-element[data-selected='true'] {
+  border-color: var(--seq-accent);
+  box-shadow: 0 0 0 1px var(--seq-accent);
+}
+
+.c4-link[data-lit='true'] {
+  stroke: var(--seq-message-current);
+  stroke-width: 2;
+}
+
+/* --- detail panel --------------------------------------------------------- */
+
+.c4-detail {
+  display: grid;
+  gap: 6px;
+  align-content: start;
+  padding: 12px 14px;
+  min-height: 6rem;
+  border: 1px solid var(--seq-border);
+  border-radius: var(--seq-radius);
+  background: var(--seq-surface-raised);
+}
+
+.c4-detail__empty {
+  margin: 0;
+  font-size: var(--seq-font-size-small);
+  color: var(--seq-text-muted);
+}
+
+.c4-detail__name {
+  margin: 0;
+  font-size: var(--seq-font-size);
+  color: var(--seq-text-strong);
+}
+
+.c4-detail__facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 2px 12px;
+  margin: 0;
+  font-size: var(--seq-font-size-small);
+}
+
+.c4-detail__facts dt {
+  color: var(--seq-text-muted);
+}
+
+.c4-detail__facts dd {
+  margin: 0;
+}
+
+.c4-detail__link {
+  font-size: var(--seq-font-size-small);
+  color: var(--seq-accent);
+}
