@@ -17,3 +17,5 @@ export { buildLinks } from './lib/model/links';
 export type { C4Link, C4LinkSet } from './lib/model/links';
 export { insetEndpoints } from './lib/model/geometry';
 export { orderMembers } from './lib/model/order';
+export { computeLit } from './lib/model/selection';
+export type { C4Lit, C4Selection, C4SelectionKind } from './lib/model/selection';
