@@ -25,6 +25,15 @@ const ELEMENT = /^(Person|System|Container|Component)(Db|Queue)?(_Ext)?$/;
 const HAS_TECHNOLOGY = new Set<C4Kind>(['container', 'component']);
 
 /**
+ * Signals an unterminated quote back to `splitArgs`'s caller.
+ *
+ * `splitArgs` has no line number of its own — it operates on one macro's
+ * argument text, not the source — so it cannot raise `C4ParseError` itself.
+ * The caller, which does have the line, is what turns this into one.
+ */
+export class UnterminatedQuoteError extends Error {}
+
+/**
  * Splits a macro's argument list on top-level commas.
  *
  * Not a `split(',')`: a technology reads "Java, Spring MVC" more often than it
@@ -57,6 +66,11 @@ export function splitArgs(text: string): string[] {
     }
     current += character;
   }
+
+  // A quote left open means the text ran out before the value did — that is
+  // unreadable, not empty, so it must not fall through to `unquote` and come
+  // out the other side as a corrupted string with a stray leading quote.
+  if (quote) throw new UnterminatedQuoteError('Unterminated quote');
 
   if (current.trim()) out.push(current.trim());
   return out;
@@ -132,7 +146,13 @@ export function parse(source: string): C4Ast {
     if (!macro) throw new C4ParseError('Unrecognised statement', index + 1, raw.trim());
 
     const name = macro[1]!;
-    const args = readArgs(splitArgs(macro[2]!));
+    let args: C4Args;
+    try {
+      args = readArgs(splitArgs(macro[2]!));
+    } catch (error) {
+      if (!(error instanceof UnterminatedQuoteError)) throw error;
+      throw new C4ParseError('Unterminated quote', index + 1, raw.trim());
+    }
 
     const element = ELEMENT.exec(name);
     if (element) {

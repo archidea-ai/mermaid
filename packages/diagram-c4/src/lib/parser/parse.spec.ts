@@ -105,4 +105,8 @@ describe('parse — elements', () => {
   it('refuses a macro it does not know, so the proxy can take the whole diagram', () => {
     expect(() => parse('C4Context\n    Sprite(a, "b")')).toThrow(C4ParseError);
   });
+
+  it('refuses an unterminated quote instead of keeping the stray quote in the value', () => {
+    expect(() => parse('C4Context\n    System(a, "b, c)')).toThrow(C4ParseError);
+  });
 });
