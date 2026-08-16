@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { computeArc, useAnchors } from '@archidea-ai/mermaid-diagram-sequence';
-import { allBoundaryIds, isVisible } from '../model/collapse';
+import { allBoundaryIds, isVisible, revealFor } from '../model/collapse';
 import { insetEndpoints } from '../model/geometry';
 import { buildLinks } from '../model/links';
 import { orderMembers } from '../model/order';
@@ -9,9 +9,10 @@ import { buildTree, elementCountOf } from '../model/tree';
 import { C4BoundaryBox } from './boundary';
 import { C4Detail } from './detail';
 import { C4ElementBox } from './element';
+import { C4LinkDialog } from './link-dialog';
 import { C4Toolbar } from './toolbar';
 import type { CSSProperties, ReactNode } from 'react';
-import type { C4Ast } from '../parser/ast';
+import type { C4Ast, C4Relation } from '../parser/ast';
 import type { C4Selection } from '../model/selection';
 
 export interface C4ChartProps {
@@ -55,6 +56,32 @@ export function C4Chart(props: C4ChartProps) {
     setSelection((previous) =>
       previous && previous.kind === next.kind && previous.id === next.id ? null : next,
     );
+
+  const [dialogLinkId, setDialogLinkId] = useState<string | null>(null);
+
+  /**
+   * A line with one relation selects directly; a line with several asks which.
+   * A dialog listing a single option is chrome that says nothing.
+   */
+  const openLink = (linkId: string) => {
+    const link = links.byId.get(linkId);
+    if (!link) return;
+
+    const single = link.relations.length === 1 ? link.relations[0] : null;
+    if (single) select({ kind: 'relation', id: single.id });
+    else setDialogLinkId(linkId);
+  };
+
+  /**
+   * Picking a relation opens whatever hides either end, then lights it. The
+   * same call a dynamic run's step makes — one mechanism, two triggers.
+   */
+  const reveal = (relation: C4Relation) => {
+    const needed = revealFor(relation, tree);
+    setCollapsed((previous) => new Set([...previous].filter((shut) => !needed.has(shut))));
+    setSelection({ kind: 'relation', id: relation.id });
+    setDialogLinkId(null);
+  };
 
   /* Boxes are placed by CSS, so the lines between them are measured. */
   const arcs = useMemo(
@@ -188,25 +215,43 @@ export function C4Chart(props: C4ChartProps) {
           {/* Labels ride above the lines, so a line says what it is. */}
           {arcs.map(({ link, arc }) => {
             const single = link.relations.length === 1 ? link.relations[0] : null;
-            const text = single ? single.label : String(link.relations.length);
-            if (!text) return null;
+            const text = single
+              ? single.label || '1 relation'
+              : `${link.relations.length} relations`;
 
             return (
-              <span
+              <button
                 key={`label-${link.id}`}
+                type="button"
                 className="c4-link__label"
                 data-aggregate={!single}
                 data-lit={lit.links.has(link.id)}
+                /*
+                 * An aggregate shows its count and says the whole phrase. A
+                 * visually-hidden word beside the number would leave the
+                 * accessible name to however the name computation joins two
+                 * text nodes; an explicit label is the same string every time.
+                 */
+                aria-label={single ? undefined : text}
                 style={{ left: arc.midX, top: arc.midY }}
+                onClick={() => openLink(link.id)}
               >
-                {text}
-              </span>
+                {single ? text : link.relations.length}
+              </button>
             );
           })}
         </div>
       </div>
 
       <C4Detail selection={selection} ast={ast} tree={tree} links={links} />
+
+      <C4LinkDialog
+        link={dialogLinkId ? (links.byId.get(dialogLinkId) ?? null) : null}
+        tree={tree}
+        open={dialogLinkId !== null}
+        onOpenChange={(next) => !next && setDialogLinkId(null)}
+        onPick={reveal}
+      />
     </div>
   );
 }

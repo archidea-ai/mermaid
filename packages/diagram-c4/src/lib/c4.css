@@ -232,12 +232,15 @@
   z-index: 2;
   transform: translate(-50%, -50%);
   padding: 1px 6px;
+  font: inherit;
   font-size: var(--seq-font-size-small);
   color: var(--seq-message-text);
   background: var(--seq-surface-sunken);
+  border: none;
   border-radius: var(--seq-radius);
   white-space: nowrap;
-  pointer-events: none;
+  pointer-events: auto;
+  cursor: pointer;
 }
 
 /* A count is a quantity, not a sentence — it reads as a chip. */
@@ -333,4 +336,105 @@
 .c4-detail__link {
   font-size: var(--seq-font-size-small);
   color: var(--seq-accent);
+}
+
+/* --- dialog ------------------------------------------------------------- */
+
+.c4-dialog__backdrop {
+  position: fixed;
+  inset: 0;
+  background: color-mix(in oklab, var(--seq-text) 40%, transparent);
+}
+
+.c4-dialog {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: grid;
+  gap: 10px;
+  width: min(34rem, calc(100vw - 2rem));
+  max-height: min(32rem, calc(100vh - 2rem));
+  padding: 18px;
+  color: var(--seq-text);
+  font-family: var(--seq-font);
+  background: var(--seq-surface-raised);
+  border: 1px solid var(--seq-border);
+  border-radius: var(--seq-radius);
+}
+
+.c4-dialog__title {
+  margin: 0;
+  font-size: var(--seq-font-size);
+  color: var(--seq-text-strong);
+}
+
+.c4-dialog__lead {
+  margin: 0;
+  font-size: var(--seq-font-size-small);
+  color: var(--seq-text-muted);
+}
+
+/*
+ * A plain max-height with its own overflow, not base-ui's ScrollArea: that
+ * viewport is height:100%, which resolves to auto against a max-h-only parent
+ * and spills the list over whatever follows instead of scrolling.
+ */
+.c4-dialog__list {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  max-height: 20rem;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.c4-dialog__relation {
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  padding: 8px 10px;
+  font: inherit;
+  text-align: left;
+  color: inherit;
+  background: var(--seq-surface);
+  border: 1px solid var(--seq-border);
+  border-radius: var(--seq-radius);
+  cursor: pointer;
+}
+.c4-dialog__relation:hover {
+  border-color: var(--seq-accent);
+}
+
+.c4-dialog__ends {
+  font-size: var(--seq-font-size-small);
+  color: var(--seq-text-muted);
+}
+
+.c4-dialog__label {
+  font-weight: 600;
+}
+
+.c4-dialog__tech {
+  font-family: var(--seq-font-mono);
+  font-size: var(--seq-font-size-small);
+  color: var(--seq-text-muted);
+}
+
+.c4-dialog__descr {
+  font-size: var(--seq-font-size-small);
+  color: var(--seq-text-muted);
+}
+
+.c4-dialog__close {
+  justify-self: end;
+  padding: 4px 10px;
+  font: inherit;
+  font-size: var(--seq-font-size-small);
+  color: var(--seq-text-muted);
+  background: var(--seq-surface);
+  border: 1px solid var(--seq-border);
+  border-radius: var(--seq-radius);
+  cursor: pointer;
 }

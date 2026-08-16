@@ -243,3 +243,87 @@ Rel(x, y, "calls")`);
     expect(detail.textContent).toContain('1 internal relation');
   });
 });
+
+describe('C4Chart — the link modal', () => {
+  const dense = parse(`C4Container
+Person(customer, "Customer")
+System_Boundary(bank, "Bank") {
+    Container(spa, "SPA", "Angular")
+    Container(api, "API", "Java")
+}
+Rel(customer, spa, "views balances", "HTTPS")
+Rel(customer, api, "calls directly", "JSON/HTTPS", "Only for the admin console")
+Rel(api, customer, "notifies")`);
+
+  it('selects a single-relation line directly, because a chooser of one says nothing', async () => {
+    const user = userEvent.setup();
+    chart();
+
+    await user.click(screen.getByRole('button', { name: /views balances/ }));
+
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.getByRole('complementary').textContent).toContain('views balances');
+  });
+
+  it('opens a modal listing every relation an aggregate carries', async () => {
+    const user = userEvent.setup();
+    render(<C4Chart ast={dense} id="dense" />);
+
+    // Shut, so all three relations land on the customer ↔ Bank line.
+    await user.click(screen.getByRole('button', { name: /3 relations/ }));
+
+    const dialog = screen.getByRole('dialog');
+    expect(dialog.textContent).toContain('views balances');
+    expect(dialog.textContent).toContain('calls directly');
+    expect(dialog.textContent).toContain('notifies');
+    expect(dialog.textContent).toContain('JSON/HTTPS');
+  });
+
+  it('names both ends of each relation, so direction is readable in the list', async () => {
+    const user = userEvent.setup();
+    render(<C4Chart ast={dense} id="dense2" />);
+    await user.click(screen.getByRole('button', { name: /3 relations/ }));
+
+    expect(screen.getByRole('dialog').textContent).toContain('Customer → SPA');
+    expect(screen.getByRole('dialog').textContent).toContain('API → Customer');
+  });
+
+  it('closes, opens both ends and lights the one relation when it is picked', async () => {
+    const user = userEvent.setup();
+    const { container } = render(<C4Chart ast={dense} id="dense3" />);
+
+    await user.click(screen.getByRole('button', { name: /3 relations/ }));
+    await user.click(screen.getByRole('button', { name: /calls directly/ }));
+
+    expect(screen.queryByRole('dialog')).toBeNull();
+    // The boundary that hid API is open, so its box is on the page. Scoped to
+    // the element name: the docked detail panel also says "API" (the "To"
+    // fact of the very relation just picked), so an unscoped getByText('API')
+    // matches both and the query itself, not the behaviour, fails.
+    expect(screen.getByText('API', { selector: '.c4-element__name' })).toBeDefined();
+    expect(container.querySelectorAll('.c4-link[data-lit="true"]')).toHaveLength(1);
+  });
+
+  it('docks the picked relation own detail, technology and description', async () => {
+    const user = userEvent.setup();
+    render(<C4Chart ast={dense} id="dense4" />);
+
+    await user.click(screen.getByRole('button', { name: /3 relations/ }));
+    await user.click(screen.getByRole('button', { name: /calls directly/ }));
+
+    const detail = screen.getByRole('complementary');
+    expect(detail.textContent).toContain('JSON/HTTPS');
+    expect(detail.textContent).toContain('Only for the admin console');
+  });
+
+  it('closes on Escape without changing what is open or lit', async () => {
+    const user = userEvent.setup();
+    render(<C4Chart ast={dense} id="dense5" />);
+
+    await user.click(screen.getByRole('button', { name: /3 relations/ }));
+    await user.keyboard('{Escape}');
+
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.queryByText('API')).toBeNull();
+  });
+});
