@@ -194,4 +194,20 @@ describe('parse — boundaries', () => {
       C4ParseError,
     );
   });
+
+  it('refuses an element that opens a block, instead of silently discarding the brace', () => {
+    expect(() => parse('C4Context\n    Person(customer, "Customer") {')).toThrow(C4ParseError);
+  });
+
+  it('does not miscount a legitimately empty-id boundary as an unmatched brace', () => {
+    const ast = parse(`C4Context
+    System_Boundary(outer, "Outer") {
+        System_Boundary(, "Inner") {
+            System(a, "A")
+        }
+    }`);
+
+    expect(ast.boundaries.map((b) => b.id)).toEqual(['outer', '']);
+    expect(ast.elements[0]?.parent).toBe('');
+  });
 });

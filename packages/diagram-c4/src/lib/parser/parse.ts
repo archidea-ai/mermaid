@@ -164,7 +164,11 @@ export function parse(source: string): C4Ast {
     // shared its line, so there is nothing left for this one to do.
     if (text === '{') continue;
     if (text === '}') {
-      if (!stack.pop()) throw new C4ParseError('Unmatched "}"', index + 1, raw.trim());
+      // An empty id is a legitimate (if unwise) boundary alias and pushes ''
+      // onto the stack — truthiness of the popped value is not a safe "was
+      // the stack empty" test, so check the stack itself.
+      if (stack.length === 0) throw new C4ParseError('Unmatched "}"', index + 1, raw.trim());
+      stack.pop();
       continue;
     }
 
@@ -185,6 +189,13 @@ export function parse(source: string): C4Ast {
 
     const element = ELEMENT.exec(name);
     if (element) {
+      // Only a boundary/node macro is allowed to open a block — an element
+      // that does is input this parser cannot read, not one it can discard
+      // the brace from, or a later `}` closes the wrong thing.
+      if (macro[3] !== undefined) {
+        throw new C4ParseError(`"${name}" cannot open a block`, index + 1, raw.trim());
+      }
+
       const kindOfElement = element[1]!.toLowerCase() as C4Kind;
       const hasTechnology = HAS_TECHNOLOGY.has(kindOfElement);
 
