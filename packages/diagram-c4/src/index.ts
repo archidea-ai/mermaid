@@ -1,3 +1,12 @@
+// Only this package's own chrome. The --seq-* tokens come from the sequence
+// package's theme.css, which the host imports once for all renderers — a
+// package force-importing another's stylesheet is coupling we do not need.
+import './lib/c4.css';
+
+export { c4Renderer } from './lib/renderer';
+export { C4Surface } from './lib/components/surface';
+export { C4Chart } from './lib/components/chart';
+
 export { parse, C4ParseError } from './lib/parser/parse';
 export type {
   C4Ast,

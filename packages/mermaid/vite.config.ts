@@ -39,6 +39,7 @@ export default defineConfig({
         '@archidea-ai/mermaid-diagram-sequence',
         '@archidea-ai/mermaid-diagram-state',
         '@archidea-ai/mermaid-diagram-flowchart',
+        '@archidea-ai/mermaid-diagram-c4',
       ],
     },
   },

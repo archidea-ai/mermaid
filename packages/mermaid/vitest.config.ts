@@ -17,6 +17,7 @@ export default defineConfig({
       '@archidea-ai/mermaid-diagram-sequence': from('../diagram-sequence/src/index.ts'),
       '@archidea-ai/mermaid-diagram-state': from('../diagram-state/src/index.ts'),
       '@archidea-ai/mermaid-diagram-flowchart': from('../diagram-flowchart/src/index.ts'),
+      '@archidea-ai/mermaid-diagram-c4': from('../diagram-c4/src/index.ts'),
       '@archidea-ai/mermaid-scenario': from('../scenario/src/index.ts'),
     },
   },

@@ -1,0 +1,197 @@
+/*
+ * C4 chrome.
+ *
+ * Every value here is a --seq-* token, declared by the sequence package's
+ * theme.css and scoped to the renderer root. The --c4-element-* properties are
+ * the seam author-declared colour arrives through; they default to tokens, so
+ * a diagram that declares none is themed like everything else.
+ */
+
+.archidea-c4 {
+  display: grid;
+  gap: 10px;
+  color: var(--seq-text);
+  font-family: var(--seq-font);
+}
+
+.c4-title {
+  margin: 0;
+  font-size: var(--seq-font-size);
+  font-weight: 600;
+  color: var(--seq-text-strong);
+}
+
+.c4-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.c4-toolbar__button {
+  padding: 4px 10px;
+  font: inherit;
+  font-size: var(--seq-font-size-small);
+  color: var(--seq-text-muted);
+  background: var(--seq-surface);
+  border: 1px solid var(--seq-border);
+  border-radius: var(--seq-radius);
+  cursor: pointer;
+}
+.c4-toolbar__button:hover:not(:disabled) {
+  color: var(--seq-text);
+}
+.c4-toolbar__button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.c4-view {
+  position: relative;
+  padding: 18px;
+  min-height: 10rem;
+  overflow-x: auto;
+  border: 1px solid var(--seq-border);
+  border-radius: var(--seq-radius);
+  background: var(--seq-surface-sunken);
+}
+
+.c4-chart {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 3rem;
+  min-width: max-content;
+}
+
+/* --- elements ----------------------------------------------------------- */
+
+.c4-element {
+  --c4-element-fill: var(--seq-participant-fill);
+  --c4-element-stroke: var(--seq-participant-stroke);
+  --c4-element-text: var(--seq-participant-text);
+
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 2px;
+  justify-items: start;
+  width: 12rem;
+  padding: 10px 12px;
+  font: inherit;
+  text-align: left;
+  color: var(--c4-element-text);
+  background: var(--c4-element-fill);
+  border: 1px solid var(--c4-element-stroke);
+  border-radius: var(--seq-radius);
+  cursor: pointer;
+  transition:
+    opacity var(--seq-duration) var(--seq-easing),
+    border-color var(--seq-duration) var(--seq-easing);
+}
+
+/* A person is the one shape C4 gives a silhouette to, so it keeps one. */
+.c4-element[data-kind='person'] {
+  border-top-left-radius: 999px;
+  border-top-right-radius: 999px;
+  padding-top: 16px;
+}
+
+/* External means "not ours", which reads as recessive, not as decorated. */
+.c4-element[data-external='true'] {
+  --c4-element-fill: var(--seq-surface);
+  --c4-element-text: var(--seq-text-muted);
+  border-style: dashed;
+}
+
+.c4-element__type {
+  font-size: 0.7em;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+
+.c4-element__name {
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.c4-element__tech {
+  font-family: var(--seq-font-mono);
+  font-size: var(--seq-font-size-small);
+  opacity: 0.75;
+}
+
+/* --- boundaries --------------------------------------------------------- */
+
+.c4-boundary {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px dashed var(--seq-border);
+  border-radius: var(--seq-radius);
+  background: var(--seq-surface);
+}
+
+/* A deployment node is infrastructure, not a drawn grouping — it reads solid. */
+.c4-boundary[data-node='true'] {
+  border-style: solid;
+}
+
+.c4-boundary__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.c4-boundary__toggle,
+.c4-boundary__select {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 6px;
+  font: inherit;
+  color: var(--seq-text-muted);
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--seq-radius);
+  cursor: pointer;
+}
+.c4-boundary__toggle:hover,
+.c4-boundary__select:hover {
+  color: var(--seq-text);
+  border-color: var(--seq-border);
+}
+
+.c4-boundary__title {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.c4-boundary__type {
+  font-size: 0.7em;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.6;
+}
+
+.c4-boundary__name {
+  font-weight: 600;
+  color: var(--seq-text-strong);
+}
+
+.c4-boundary__select {
+  font-size: var(--seq-font-size-small);
+  white-space: nowrap;
+}
+
+.c4-boundary__members {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 1.5rem;
+}
