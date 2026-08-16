@@ -39,7 +39,7 @@ test('a line leaves and lands on the borders of its own two endpoints', async ({
   await load(page, 'Internet Banking — containers');
   await page.getByRole('button', { name: 'Expand all' }).click();
 
-  const onBorder = await page.evaluate(() => {
+  const clearances = await page.evaluate(() => {
     const chart = document.querySelector('.c4-chart')!;
     const svgRect = chart.querySelector('.c4-chart__lines')!.getBoundingClientRect();
 
@@ -56,32 +56,44 @@ test('a line leaves and lands on the borders of its own two endpoints', async ({
       ),
     ];
 
-    // Within a few pixels of some box's edge — neither floating in open space
-    // nor buried deep inside one, which is what a centre-to-centre line would
-    // do instead.
-    const nearAnEdge = (x: number, y: number) =>
-      boxes.some((box) => {
-        const dx = Math.max(box.left - x, x - box.right, 0);
-        const dy = Math.max(box.top - y, y - box.bottom, 0);
-        return Math.hypot(dx, dy) < 4;
-      });
+    // insetEndpoints moves a point from its own box's centre out to the
+    // border facing the other box — along whichever axis has the larger
+    // delta, by exactly half that box's extent on that axis. So the box this
+    // endpoint belongs to is whichever one it is nearest, by centre — and the
+    // discriminating fact is *how far* from that centre it landed, not merely
+    // that some box exists nearby: a centre-to-centre regression would still
+    // be "nearest" its own box, at distance zero.
+    const clearanceFromOwnCentre = (x: number, y: number) => {
+      let best: { box: DOMRect; distance: number } | null = null;
+      for (const box of boxes) {
+        const cx = box.left + box.width / 2;
+        const cy = box.top + box.height / 2;
+        const distance = Math.hypot(x - cx, y - cy);
+        if (!best || distance < best.distance) best = { box, distance };
+      }
+      return {
+        distance: best!.distance,
+        halfExtent: Math.min(best!.box.width, best!.box.height) / 2,
+      };
+    };
 
     return [...chart.querySelectorAll('.c4-link')].map((path) => {
-      const numbers = path
-        .getAttribute('d')!
-        .match(/-?[\d.]+/g)!
-        .map(Number);
-      const [startX, startY] = numbers.slice(0, 2);
-      const [endX, endY] = numbers.slice(-2);
-      return (
-        nearAnEdge(svgRect.left + startX!, svgRect.top + startY!) &&
-        nearAnEdge(svgRect.left + endX!, svgRect.top + endY!)
-      );
+      const svgPath = path as SVGPathElement;
+      const start = svgPath.getPointAtLength(0);
+      const end = svgPath.getPointAtLength(svgPath.getTotalLength());
+
+      const from = clearanceFromOwnCentre(svgRect.left + start.x, svgRect.top + start.y);
+      const to = clearanceFromOwnCentre(svgRect.left + end.x, svgRect.top + end.y);
+
+      // A third of the box's own half-extent is comfortably below the real
+      // inset (a full half-extent along the dominant axis) while still well
+      // clear of zero, where centre-to-centre would land.
+      return from.distance >= from.halfExtent / 3 && to.distance >= to.halfExtent / 3;
     });
   });
 
-  expect(onBorder.length).toBeGreaterThan(0);
-  expect(onBorder.every(Boolean)).toBe(true);
+  expect(clearances.length).toBeGreaterThan(0);
+  expect(clearances.every(Boolean)).toBe(true);
 });
 
 test('collapsing re-measures, so no line is left stranded', async ({ page }) => {
