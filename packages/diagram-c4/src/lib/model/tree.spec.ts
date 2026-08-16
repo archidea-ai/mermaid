@@ -51,7 +51,7 @@ describe('ancestorsOf', () => {
 
 describe('descendantsOf', () => {
   it('reaches through nested boundaries', () => {
-    expect(descendantsOf(tree, 'api').sort()).toEqual(
+    expect([...descendantsOf(tree, 'api')].sort()).toEqual(
       ['mailer', 'security', 'services', 'signin'].sort(),
     );
   });
@@ -67,12 +67,36 @@ describe('elementCountOf', () => {
 describe('duplicate alias deduplication', () => {
   it('keeps a duplicate element id once, first declaration winning', () => {
     const ast: C4Ast = {
-      kind: 'C4Component',
+      kind: 'component',
       title: null,
       ignored: [],
       elements: [
-        { id: 'customer', label: 'Customer', type: 'Person', parent: null, style: null },
-        { id: 'customer', label: 'Duplicate Customer', type: 'Person', parent: null, style: null },
+        {
+          id: 'customer',
+          kind: 'person',
+          label: 'Customer',
+          technology: null,
+          description: null,
+          external: false,
+          variant: 'plain',
+          tags: [],
+          link: null,
+          parent: null,
+          style: null,
+        },
+        {
+          id: 'customer',
+          kind: 'person',
+          label: 'Duplicate Customer',
+          technology: null,
+          description: null,
+          external: false,
+          variant: 'plain',
+          tags: [],
+          link: null,
+          parent: null,
+          style: null,
+        },
       ],
       boundaries: [],
       relations: [],
@@ -84,13 +108,31 @@ describe('duplicate alias deduplication', () => {
 
   it('adds a duplicate boundary id once, first declaration winning', () => {
     const ast: C4Ast = {
-      kind: 'C4Component',
+      kind: 'component',
       title: null,
       ignored: [],
       elements: [],
       boundaries: [
-        { id: 'grp', label: 'Group 1', parent: null, style: null },
-        { id: 'grp', label: 'Group 2', parent: null, style: null },
+        {
+          id: 'grp',
+          label: 'Group 1',
+          type: 'Group',
+          isNode: false,
+          description: null,
+          parent: null,
+          tags: [],
+          style: null,
+        },
+        {
+          id: 'grp',
+          label: 'Group 2',
+          type: 'Group',
+          isNode: false,
+          description: null,
+          parent: null,
+          tags: [],
+          style: null,
+        },
       ],
       relations: [],
     };
@@ -101,14 +143,49 @@ describe('duplicate alias deduplication', () => {
 
   it('counts a duplicate element once in elementCountOf', () => {
     const ast: C4Ast = {
-      kind: 'C4Component',
+      kind: 'component',
       title: null,
       ignored: [],
       elements: [
-        { id: 'a', label: 'A', type: 'Component', parent: 'grp', style: null },
-        { id: 'a', label: 'A duplicate', type: 'Component', parent: 'grp', style: null },
+        {
+          id: 'a',
+          kind: 'component',
+          label: 'A',
+          technology: null,
+          description: null,
+          external: false,
+          variant: 'plain',
+          tags: [],
+          link: null,
+          parent: 'grp',
+          style: null,
+        },
+        {
+          id: 'a',
+          kind: 'component',
+          label: 'A duplicate',
+          technology: null,
+          description: null,
+          external: false,
+          variant: 'plain',
+          tags: [],
+          link: null,
+          parent: 'grp',
+          style: null,
+        },
       ],
-      boundaries: [{ id: 'grp', label: 'Group', parent: null, style: null }],
+      boundaries: [
+        {
+          id: 'grp',
+          label: 'Group',
+          type: 'Group',
+          isNode: false,
+          description: null,
+          parent: null,
+          tags: [],
+          style: null,
+        },
+      ],
       relations: [],
     };
     const tree = buildTree(ast);
@@ -119,14 +196,41 @@ describe('duplicate alias deduplication', () => {
 describe('containment cycle detection', () => {
   it('terminates and returns a finite chain when a cycle exists', () => {
     const ast: C4Ast = {
-      kind: 'C4Component',
+      kind: 'component',
       title: null,
       ignored: [],
       elements: [],
       boundaries: [
-        { id: 'a', label: 'A', parent: 'b', style: null },
-        { id: 'b', label: 'B', parent: 'c', style: null },
-        { id: 'c', label: 'C', parent: 'a', style: null },
+        {
+          id: 'a',
+          label: 'A',
+          type: 'Boundary',
+          isNode: false,
+          description: null,
+          parent: 'b',
+          tags: [],
+          style: null,
+        },
+        {
+          id: 'b',
+          label: 'B',
+          type: 'Boundary',
+          isNode: false,
+          description: null,
+          parent: 'c',
+          tags: [],
+          style: null,
+        },
+        {
+          id: 'c',
+          label: 'C',
+          type: 'Boundary',
+          isNode: false,
+          description: null,
+          parent: 'a',
+          tags: [],
+          style: null,
+        },
       ],
       relations: [],
     };
