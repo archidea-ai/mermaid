@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { C4Ast } from '../parser/ast';
 import { parse } from '../parser/parse';
 import { ancestorsOf, buildTree, descendantsOf, elementCountOf } from './tree';
 
@@ -60,5 +61,78 @@ describe('elementCountOf', () => {
   it('counts elements only, all the way down — a boundary is not a member', () => {
     expect(elementCountOf(tree, 'api')).toBe(3);
     expect(elementCountOf(tree, 'services')).toBe(2);
+  });
+});
+
+describe('duplicate alias deduplication', () => {
+  it('keeps a duplicate element id once, first declaration winning', () => {
+    const ast: C4Ast = {
+      kind: 'C4Component',
+      title: null,
+      ignored: [],
+      elements: [
+        { id: 'customer', label: 'Customer', type: 'Person', parent: null, style: null },
+        { id: 'customer', label: 'Duplicate Customer', type: 'Person', parent: null, style: null },
+      ],
+      boundaries: [],
+      relations: [],
+    };
+    const tree = buildTree(ast);
+    expect(tree.roots).toEqual(['customer']);
+    expect(tree.elementById.get('customer')?.label).toBe('Customer');
+  });
+
+  it('adds a duplicate boundary id once, first declaration winning', () => {
+    const ast: C4Ast = {
+      kind: 'C4Component',
+      title: null,
+      ignored: [],
+      elements: [],
+      boundaries: [
+        { id: 'grp', label: 'Group 1', parent: null, style: null },
+        { id: 'grp', label: 'Group 2', parent: null, style: null },
+      ],
+      relations: [],
+    };
+    const tree = buildTree(ast);
+    expect(tree.roots).toEqual(['grp']);
+    expect(tree.boundaryById.get('grp')?.label).toBe('Group 1');
+  });
+
+  it('counts a duplicate element once in elementCountOf', () => {
+    const ast: C4Ast = {
+      kind: 'C4Component',
+      title: null,
+      ignored: [],
+      elements: [
+        { id: 'a', label: 'A', type: 'Component', parent: 'grp', style: null },
+        { id: 'a', label: 'A duplicate', type: 'Component', parent: 'grp', style: null },
+      ],
+      boundaries: [{ id: 'grp', label: 'Group', parent: null, style: null }],
+      relations: [],
+    };
+    const tree = buildTree(ast);
+    expect(elementCountOf(tree, 'grp')).toBe(1);
+  });
+});
+
+describe('containment cycle detection', () => {
+  it('terminates and returns a finite chain when a cycle exists', () => {
+    const ast: C4Ast = {
+      kind: 'C4Component',
+      title: null,
+      ignored: [],
+      elements: [],
+      boundaries: [
+        { id: 'a', label: 'A', parent: 'b', style: null },
+        { id: 'b', label: 'B', parent: 'c', style: null },
+        { id: 'c', label: 'C', parent: 'a', style: null },
+      ],
+      relations: [],
+    };
+    const tree = buildTree(ast);
+    const ancestors = ancestorsOf(tree, 'a');
+    expect(ancestors).toHaveLength(2);
+    expect(ancestors).toEqual(['b', 'c']);
   });
 });

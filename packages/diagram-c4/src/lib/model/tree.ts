@@ -25,12 +25,16 @@ export function buildTree(ast: C4Ast): C4Tree {
     string,
     { id: string; kind: 'element' | 'boundary'; parent: string | null; children: string[] }
   >();
+  const elementById = new Map<string, C4Element>();
+  const boundaryById = new Map<string, C4Boundary>();
 
   /*
    * Elements first, then boundaries, both in declaration order. Members are
    * reordered by the barycentre pass before they are drawn, so this only fixes
    * the tie-break — and a boundary reading after its sibling elements is a
-   * steadier default than one interleaved by source position.
+   * steadier default than one with boundaries mixed among elements.
+   * When a duplicate id appears (same kind), the first declaration is kept and
+   * linked; subsequent declarations with the same id are skipped.
    */
   const declared: { id: string; kind: 'element' | 'boundary'; parent: string | null }[] = [
     ...ast.elements.map((element) => ({
@@ -50,10 +54,30 @@ export function buildTree(ast: C4Ast): C4Tree {
     boxes.set(entry.id, { ...entry, children: [] });
   }
 
+  // Build source record maps, only including the first occurrence of each id
+  const seenElementIds = new Set<string>();
+  for (const element of ast.elements) {
+    if (element.id && !seenElementIds.has(element.id)) {
+      seenElementIds.add(element.id);
+      elementById.set(element.id, element);
+    }
+  }
+
+  const seenBoundaryIds = new Set<string>();
+  for (const boundary of ast.boundaries) {
+    if (boundary.id && !seenBoundaryIds.has(boundary.id)) {
+      seenBoundaryIds.add(boundary.id);
+      boundaryById.set(boundary.id, boundary);
+    }
+  }
+
   const roots: string[] = [];
+  const linked = new Set<string>();
   for (const entry of declared) {
+    if (linked.has(entry.id)) continue;
     const box = boxes.get(entry.id);
     if (!box || box.kind !== entry.kind) continue;
+    linked.add(entry.id);
     const parent = box.parent ? boxes.get(box.parent) : null;
     if (parent) parent.children.push(box.id);
     else roots.push(box.id);
@@ -62,8 +86,8 @@ export function buildTree(ast: C4Ast): C4Tree {
   return {
     boxes,
     roots,
-    elementById: new Map(ast.elements.map((element) => [element.id, element])),
-    boundaryById: new Map(ast.boundaries.map((boundary) => [boundary.id, boundary])),
+    elementById,
+    boundaryById,
   };
 }
 
