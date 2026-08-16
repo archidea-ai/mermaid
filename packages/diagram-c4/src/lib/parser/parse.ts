@@ -1,5 +1,5 @@
 import { MermaidReplacementError } from '@archidea-ai/mermaid-core';
-import type { C4Ast, C4DiagramKind, C4Element, C4Kind } from './ast';
+import type { C4Ast, C4Boundary, C4DiagramKind, C4Element, C4Kind } from './ast';
 
 export class C4ParseError extends MermaidReplacementError {
   readonly line: number;
@@ -103,6 +103,17 @@ function readTags(value: string | undefined): readonly string[] {
     .filter(Boolean);
 }
 
+/** Boundary macros, and the type each one implies when the author gives none. */
+const BOUNDARIES: Readonly<Record<string, string | null>> = {
+  Enterprise_Boundary: 'Enterprise',
+  System_Boundary: 'System',
+  Container_Boundary: 'Container',
+  Boundary: null,
+};
+
+/** A Deployment_Node and its aliases are boundaries that are also boxes. */
+const NODES = new Set(['Deployment_Node', 'Node', 'Node_L', 'Node_R']);
+
 /**
  * Line-oriented parser for the C4 family.
  *
@@ -122,6 +133,12 @@ export function parse(source: string): C4Ast {
   let title: string | null = null;
   let headerLine = 0;
   const elements: C4Element[] = [];
+  const boundaries: C4Boundary[] = [];
+
+  // Boundaries nest, so "whose child is this line" is whatever is still open —
+  // a stack of ids, innermost last.
+  const stack: string[] = [];
+  const parent = () => stack[stack.length - 1] ?? null;
 
   for (let index = 0; index < lines.length; index += 1) {
     const raw = lines[index] ?? '';
@@ -142,7 +159,19 @@ export function parse(source: string): C4Ast {
       continue;
     }
 
-    const macro = /^([A-Za-z_][A-Za-z0-9_]*)\s*\(([\s\S]*)\)\s*\{?\s*$/.exec(text);
+    // A `{` on its own line just opens the block the preceding boundary macro
+    // already declared — the stack was pushed there, whether or not the brace
+    // shared its line, so there is nothing left for this one to do.
+    if (text === '{') continue;
+    if (text === '}') {
+      if (!stack.pop()) throw new C4ParseError('Unmatched "}"', index + 1, raw.trim());
+      continue;
+    }
+
+    // The third group tells a boundary apart from a self-closing one: a plain
+    // `{` opens a block that a later `}` must close, while `{ }` (or `{}`)
+    // opens and closes it right there, with nothing declared inside.
+    const macro = /^([A-Za-z_][A-Za-z0-9_]*)\s*\(([\s\S]*)\)\s*(\{\s*\}|\{)?\s*$/.exec(text);
     if (!macro) throw new C4ParseError('Unrecognised statement', index + 1, raw.trim());
 
     const name = macro[1]!;
@@ -172,9 +201,36 @@ export function parse(source: string): C4Ast {
         variant: element[2] === 'Db' ? 'db' : element[2] === 'Queue' ? 'queue' : 'plain',
         tags: readTags(args.named['tags']),
         link: args.named['link'] ?? null,
-        parent: null,
+        parent: parent(),
         style: null,
       });
+      continue;
+    }
+
+    const isNode = NODES.has(name);
+    if (isNode || name in BOUNDARIES) {
+      const id = args.positional[0] ?? '';
+
+      boundaries.push({
+        id,
+        label: args.named['label'] ?? args.positional[1] ?? id,
+        type: args.named['type'] ?? args.positional[2] ?? (isNode ? null : BOUNDARIES[name]!),
+        isNode,
+        description: args.named['descr'] ?? args.positional[3] ?? null,
+        parent: parent(),
+        tags: readTags(args.named['tags']),
+        style: null,
+      });
+
+      /*
+       * A boundary opens a block, whether the brace shares its declaration
+       * line or sits on the next one by itself — a standalone `{` is skipped
+       * above, so pushing here is right either way. The one exception is an
+       * inline `{ }`: it closes on the same line, so nothing after this
+       * statement belongs to it and it must not stay on the stack.
+       */
+      const closesImmediately = macro[3] !== undefined && macro[3] !== '{';
+      if (!closesImmediately) stack.push(id);
       continue;
     }
 
@@ -184,7 +240,15 @@ export function parse(source: string): C4Ast {
   if (!kind) throw new C4ParseError('Not a C4 diagram', 1, lines[0]?.trim() ?? '');
   void headerLine;
 
-  return { kind, title, elements, boundaries: [], relations: [], ignored: [] };
+  if (stack.length) {
+    throw new C4ParseError(
+      `Boundary "${stack[stack.length - 1]}" is never closed`,
+      lines.length,
+      '',
+    );
+  }
+
+  return { kind, title, elements, boundaries, relations: [], ignored: [] };
 }
 
 /** Strips a `%%` comment, but only outside a quoted string. */

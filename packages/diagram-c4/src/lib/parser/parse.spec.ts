@@ -110,3 +110,88 @@ describe('parse — elements', () => {
     expect(() => parse('C4Context\n    System(a, "b, c)')).toThrow(C4ParseError);
   });
 });
+
+describe('parse — boundaries', () => {
+  it('reads a boundary and gives its members a parent', () => {
+    const ast = parse(`C4Container
+    Person(customer, "Customer")
+    System_Boundary(banking, "Internet Banking System") {
+        Container(spa, "SPA", "Angular")
+        Container(api, "API", "Java")
+    }`);
+
+    expect(ast.boundaries).toEqual([
+      expect.objectContaining({ id: 'banking', label: 'Internet Banking System', type: 'System' }),
+    ]);
+    expect(ast.elements.map((e) => [e.id, e.parent])).toEqual([
+      ['customer', null],
+      ['spa', 'banking'],
+      ['api', 'banking'],
+    ]);
+  });
+
+  it('nests a boundary inside a boundary', () => {
+    const ast = parse(`C4Component
+    Container_Boundary(api, "API Application") {
+        Component(signin, "Sign In Controller", "Spring MVC")
+        Container_Boundary(services, "Domain Services") {
+            Component(security, "Security Component", "Spring Bean")
+        }
+    }`);
+
+    expect(ast.boundaries.map((b) => [b.id, b.parent])).toEqual([
+      ['api', null],
+      ['services', 'api'],
+    ]);
+    expect(ast.elements.map((e) => [e.id, e.parent])).toEqual([
+      ['signin', 'api'],
+      ['security', 'services'],
+    ]);
+  });
+
+  it('reads every boundary macro, and the generic one takes its type from an argument', () => {
+    const ast = parse(`C4Context
+    Enterprise_Boundary(bank, "Big Bank plc") { }
+    Boundary(region, "EU", "Region") { }`);
+
+    expect(ast.boundaries.map((b) => [b.id, b.type, b.isNode])).toEqual([
+      ['bank', 'Enterprise', false],
+      ['region', 'Region', false],
+    ]);
+  });
+
+  it('treats a deployment node as a boundary that is also a box', () => {
+    const ast = parse(`C4Deployment
+    Deployment_Node(dc, "Big Bank plc", "Data centre", "The primary site") {
+        Node(host, "bigbank-api01", "Ubuntu 20.04") {
+            Container(api, "API", "Java")
+        }
+    }`);
+
+    expect(ast.boundaries.map((b) => [b.id, b.isNode, b.type, b.description])).toEqual([
+      ['dc', true, 'Data centre', 'The primary site'],
+      ['host', true, 'Ubuntu 20.04', null],
+    ]);
+    expect(ast.elements[0]?.parent).toBe('host');
+  });
+
+  it('accepts a brace on its own line', () => {
+    const ast = parse(`C4Context
+    System_Boundary(b, "B")
+    {
+        System(s, "S")
+    }`);
+
+    expect(ast.elements[0]?.parent).toBe('b');
+  });
+
+  it('refuses a closing brace that closes nothing', () => {
+    expect(() => parse('C4Context\n    System(a, "A")\n}')).toThrow(C4ParseError);
+  });
+
+  it('refuses a boundary left open at the end of the source', () => {
+    expect(() => parse('C4Context\n    System_Boundary(b, "B") {\n    System(a, "A")')).toThrow(
+      C4ParseError,
+    );
+  });
+});
