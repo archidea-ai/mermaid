@@ -12,3 +12,4 @@ export type {
 } from './lib/parser/ast';
 export { ancestorsOf, buildTree, descendantsOf, elementCountOf } from './lib/model/tree';
 export type { C4Box, C4Tree } from './lib/model/tree';
+export { allBoundaryIds, isVisible, revealFor, visibleOwner } from './lib/model/collapse';
