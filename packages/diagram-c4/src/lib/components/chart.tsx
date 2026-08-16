@@ -59,6 +59,10 @@ export function C4Chart(props: C4ChartProps) {
 
   const [dialogLinkId, setDialogLinkId] = useState<string | null>(null);
 
+  // A new source is a new model, so a dialog open over the old one is stale —
+  // its link may no longer exist, or exist with a different meaning.
+  useEffect(() => setDialogLinkId(null), [ast]);
+
   /**
    * A line with one relation selects directly; a line with several asks which.
    * A dialog listing a single option is chrome that says nothing.

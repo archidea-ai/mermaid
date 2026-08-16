@@ -277,6 +277,7 @@ Rel(api, customer, "notifies")`);
     expect(dialog.textContent).toContain('calls directly');
     expect(dialog.textContent).toContain('notifies');
     expect(dialog.textContent).toContain('JSON/HTTPS');
+    expect(dialog.textContent).toContain('Only for the admin console');
   });
 
   it('names both ends of each relation, so direction is readable in the list', async () => {
@@ -325,5 +326,20 @@ Rel(api, customer, "notifies")`);
 
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(screen.queryByText('API')).toBeNull();
+  });
+
+  it('closes the dialog when the source changes underneath it', async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(<C4Chart ast={dense} id="dense6" />);
+
+    await user.click(screen.getByRole('button', { name: /3 relations/ }));
+    expect(screen.getByRole('dialog')).toBeDefined();
+
+    // A live-editing host (the examples app's textarea) re-parses on every
+    // keystroke and hands the same mounted <C4Chart> a fresh ast — the dialog
+    // must not linger pointing at a link that may no longer exist.
+    rerender(<C4Chart ast={ast} id="dense6" />);
+
+    expect(screen.queryByRole('dialog')).toBeNull();
   });
 });
