@@ -68,11 +68,13 @@ export function C4Chart(props: C4ChartProps) {
   const commit = useCallback(
     (next: C4Selection | null) => {
       if (!controlled) setInternal(next);
-      onSelect?.({ element: toElementRef(next, tree, links) });
+      onSelect?.({ element: toElementRef(next, tree, links, ast) });
     },
     // A stable identity, so Task 16's step effect can depend on it without
     // re-firing on every render — which would re-select on each keystroke.
-    [controlled, onSelect, tree, links],
+    // `ast` is already in every other effect's dependency array here for the
+    // same reason: it only changes when the source itself does.
+    [controlled, onSelect, tree, links, ast],
   );
 
   /** Choosing the same thing again clears it, so there is a way back out. */

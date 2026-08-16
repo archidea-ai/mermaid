@@ -383,6 +383,20 @@ describe('C4Chart — events', () => {
     expect(container.querySelectorAll('[data-selected="true"]')).toHaveLength(0);
   });
 
+  it('marks the box a controlling non-null selection names as selected', () => {
+    const { container } = render(
+      <C4Chart
+        ast={ast}
+        id="ev3b"
+        selection={{ kind: 'node', id: 'customer', diagramType: 'c4', data: { type: 'element' } }}
+      />,
+    );
+
+    const selected = container.querySelectorAll('[data-selected="true"]');
+    expect(selected).toHaveLength(1);
+    expect(selected[0]?.querySelector('.c4-element__name')?.textContent).toBe('Banking Customer');
+  });
+
   it('opens the boundaries hiding a relation the controller selects from outside', () => {
     const relation = ast.relations[0]!;
     render(
