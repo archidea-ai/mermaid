@@ -8,7 +8,7 @@ const ast = parse(`C4Container
 title Internet Banking
 Person(customer, "Banking Customer", "A customer of the bank.")
 System_Boundary(banking, "Internet Banking System") {
-    Container(spa, "Single-Page App", "JavaScript, Angular")
+    Container(spa, "Single-Page App", "JavaScript, Angular", $descr="Renders account balances.", $tags="spa,priority")
     ContainerDb(db, "Database", "Oracle 19c")
 }
 Rel(customer, spa, "views balances")`);
@@ -166,10 +166,16 @@ describe('C4Chart — selection', () => {
     const user = userEvent.setup();
     chart();
 
-    await user.click(screen.getByRole('button', { name: /Banking Customer/ }));
+    // Single-Page App carries all three: technology from its own
+    // declaration, description and tags added for this test — a box never
+    // shows any of them itself, so the panel is the only place to pin them.
+    await user.click(screen.getByRole('button', { name: 'Expand all' }));
+    await user.click(screen.getByRole('button', { name: /Single-Page App/ }));
 
     const detail = screen.getByRole('complementary');
-    expect(detail.textContent).toContain('A customer of the bank.');
+    expect(detail.textContent).toContain('Renders account balances.');
+    expect(detail.textContent).toContain('JavaScript, Angular');
+    expect(detail.textContent).toContain('spa, priority');
   });
 
   it('lights the chosen box and its first-degree neighbours', async () => {
@@ -191,6 +197,10 @@ describe('C4Chart — selection', () => {
     await user.click(screen.getByRole('button', { name: /Banking Customer/ }));
 
     expect(container.querySelectorAll('.c4-element[data-selected="true"]')).toHaveLength(1);
+    // Banking Customer's one neighbour is an element, not a boundary — a
+    // regression that marked every boundary selected alongside it would
+    // otherwise pass unnoticed.
+    expect(container.querySelectorAll('.c4-boundary[data-selected="true"]')).toHaveLength(0);
   });
 
   it('clears the selection when the chosen element is used again', async () => {

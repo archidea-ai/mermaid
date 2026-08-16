@@ -145,6 +145,13 @@
   align-items: center;
   gap: 8px;
   justify-content: space-between;
+  /*
+   * Transparent by default so a selection's border-color swap below does not
+   * add a border where there was none — that would nudge the layout by a
+   * pixel exactly when a click is meant to change emphasis, not geometry.
+   */
+  border: 1px solid transparent;
+  border-radius: var(--seq-radius);
 }
 
 .c4-boundary__toggle,
@@ -262,6 +269,17 @@
 }
 
 .c4-element[data-selected='true'] {
+  border-color: var(--seq-accent);
+  box-shadow: 0 0 0 1px var(--seq-accent);
+}
+
+/*
+ * A dashed accent around the whole section would read as a drop target
+ * rather than a selection, and the header is where a boundary's identity
+ * already lives — so the accent lands there, at the same weight as an
+ * element's, so neither kind of selection reads louder than the other.
+ */
+.c4-boundary[data-selected='true'] > .c4-boundary__header {
   border-color: var(--seq-accent);
   box-shadow: 0 0 0 1px var(--seq-accent);
 }
