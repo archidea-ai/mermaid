@@ -16,3 +16,4 @@ export { allBoundaryIds, isVisible, revealFor, visibleOwner } from './lib/model/
 export { buildLinks } from './lib/model/links';
 export type { C4Link, C4LinkSet } from './lib/model/links';
 export { insetEndpoints } from './lib/model/geometry';
+export { orderMembers } from './lib/model/order';
