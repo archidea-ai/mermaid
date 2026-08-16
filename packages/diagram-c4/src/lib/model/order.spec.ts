@@ -43,4 +43,14 @@ describe('orderMembers', () => {
     const ordered = orderMembers(members, [link('e', 'a'), link('d', 'b')]);
     expect([...ordered].sort()).toEqual([...members].sort());
   });
+
+  it('does not oscillate: a second, evolving-reference pass must not undo the pull', () => {
+    // a and b are each other's only neighbour, so the one legitimate pass
+    // swaps them — that is the same pull the four-member test above exercises,
+    // just with nothing sitting between the two ends to hide it. A second pass
+    // that re-read the *previous pass's* order (instead of declared order)
+    // would swap them right back to ['a', 'b']; anchoring to declared order
+    // stops there, at the one true swap.
+    expect(orderMembers(['a', 'b'], [link('a', 'b')])).toEqual(['b', 'a']);
+  });
 });

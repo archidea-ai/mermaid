@@ -1,21 +1,24 @@
 import type { C4Link } from './links';
 
-const PASSES = 2;
-
 /**
  * Orders one boundary's members so related ones sit near each other.
  *
- * A barycentre pass: a member moves to the mean position of the members it
- * relates to, twice, with declaration order breaking every tie. Only relations
- * *within* the set count — a member's link to something outside has no position
- * here to average against, so that member keeps the place its author gave it.
+ * A single barycentre pass: each member moves to the mean *declared* position
+ * of the members it relates to, ties broken by declaration order. Only
+ * relations *within* the set count — a member's link to something outside has
+ * no position here to average against, so that member keeps the place its
+ * author gave it.
  *
- * A neighbour's contribution is always its *declared* position, never its
- * position after a previous pass. Feeding a pass's own output back in lets a
- * pair whose only neighbour is each other swap fully on one pass and swap
- * fully back on the next — an even number of passes then lands exactly where
- * it started, undoing the pull the function exists to apply. Anchoring every
- * pass to declaration order keeps the result stable instead.
+ * One pass only, and deliberately not iterated. The reference frame here is
+ * every member's fixed declared position, never the order a previous pass
+ * produced — iterating this a second time would recompute the identical
+ * scores from the identical reference and change nothing. A pass that instead
+ * read the *evolving* order does not converge on repetition: a pair whose
+ * only neighbour is each other swaps fully on one pass and swaps fully back on
+ * the next, so an even number of passes lands exactly where it started,
+ * undoing the pull the function exists to apply. Anchoring to declaration
+ * order avoids that oscillation, and having done so, a second pass is not a
+ * refinement — it is a no-op, so there is only one.
  *
  * Pure integer arithmetic over the link set. No measurement and no solver,
  * which is what keeps it testable and its output the same every render.
@@ -42,23 +45,18 @@ export function orderMembers(
   }
 
   const declared = new Map(memberIds.map((id, at) => [id, at]));
-  let order = [...memberIds];
 
-  for (let pass = 0; pass < PASSES; pass += 1) {
-    const scored = order.map((id) => {
-      const mine = neighbours.get(id) ?? [];
-      const sum = mine.reduce((total, other) => total + (declared.get(other) ?? 0), 0);
-      return { id, score: mine.length ? sum / mine.length : (declared.get(id) ?? 0) };
-    });
+  const scored = memberIds.map((id) => {
+    const mine = neighbours.get(id) ?? [];
+    const sum = mine.reduce((total, other) => total + (declared.get(other) ?? 0), 0);
+    return { id, score: mine.length ? sum / mine.length : (declared.get(id) ?? 0) };
+  });
 
-    scored.sort((left, right) =>
-      left.score === right.score
-        ? (declared.get(left.id) ?? 0) - (declared.get(right.id) ?? 0)
-        : left.score - right.score,
-    );
+  scored.sort((left, right) =>
+    left.score === right.score
+      ? (declared.get(left.id) ?? 0) - (declared.get(right.id) ?? 0)
+      : left.score - right.score,
+  );
 
-    order = scored.map((entry) => entry.id);
-  }
-
-  return order;
+  return scored.map((entry) => entry.id);
 }
