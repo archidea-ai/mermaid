@@ -139,7 +139,10 @@ describe('fromElementRef', () => {
    * resolve silently.
    */
   describe('a bare ref, carrying only an id and a kind', () => {
-    const lookup = { ast, links };
+    // The ast and the tree, never the drawn link set: both change only when
+    // the source does, so a ref that still names the same thing resolves to
+    // the same selection across a collapse.
+    const lookup = { ast, tree };
 
     it('reads a node as the element it names', () => {
       expect(fromElementRef({ kind: 'node', id: 'customer', diagramType: 'c4' }, lookup)).toEqual({
@@ -155,10 +158,34 @@ describe('fromElementRef', () => {
       });
     });
 
-    it('reads an edge naming a drawn line as that line', () => {
+    it('reads an edge naming a line as that line, by the two ends its id joins', () => {
       expect(
         fromElementRef({ kind: 'edge', id: 'api::customer', diagramType: 'c4' }, lookup),
       ).toEqual({ kind: 'link', id: 'api::customer' });
+    });
+
+    it('claims nothing for a pair id whose ends are not boxes', () => {
+      expect(
+        fromElementRef({ kind: 'edge', id: 'ghost::phantom', diagramType: 'c4' }, lookup),
+      ).toBeNull();
+    });
+
+    /*
+     * The regression the lookup's shape exists to prevent: resolving against
+     * the drawn link set returned a fresh selection on every collapse, and the
+     * chart read each one as a new pick and re-opened what the viewer had just
+     * shut. A ref that still names the same thing resolves to the same value
+     * whatever the boundaries are doing.
+     */
+    it('resolves the same whatever the collapse state, since neither input moves', () => {
+      const id = ast.relations[0]!.id;
+      const ref = { kind: 'edge', id, diagramType: 'c4' } as const;
+
+      expect(fromElementRef(ref, { ast, tree })).toEqual(fromElementRef(ref, { ast, tree }));
+      // 'api::customer' is a line only while `bank` is shut; the ref names it
+      // either way, because the id says which two boxes it joins.
+      const line = { kind: 'edge', id: 'api::customer', diagramType: 'c4' } as const;
+      expect(fromElementRef(line, { ast, tree })).toEqual({ kind: 'link', id: 'api::customer' });
     });
 
     it('reads an edge naming one relation as that relation', () => {

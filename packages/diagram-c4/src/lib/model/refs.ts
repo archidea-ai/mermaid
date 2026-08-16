@@ -64,12 +64,17 @@ export function isC4Ref(ref: DiagramElementRef | null): ref is DiagramElementRef
  *
  * `node` and `group` say which half of the model they mean on their own, but
  * `edge` covers both a drawn line and one relation riding on it — so that one
- * is decided by looking the id up, which only the chart (holding the ast and
- * the current link set) can do.
+ * is decided by looking the id up, which only the chart can do.
+ *
+ * The ast and the tree, deliberately, and never the drawn link set: that is
+ * rebuilt on every collapse, and resolving against it made a controlled ref
+ * name a freshly allocated selection each time a boundary moved — which the
+ * chart's reveal effect read as a new pick and used to re-open what the viewer
+ * had just shut. Both of these change only when the source does.
  */
 export interface C4RefLookup {
   readonly ast: C4Ast;
-  readonly links: C4LinkSet;
+  readonly tree: C4Tree;
 }
 
 /**
@@ -158,13 +163,24 @@ export function fromElementRef(
   if (ref.kind === 'node') return { kind: 'element', id: ref.id };
   if (ref.kind === 'group') return { kind: 'boundary', id: ref.id };
 
-  if (ref.kind === 'edge') {
-    // A line first: its id is the pair id the chart draws, and a relation id
-    // never collides with one. Without a lookup there is nothing to decide
-    // against, so nothing is claimed.
-    if (lookup?.links.byId.has(ref.id)) return { kind: 'link', id: ref.id };
-    if (lookup?.ast.relations.some((relation) => relation.id === ref.id)) {
+  if (ref.kind === 'edge' && lookup) {
+    // A relation first, and from the ast: the two id shapes never collide, and
+    // this is the half that can be settled against something that never moves.
+    if (lookup.ast.relations.some((relation) => relation.id === ref.id)) {
       return { kind: 'relation', id: ref.id };
+    }
+
+    /*
+     * Otherwise a line, recognised by its own construction — the two box ids
+     * it joins, sorted — rather than by asking whether one is currently drawn.
+     * Naming a line is still naming it while the collapse that draws it is
+     * open; `computeLit` and the detail panel already find nothing for a line
+     * that is not on the chart, which is the honest reading of that moment.
+     */
+    const ends = ref.id.split('::');
+    const [a, b] = ends;
+    if (ends.length === 2 && a && b && lookup.tree.boxes.has(a) && lookup.tree.boxes.has(b)) {
+      return { kind: 'link', id: ref.id };
     }
   }
 

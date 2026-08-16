@@ -90,15 +90,36 @@ export function styleOfBoundary(subject: { style: C4Style }): CSSProperties {
  * claim the source never made. It is applied only to a line carrying exactly
  * one relation; open the boundary, and each relation gets its own line and its
  * own colour.
+ *
+ * A line is drawn in two pieces, so its author colour arrives in two: the
+ * `<path>` takes the stroke, and `styleOfLinkLabel` puts the text colour on the
+ * label — a sibling button, which cannot inherit anything from the path. There
+ * is deliberately no fill: a line has none, so `$bgColor` on a relation names
+ * nothing, and writing it would leave a property on an element no rule reads.
  */
-export function styleOfLink(link: { relations: readonly { style: C4Style }[] }): CSSProperties {
-  const only = link.relations.length === 1 ? link.relations[0] : undefined;
-  return only ? customProperties(only.style, 'link') : {};
+export function styleOfLink(link: C4StyledLink): CSSProperties {
+  const border = onlyRelation(link)?.style?.border;
+  return border ? ({ '--c4-link-stroke': border } as CSSProperties) : {};
+}
+
+/**
+ * The same relation's `$textColor`, on the element that shows its words.
+ *
+ * Without this, `UpdateRelStyle(a, b, $textColor=…)` parsed, recorded and
+ * changed nothing — the same "tested but never drawn" gap the stroke had.
+ */
+export function styleOfLinkLabel(link: C4StyledLink): CSSProperties {
+  const text = onlyRelation(link)?.style?.text;
+  return text ? ({ '--c4-link-text': text } as CSSProperties) : {};
 }
 
 type C4Style = C4Element['style'];
+type C4StyledLink = { relations: readonly { style: C4Style }[] };
 
-function customProperties(style: C4Style, subject: 'element' | 'boundary' | 'link'): CSSProperties {
+const onlyRelation = (link: C4StyledLink) =>
+  link.relations.length === 1 ? link.relations[0] : undefined;
+
+function customProperties(style: C4Style, subject: 'element' | 'boundary'): CSSProperties {
   if (!style) return {};
 
   return {

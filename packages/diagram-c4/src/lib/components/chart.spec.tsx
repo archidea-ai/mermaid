@@ -122,6 +122,32 @@ UpdateRelStyle(a, b, $lineColor="#ff0000")`);
     expect(path.style.getPropertyValue('--c4-link-stroke')).toBe('#ff0000');
   });
 
+  /*
+   * A line is drawn in two pieces and its author colour arrives in two. The
+   * label is a *sibling* of the path, so nothing put on the path reaches it —
+   * and a fill on a line names nothing at all, so it is not written rather
+   * than landing on an element no rule consults.
+   */
+  it('paints a relation own words in the text colour it declares, on the label that shows them', () => {
+    const styled = parse(`C4Context
+System(a, "A")
+System(b, "B")
+Rel(a, b, "calls")
+UpdateRelStyle(a, b, $lineColor="#ff0000", $textColor="#00ccff", $bgColor="#123123")`);
+    const { container } = render(<C4Chart ast={styled} id="rstyle3" />);
+
+    const label = container.querySelector('.c4-link__label') as HTMLElement;
+    expect(label.style.getPropertyValue('--c4-link-text')).toBe('#00ccff');
+
+    const path = container.querySelector('.c4-link') as unknown as SVGPathElement;
+    expect(path.style.getPropertyValue('--c4-link-stroke')).toBe('#ff0000');
+    // Neither belongs on the path: no rule reads them there, and a line has
+    // no fill for $bgColor to mean anything to.
+    expect(path.style.getPropertyValue('--c4-link-text')).toBe('');
+    expect(path.style.getPropertyValue('--c4-link-fill')).toBe('');
+    expect(label.style.getPropertyValue('--c4-link-fill')).toBe('');
+  });
+
   it('leaves an aggregated line uncoloured, because it stands for more than one style', () => {
     // UpdateRelStyle names a *pair*, and every relation between that pair
     // takes it — so an aggregate can hold two contradicting colours and
@@ -710,6 +736,88 @@ describe('C4Chart — a dynamic run', () => {
     // Shut it by hand, then step on: the next step's reveal must still fire.
     await user.click(screen.getByRole('button', { name: /Collapse API Application/ }));
     await user.click(screen.getByRole('button', { name: 'Next step' }));
+
+    expect(screen.getByText('Security', { selector: '.c4-element__name' })).toBeDefined();
+  });
+});
+
+/*
+ * The same dead control, on the path the five tests above cannot reach.
+ *
+ * All five are uncontrolled. In controlled mode the selection is re-derived
+ * from the prop, so it never mattered how the run committed — what mattered
+ * was what the derivation depended on. Resolving a ref against the drawn link
+ * set, which is rebuilt on every collapse, returned a freshly allocated
+ * selection naming the very same relation each time a boundary moved; the
+ * reveal effect depends on the selection by identity and re-opened what had
+ * just been shut.
+ *
+ * The refs here are hoisted and carry a full payload — the shape `toElementRef`
+ * builds and the README's `useState` example holds — so nothing here turns on
+ * an inline object's identity.
+ */
+const controlledRelation = {
+  kind: 'edge',
+  id: dynamic.relations[0]!.id,
+  diagramType: 'c4',
+  data: { type: 'relation', relation: dynamic.relations[0]!, linkId: null },
+} as const;
+
+const controlledBareRelation = {
+  kind: 'edge',
+  id: dynamic.relations[0]!.id,
+  diagramType: 'c4',
+} as const;
+
+describe('C4Chart — a controlled selection and the collapse', () => {
+  it('opens the boundaries hiding the relation the prop names', () => {
+    render(<C4Chart ast={dynamic} id="ctl1" selection={controlledRelation} />);
+    expect(screen.getByText('Reset Controller', { selector: '.c4-element__name' })).toBeDefined();
+  });
+
+  it('lets Collapse all shut a boundary while a relation is controlled from outside', async () => {
+    const user = userEvent.setup();
+    render(<C4Chart ast={dynamic} id="ctl2" selection={controlledRelation} />);
+    expect(screen.getByText('Reset Controller', { selector: '.c4-element__name' })).toBeDefined();
+
+    await user.click(screen.getByRole('button', { name: 'Collapse all' }));
+
+    expect(screen.queryByText('Reset Controller', { selector: '.c4-element__name' })).toBeNull();
+  });
+
+  it('lets a chevron shut a boundary while a relation is controlled from outside', async () => {
+    const user = userEvent.setup();
+    render(<C4Chart ast={dynamic} id="ctl3" selection={controlledRelation} />);
+
+    await user.click(screen.getByRole('button', { name: /Collapse API Application/ }));
+
+    expect(screen.queryByText('Reset Controller', { selector: '.c4-element__name' })).toBeNull();
+  });
+
+  it('does the same for a bare ref, which resolves through the lookup', async () => {
+    const user = userEvent.setup();
+    render(<C4Chart ast={dynamic} id="ctl4" selection={controlledBareRelation} />);
+    expect(screen.getByText('Reset Controller', { selector: '.c4-element__name' })).toBeDefined();
+
+    await user.click(screen.getByRole('button', { name: 'Collapse all' }));
+
+    expect(screen.queryByText('Reset Controller', { selector: '.c4-element__name' })).toBeNull();
+  });
+
+  it('re-opens when the prop names a different relation, so the reveal is not simply dead', async () => {
+    const { rerender } = render(<C4Chart ast={dynamic} id="ctl5" selection={controlledRelation} />);
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Collapse all' }));
+    expect(screen.queryByText('Security', { selector: '.c4-element__name' })).toBeNull();
+
+    rerender(
+      <C4Chart
+        ast={dynamic}
+        id="ctl5"
+        selection={{ kind: 'edge', id: dynamic.relations[1]!.id, diagramType: 'c4' }}
+      />,
+    );
 
     expect(screen.getByText('Security', { selector: '.c4-element__name' })).toBeDefined();
   });

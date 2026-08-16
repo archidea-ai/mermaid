@@ -10,7 +10,7 @@ import { computeLit } from '../model/selection';
 import { buildTree, elementCountOf } from '../model/tree';
 import { C4BoundaryBox } from './boundary';
 import { C4Detail } from './detail';
-import { C4ElementBox, styleOfLink } from './element';
+import { C4ElementBox, styleOfLink, styleOfLinkLabel } from './element';
 import { C4LinkDialog } from './link-dialog';
 import { C4Toolbar, C4Transport } from './toolbar';
 import type { DiagramElementRef, DiagramEventMap, StepController } from '@archidea-ai/mermaid-core';
@@ -58,12 +58,24 @@ export function C4Chart(props: C4ChartProps) {
 
   const [internal, setInternal] = useState<C4Selection | null>(null);
   const controlled = selectionProp !== undefined;
+  /*
+   * The lookup is what lets a *bare* ref — an id and a kind, all a search box
+   * or an external list has — name an edge: only the chart knows whether that
+   * id is a drawn line or one relation on one.
+   *
+   * It is `tree`, not `links`. `fromElementRef` allocates a fresh selection
+   * per call, and `buildLinks` rebuilds the link set on every collapse — so
+   * depending on it here handed the reveal effect below a brand new object
+   * naming the very same relation each time a boundary moved, and it re-opened
+   * what the viewer had just shut. Collapse all and every chevron were dead
+   * for as long as a controlling prop named a relation: Task 16's symptom
+   * again, on the path its fix did not cover. `tree` changes only when the
+   * source does, so a ref that still names the same thing still resolves to
+   * the same selection.
+   */
   const selection = useMemo(
-    // The lookup is what lets a *bare* ref — an id and a kind, all a search
-    // box or an external list has — name an edge: only the chart knows
-    // whether that id is a drawn line or one relation on one.
-    () => (controlled ? fromElementRef(selectionProp ?? null, { ast, links }) : internal),
-    [controlled, selectionProp, internal, ast, links],
+    () => (controlled ? fromElementRef(selectionProp ?? null, { ast, tree }) : internal),
+    [controlled, selectionProp, internal, ast, tree],
   );
 
   // A new source is a new model, so nothing carried over is still true.
@@ -346,7 +358,9 @@ export function C4Chart(props: C4ChartProps) {
                  * text nodes; an explicit label is the same string every time.
                  */
                 aria-label={single ? undefined : text}
-                style={{ left: arc.midX, top: arc.midY }}
+                // The label is a sibling of the path, so a relation's own text
+                // colour has to be put here — it cannot inherit it from there.
+                style={{ ...styleOfLinkLabel(link), left: arc.midX, top: arc.midY }}
                 onClick={() => openLink(link.id)}
               >
                 {single ? text : link.relations.length}

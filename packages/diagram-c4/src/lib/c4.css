@@ -256,13 +256,17 @@
 }
 
 .c4-link__label {
+  /* The seam UpdateRelStyle's text colour arrives through — the label is a
+   * sibling of the path, so it cannot inherit --c4-link-stroke's neighbour. */
+  --c4-link-text: var(--seq-message-text);
+
   position: absolute;
   z-index: 2;
   transform: translate(-50%, -50%);
   padding: 1px 6px;
   font: inherit;
   font-size: var(--seq-font-size-small);
-  color: var(--seq-message-text);
+  color: var(--c4-link-text);
   background: var(--seq-surface-sunken);
   border: none;
   border-radius: var(--seq-radius);

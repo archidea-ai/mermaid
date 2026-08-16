@@ -201,13 +201,20 @@ test('a collapse leaves everything laid out before it exactly where it was', asy
   // The three root boxes, and the two controllers ahead of Domain Services
   // inside API Application. What follows it is free to close up — that is the
   // collapse doing its job.
-  for (const name of [
+  const watched = [
     'Database',
     'Mainframe Banking System',
     'E-mail System',
     'Sign In Controller',
     'Accounts Summary Controller',
-  ]) {
+  ];
+
+  for (const name of watched) {
+    // Presence first. `toEqual` between two absent names is undefined against
+    // undefined, which passes — so a renamed label would quietly leave this
+    // test asserting nothing at all rather than failing.
+    expect(before[name], `${name} before`).toBeDefined();
+    expect(after[name], `${name} after`).toBeDefined();
     expect(after[name], name).toEqual(before[name]);
   }
 });
