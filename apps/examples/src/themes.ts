@@ -127,3 +127,29 @@ export const themes: readonly Theme[] = [
     },
   },
 ];
+
+/**
+ * The theme is the viewer's own preference, not part of the chart, so it is
+ * remembered here rather than carried in a shared link — a link someone opens
+ * shows them the chart in the theme they already chose.
+ */
+const STORAGE_KEY = 'archidea-mermaid-theme';
+
+export function loadTheme(): Theme {
+  let stored: string | null = null;
+  try {
+    stored = window.localStorage.getItem(STORAGE_KEY);
+  } catch {
+    // Private mode and blocked storage both throw. The default is fine.
+  }
+  // An id that no longer exists must not strand anyone on a missing theme.
+  return themes.find((theme) => theme.id === stored) ?? themes[0]!;
+}
+
+export function saveTheme(theme: Theme): void {
+  try {
+    window.localStorage.setItem(STORAGE_KEY, theme.id);
+  } catch {
+    // Remembering is a courtesy; failing to is not worth an error.
+  }
+}
