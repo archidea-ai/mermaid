@@ -1,6 +1,8 @@
 import { useEffect, useId, useRef } from 'react';
 import { useDiagramRender } from './use-diagram-render';
 import type {
+  DiagramElementRef,
+  DiagramEventMap,
   DiagramRegistry,
   MermaidConfig,
   RenderResult,
@@ -24,6 +26,14 @@ export interface MermaidProps {
   onStepController?: (controller: StepController | null) => void;
   /** Receives a controller from renderers with capabilities.viewport, else null. */
   onViewportController?: (controller: ViewportController | null) => void;
+  /** Omit for uncontrolled. Renderers with capabilities.events honour it. */
+  selection?: DiagramElementRef | null;
+  /**
+   * Fires for a native renderer with capabilities.events. The SVG path exposes
+   * no interaction surface and stays silent — gate on capability, not on a stub
+   * that quietly does nothing.
+   */
+  onSelect?: (event: DiagramEventMap['select']) => void;
   fallback?: ReactNode;
   errorFallback?: ReactNode | ((error: Error) => ReactNode);
 }
@@ -46,6 +56,8 @@ export function Mermaid({
   onError,
   onStepController,
   onViewportController,
+  selection,
+  onSelect,
   fallback,
   errorFallback,
 }: MermaidProps) {
@@ -96,6 +108,8 @@ export function Mermaid({
         onStepController={onStepController}
         onViewportController={onViewportController}
         onError={onError}
+        selection={selection}
+        onSelect={onSelect}
       />
     );
   }

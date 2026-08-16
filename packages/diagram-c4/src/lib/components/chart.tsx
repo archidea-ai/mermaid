@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { computeArc, useAnchors } from '@archidea-ai/mermaid-diagram-sequence';
 import { allBoundaryIds, isVisible, revealFor } from '../model/collapse';
 import { insetEndpoints } from '../model/geometry';
 import { buildLinks } from '../model/links';
 import { orderMembers } from '../model/order';
+import { fromElementRef, toElementRef } from '../model/refs';
 import { computeLit } from '../model/selection';
 import { buildTree, elementCountOf } from '../model/tree';
 import { C4BoundaryBox } from './boundary';
@@ -11,6 +12,7 @@ import { C4Detail } from './detail';
 import { C4ElementBox } from './element';
 import { C4LinkDialog } from './link-dialog';
 import { C4Toolbar } from './toolbar';
+import type { DiagramElementRef, DiagramEventMap } from '@archidea-ai/mermaid-core';
 import type { CSSProperties, ReactNode } from 'react';
 import type { C4Ast, C4Relation } from '../parser/ast';
 import type { C4Selection } from '../model/selection';
@@ -20,6 +22,9 @@ export interface C4ChartProps {
   readonly id: string;
   readonly className?: string;
   readonly style?: CSSProperties;
+  /** Omit for uncontrolled. Passing it — including null — takes control. */
+  readonly selection?: DiagramElementRef | null;
+  readonly onSelect?: (event: DiagramEventMap['select']) => void;
 }
 
 /**
@@ -31,9 +36,9 @@ export interface C4ChartProps {
  * instead of computing positions itself.
  */
 export function C4Chart(props: C4ChartProps) {
-  // Taken as one object, not destructured: Tasks 15 and 16 add `selection`,
-  // `onSelect` and `onStepController`, and reach them through `props`.
-  const { ast, id, className, style } = props;
+  // Taken as one object, not destructured: Task 16 adds `onStepController`
+  // and reaches it through `props`.
+  const { ast, id, className, style, selection: selectionProp, onSelect } = props;
   const { containerRef, register, anchors } = useAnchors<HTMLDivElement>();
 
   const tree = useMemo(() => buildTree(ast), [ast]);
@@ -44,18 +49,35 @@ export function C4Chart(props: C4ChartProps) {
 
   const links = useMemo(() => buildLinks(ast, tree, collapsed), [ast, tree, collapsed]);
 
-  const [selection, setSelection] = useState<C4Selection | null>(null);
+  const [internal, setInternal] = useState<C4Selection | null>(null);
+  const controlled = selectionProp !== undefined;
+  const selection = useMemo(
+    () => (controlled ? fromElementRef(selectionProp ?? null) : internal),
+    [controlled, selectionProp, internal],
+  );
 
   // A new source is a new model, so nothing carried over is still true.
-  useEffect(() => setSelection(null), [ast]);
+  useEffect(() => setInternal(null), [ast]);
 
   const lit = useMemo(() => computeLit(selection, links), [selection, links]);
 
+  /**
+   * Standard two-mode React: the controller decides when it is controlling,
+   * and the chart always reports. There is no third mode where both hold state.
+   */
+  const commit = useCallback(
+    (next: C4Selection | null) => {
+      if (!controlled) setInternal(next);
+      onSelect?.({ element: toElementRef(next, tree, links) });
+    },
+    // A stable identity, so Task 16's step effect can depend on it without
+    // re-firing on every render — which would re-select on each keystroke.
+    [controlled, onSelect, tree, links],
+  );
+
   /** Choosing the same thing again clears it, so there is a way back out. */
   const select = (next: C4Selection) =>
-    setSelection((previous) =>
-      previous && previous.kind === next.kind && previous.id === next.id ? null : next,
-    );
+    commit(selection && selection.kind === next.kind && selection.id === next.id ? null : next);
 
   const [dialogLinkId, setDialogLinkId] = useState<string | null>(null);
 
@@ -76,14 +98,30 @@ export function C4Chart(props: C4ChartProps) {
     else setDialogLinkId(linkId);
   };
 
+  /*
+   * A relation is only meaningful if you can see both its ends, so selecting
+   * one opens whatever hides them — whether the pick came from the modal, from
+   * a stepped run, or from the controlling prop.
+   */
+  useEffect(() => {
+    if (selection?.kind !== 'relation') return;
+    const relation = ast.relations.find((candidate) => candidate.id === selection.id);
+    if (!relation) return;
+
+    const needed = revealFor(relation, tree);
+    setCollapsed((previous) =>
+      [...needed].some((boundaryId) => previous.has(boundaryId))
+        ? new Set([...previous].filter((shut) => !needed.has(shut)))
+        : previous,
+    );
+  }, [selection, ast, tree]);
+
   /**
    * Picking a relation opens whatever hides either end, then lights it. The
    * same call a dynamic run's step makes — one mechanism, two triggers.
    */
   const reveal = (relation: C4Relation) => {
-    const needed = revealFor(relation, tree);
-    setCollapsed((previous) => new Set([...previous].filter((shut) => !needed.has(shut))));
-    setSelection({ kind: 'relation', id: relation.id });
+    commit({ kind: 'relation', id: relation.id });
     setDialogLinkId(null);
   };
 
@@ -162,7 +200,7 @@ export function C4Chart(props: C4ChartProps) {
       style={style}
       data-diagram={id}
       // Escape is the way out of a selection without hunting for the box again.
-      onKeyDown={(event) => event.key === 'Escape' && setSelection(null)}
+      onKeyDown={(event) => event.key === 'Escape' && commit(null)}
     >
       <C4Toolbar
         onExpandAll={() => setCollapsed(new Set())}

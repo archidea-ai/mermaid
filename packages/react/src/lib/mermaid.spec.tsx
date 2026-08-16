@@ -151,4 +151,25 @@ describe('<Mermaid />', () => {
     expect(onStepController).toHaveBeenCalledWith(controller);
     expect(onStepController).not.toHaveBeenCalledWith(null);
   });
+
+  it('hands selection and onSelect to a native renderer', async () => {
+    const onSelect = vi.fn();
+    const selection = { kind: 'node', id: 'x', diagramType: 'c4' } as const;
+    const Native = vi.fn(() => <div data-testid="native" />);
+    const registry = makeFakeRegistry(
+      makeFakeRenderer({
+        id: 'stub',
+        capabilities: { events: true },
+        Component: Native,
+      }),
+    );
+
+    render(<Mermaid text={SOURCE} registry={registry} selection={selection} onSelect={onSelect} />);
+
+    await screen.findByTestId('native');
+    expect(Native).toHaveBeenCalledWith(
+      expect.objectContaining({ selection, onSelect }),
+      undefined,
+    );
+  });
 });

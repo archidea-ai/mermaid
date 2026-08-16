@@ -25,7 +25,13 @@ export interface DiagramElementRef {
 }
 
 export interface DiagramEventMap {
-  select: { element: DiagramElementRef; originalEvent: MouseEvent };
+  /**
+   * `element` is null when a selection is cleared — deselection has to be
+   * expressible. `originalEvent` is optional for the same reason: a selection
+   * can arrive from the keyboard, from a stepped run, or from the controlling
+   * prop, and inventing a MouseEvent for those would be a lie.
+   */
+  select: { element: DiagramElementRef | null; originalEvent?: MouseEvent };
   hover: { element: DiagramElementRef | null; originalEvent: MouseEvent };
   activate: { element: DiagramElementRef; originalEvent: MouseEvent };
 }

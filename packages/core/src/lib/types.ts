@@ -1,5 +1,10 @@
 import type { ComponentType, CSSProperties } from 'react';
-import type { StepController, ViewportController } from './interaction';
+import type {
+  DiagramElementRef,
+  DiagramEventMap,
+  StepController,
+  ViewportController,
+} from './interaction';
 
 /** Upstream mermaid's diagram type id, e.g. 'sequence', 'flowchart-v2'. */
 export type DiagramType = string;
@@ -55,6 +60,13 @@ export interface DiagramSurfaceProps {
   /** Called with a controller when capabilities.viewport is true, else with null. */
   readonly onViewportController?: (controller: ViewportController | null) => void;
   readonly onError?: (error: Error) => void;
+  /**
+   * Omit for uncontrolled. Passing it — including null — makes selection
+   * controlled: the renderer draws what it is given and reports intent only.
+   */
+  readonly selection?: DiagramElementRef | null;
+  /** Fires for a renderer with capabilities.events. Never fired by the proxy. */
+  readonly onSelect?: (event: DiagramEventMap['select']) => void;
 }
 
 /**

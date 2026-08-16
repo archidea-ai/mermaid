@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { parse } from '../parser/parse';
@@ -341,5 +341,67 @@ Rel(api, customer, "notifies")`);
     rerender(<C4Chart ast={ast} id="dense6" />);
 
     expect(screen.queryByRole('dialog')).toBeNull();
+  });
+});
+
+describe('C4Chart — events', () => {
+  it('reports a selection with the right kind and payload', async () => {
+    const user = userEvent.setup();
+    const onSelect = vi.fn();
+    render(<C4Chart ast={ast} id="ev" onSelect={onSelect} />);
+
+    await user.click(screen.getByRole('button', { name: /Banking Customer/ }));
+
+    expect(onSelect).toHaveBeenCalledWith(
+      expect.objectContaining({
+        element: expect.objectContaining({ kind: 'node', id: 'customer', diagramType: 'c4' }),
+      }),
+    );
+  });
+
+  it('reports a null element when a selection is cleared', async () => {
+    const user = userEvent.setup();
+    const onSelect = vi.fn();
+    render(<C4Chart ast={ast} id="ev2" onSelect={onSelect} />);
+
+    await user.click(screen.getByRole('button', { name: /Banking Customer/ }));
+    await user.click(screen.getByRole('button', { name: /Banking Customer/ }));
+
+    expect(onSelect).toHaveBeenLastCalledWith({ element: null });
+  });
+
+  it('draws what a controlling prop gives it, and keeps no state of its own', async () => {
+    const user = userEvent.setup();
+    const onSelect = vi.fn();
+    const { container } = render(
+      <C4Chart ast={ast} id="ev3" selection={null} onSelect={onSelect} />,
+    );
+
+    await user.click(screen.getByRole('button', { name: /Banking Customer/ }));
+
+    expect(onSelect).toHaveBeenCalled();
+    expect(container.querySelectorAll('[data-selected="true"]')).toHaveLength(0);
+  });
+
+  it('opens the boundaries hiding a relation the controller selects from outside', () => {
+    const relation = ast.relations[0]!;
+    render(
+      <C4Chart
+        ast={ast}
+        id="ev4"
+        selection={{
+          kind: 'edge',
+          id: relation.id,
+          diagramType: 'c4',
+          data: { type: 'relation', relation, linkId: 'banking::customer' },
+        }}
+      />,
+    );
+
+    // customer → spa: spa is inside the boundary, which starts shut and opens.
+    // Scoped to the box's own name: the detail panel this same selection docks
+    // also says "Single-Page App" (the "To" fact), so an unscoped getByText
+    // matches both and the query itself fails, not the behaviour.
+    expect(screen.getByText('Single-Page App', { selector: '.c4-element__name' })).toBeDefined();
   });
 });

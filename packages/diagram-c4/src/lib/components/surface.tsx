@@ -36,7 +36,16 @@ export function C4Surface(props: DiagramSurfaceProps) {
   }, [parsed.error, onError]);
 
   if (!parsed.ast) return <ProxyFallback {...props} />;
-  return <C4Chart ast={parsed.ast} id={props.id} className={props.className} style={props.style} />;
+  return (
+    <C4Chart
+      ast={parsed.ast}
+      id={props.id}
+      className={props.className}
+      style={props.style}
+      selection={props.selection}
+      onSelect={props.onSelect}
+    />
+  );
 }
 
 function ProxyFallback({ text, id, config, className, style, onError }: DiagramSurfaceProps) {
