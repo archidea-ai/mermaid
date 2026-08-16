@@ -1,13 +1,31 @@
 import type { C4Link } from './links';
 
 /**
+ * Where something outside the set counts, for the member of it that relates
+ * to it.
+ *
+ * A relation leaving the set has no declared position here to average
+ * against — the thing on the other end is not one of these members. Rather
+ * than drop it, it is projected onto whichever edge of *this* ordering sits
+ * nearest the member's own declared spot: index `-1` just before the front,
+ * or `last + 1` just past the back. That pulls a member with only outward
+ * relations away from wherever its author happened to place it and toward
+ * the side of the group it actually faces, instead of leaving it stranded
+ * wherever a purely-internal pass would have kept it.
+ */
+function outwardEdge(position: number, last: number): number {
+  return position <= last - position ? -1 : last + 1;
+}
+
+/**
  * Orders one boundary's members so related ones sit near each other.
  *
- * A single barycentre pass: each member moves to the mean *declared* position
- * of the members it relates to, ties broken by declaration order. Only
- * relations *within* the set count — a member's link to something outside has
- * no position here to average against, so that member keeps the place its
- * author gave it.
+ * A single barycentre pass: each member moves to the mean position of the
+ * members it relates to — a real declared position for a neighbour inside the
+ * set, or its projected edge (`outwardEdge`) for one outside it — ties broken
+ * by declaration order. A member with no relations at all, inside or out,
+ * keeps the place its author gave it: there is nothing here to pull it
+ * anywhere else.
  *
  * One pass only, and deliberately not iterated. The reference frame here is
  * every member's fixed declared position, never the order a previous pass
@@ -28,27 +46,37 @@ export function orderMembers(
   links: readonly C4Link[],
 ): readonly string[] {
   const members = new Set(memberIds);
+  const declared = new Map(memberIds.map((id, at) => [id, at]));
+  const last = memberIds.length - 1;
 
-  const neighbours = new Map<string, string[]>();
-  const addNeighbour = (from: string, to: string): void => {
+  const neighbours = new Map<string, number[]>();
+  const addNeighbour = (from: string, atPosition: number): void => {
     const existing = neighbours.get(from);
     if (existing) {
-      existing.push(to);
+      existing.push(atPosition);
     } else {
-      neighbours.set(from, [to]);
+      neighbours.set(from, [atPosition]);
     }
   };
-  for (const link of links) {
-    if (!members.has(link.a) || !members.has(link.b)) continue;
-    addNeighbour(link.a, link.b);
-    addNeighbour(link.b, link.a);
-  }
 
-  const declared = new Map(memberIds.map((id, at) => [id, at]));
+  for (const link of links) {
+    const aIn = members.has(link.a);
+    const bIn = members.has(link.b);
+    if (aIn && bIn) {
+      addNeighbour(link.a, declared.get(link.b)!);
+      addNeighbour(link.b, declared.get(link.a)!);
+    } else if (aIn) {
+      // link.b is outside the set: project it onto the edge nearest link.a's
+      // own declared spot, rather than discarding the relation.
+      addNeighbour(link.a, outwardEdge(declared.get(link.a)!, last));
+    } else if (bIn) {
+      addNeighbour(link.b, outwardEdge(declared.get(link.b)!, last));
+    }
+  }
 
   const scored = memberIds.map((id) => {
     const mine = neighbours.get(id) ?? [];
-    const sum = mine.reduce((total, other) => total + (declared.get(other) ?? 0), 0);
+    const sum = mine.reduce((total, position) => total + position, 0);
     return { id, score: mine.length ? sum / mine.length : (declared.get(id) ?? 0) };
   });
 

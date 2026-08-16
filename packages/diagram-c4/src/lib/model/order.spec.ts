@@ -53,4 +53,45 @@ describe('orderMembers', () => {
     // stops there, at the one true swap.
     expect(orderMembers(['a', 'b'], [link('a', 'b')])).toEqual(['b', 'a']);
   });
+
+  it('pulls a member with only an outward relation toward the near edge, rather than leaving it where it was declared', () => {
+    // b is declared second of four, closer to the front than the back, so its
+    // one relation — to something outside the set entirely — projects onto
+    // the front edge and pulls it ahead of a, which has no relation to pull it
+    // anywhere at all.
+    expect(orderMembers(['a', 'b', 'c', 'd'], [link('b', 'far-away')])).toEqual([
+      'b',
+      'a',
+      'c',
+      'd',
+    ]);
+  });
+
+  it('pulls a member with only an outward relation toward the back edge when that is nearer', () => {
+    // c is declared third of four, closer to the back, so the same kind of
+    // outward relation projects onto the back edge instead and pulls it past
+    // d, which — like a above — has nothing pulling it anywhere.
+    expect(orderMembers(['a', 'b', 'c', 'd'], [link('c', 'far-away')])).toEqual([
+      'a',
+      'b',
+      'd',
+      'c',
+    ]);
+  });
+
+  it('places a member with both an inside and an outside relation sensibly relative to both', () => {
+    // b relates to a (a real, internal position) and to something outside the
+    // set (projected onto the near edge). Both count, so b's score is the
+    // mean of two positions rather than either alone — the mean divisor here
+    // is 2, not the 1 every other case in this file exercises — and it lands
+    // ahead of a, which is pulled only toward b in return.
+    const ordered = orderMembers(['a', 'b', 'c'], [link('b', 'a'), link('b', 'far-away')]);
+    expect(ordered).toEqual(['b', 'a', 'c']);
+  });
+
+  it('is stable across repeated calls once outward relations are in play', () => {
+    const links = [link('b', 'far-away'), link('c', 'elsewhere')];
+    const once = orderMembers(['a', 'b', 'c', 'd'], links);
+    expect(orderMembers(['a', 'b', 'c', 'd'], links)).toEqual(once);
+  });
 });
